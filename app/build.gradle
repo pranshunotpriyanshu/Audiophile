@@ -1,0 +1,172 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'kotlin-parcelize'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+android {
+    namespace 'com.pryvn.audiophile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.pryvn.audiophile"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('audiophile_keystore.jks')
+            storePassword 'audiophile123'
+            keyAlias 'audiophile'
+            keyPassword 'audiophile123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            zipAlignEnabled true
+            shrinkResources true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            applicationVariants.all { variant ->
+                variant.outputs.all {
+                    def appName = "Audiophile"
+                    def versionName = variant.versionName
+                    def date = new Date().format('yyMMddHHmm')
+                    outputFileName = "${appName}_${versionName}_${date}.ApK"
+                }
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ["libs"]
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    composeCompiler {
+        enableStrongSkippingMode = true
+        stabilityConfigurationFile = file "${project.rootDir}/stability_config.conf"
+    }
+
+}
+
+dependencies {
+    implementation fileTree(include: ["*.*"], dir: "libs")
+    implementation project(path: ':overscroll_core')
+
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:2.0.21')
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
+    implementation 'androidx.activity:activity-compose:1.9.1'
+
+    implementation "androidx.compose.foundation:foundation:1.7.0-beta07"
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.compose.runtime:runtime-livedata:1.0.0-beta01'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    androidTestImplementation "androidx.compose.foundation:foundation:1.7.0-beta07"
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+
+    implementation 'androidx.compose.material3:material3:1.2.1'
+    implementation 'androidx.compose.material:material-icons-core:1.6.8'
+    implementation 'androidx.compose.material:material-icons-extended:1.6.8'
+
+    implementation "io.coil-kt:coil-compose:2.5.0"
+
+    implementation "com.google.accompanist:accompanist-insets:0.16.1"
+    implementation "com.google.accompanist:accompanist-insets-ui:0.16.1"
+    implementation "com.google.accompanist:accompanist-navigation-animation:0.31.4-beta"
+    implementation "com.google.accompanist:accompanist-systemuicontroller:0.23.1"
+
+    implementation('com.blankj:utilcodex:1.31.1') {
+        exclude group: 'androidx.appcompat'
+    }
+
+    // Ktor + Kotlinx Serialization for InnerTube API
+    def ktor_version = "3.0.3"
+    implementation "io.ktor:ktor-client-core:$ktor_version"
+    implementation "io.ktor:ktor-client-okhttp:$ktor_version"
+    implementation "io.ktor:ktor-client-content-negotiation:$ktor_version"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
+    implementation "io.ktor:ktor-client-encoding:$ktor_version"
+    implementation "io.ktor:ktor-client-logging:$ktor_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
+
+    def media3_version = "1.4.0"
+    implementation "androidx.media3:media3-session:$media3_version"
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-dash:$media3_version"
+
+    implementation 'com.tencent:mmkv-static:1.3.5'
+
+    implementation 'com.google.code.gson:gson:2.10.1'
+
+    implementation 'com.github.xiaowine:Lyric-Getter-Api:6.0.0'
+
+    implementation "com.github.Kyant0:taglib:1.0.0-alpha22"
+
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+
+    implementation('io.github.alexzhirkevich:cupertino:0.1.0-alpha04')
+    implementation('io.github.alexzhirkevich:cupertino-icons-extended:0.1.0-alpha04')
+
+    implementation "androidx.core:core-splashscreen:1.0.1"
+
+    implementation "com.github.FunnySaltyFish.ComposeDataSaver:data-saver:1.1.9"
+
+    implementation 'androidx.palette:palette-ktx:1.0.0'
+
+    implementation "com.github.promeg:tinypinyin:2.0.2"
+
+    implementation("dev.chrisbanes.haze:haze:0.9.0-alpha06") {
+        exclude group: "androidx.compose.ui", module: "ui"
+        exclude group: "androidx.compose.ui", module: "ui-graphics"
+        exclude group: "androidx.compose.animation", module: "animation"
+        exclude group: "androidx.compose.material3", module: "material3"
+    }
+    implementation("dev.chrisbanes.haze:haze-materials:0.9.0-alpha06") {
+        exclude group: "androidx.compose.ui", module: "ui"
+        exclude group: "androidx.compose.ui", module: "ui-graphics"
+        exclude group: "androidx.compose.animation", module: "animation"
+        exclude group: "androidx.compose.material3", module: "material3"
+    }
+}
