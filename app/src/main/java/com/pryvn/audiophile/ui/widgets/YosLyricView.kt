@@ -104,8 +104,7 @@ fun YosLyricView(
             if (isLoading) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppleLoadingSpinner(
-                        modifier = Modifier.size(56.dp),
-                        color = mainTextBasicColor.copy(alpha = 0.8f)
+                        modifier = Modifier.size(56.dp)
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(

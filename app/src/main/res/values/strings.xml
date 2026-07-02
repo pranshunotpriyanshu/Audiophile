@@ -9,6 +9,7 @@
     <string name="page_settings_title">Settings</string>
     <string name="page_library_title">Library</string>
     <string name="page_search_title">Search</string>
+    <string name="page_browse_title">Browse</string>
     <string name="home_recommend_title">Try These</string>
     <string name="home_recommend_subtitle">From Your Library</string>
     <string name="playlist_unavailable_title">Unable to Display Playlist</string>

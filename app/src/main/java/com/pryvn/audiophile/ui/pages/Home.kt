@@ -1,25 +1,22 @@
 package com.pryvn.audiophile.ui.pages
 
-import androidx.compose.animation.core.animate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -36,11 +33,9 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.data.models.ImageViewModel
-import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.UI
-import com.pryvn.audiophile.ui.widgets.basic.Title
-
-private const val PULL_THRESHOLD_DP = 80f
+import com.pryvn.audiophile.ui.toUI
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 
 @Composable
 fun Home(
@@ -51,7 +46,6 @@ fun Home(
     var sections by remember { mutableStateOf<List<HomeSection>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
-    var pullOffset by remember { mutableFloatStateOf(0f) }
 
     fun loadHome() {
         if (isRefreshing) return
@@ -77,125 +71,121 @@ fun Home(
 
     LaunchedEffect(Unit) { loadHome() }
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (pullOffset > 0f && available.y < 0f) {
-                    val consumed = available.y.coerceAtLeast(-pullOffset)
-                    pullOffset += consumed
-                    return Offset(0f, consumed)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 100.dp)
+    ) {
+        item("header") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(id = R.string.page_home_title),
+                    fontSize = 35.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 40.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    painterResource(id = R.drawable.ic_uitabbar_search),
+                    contentDescription = "Search",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            // Navigate to search tab
+                            navController.toUI(UI.HomePage)
+                        },
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(16.dp))
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(
+                            enabled = true,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { navController.toUI(UI.Settings.Main) }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = CupertinoIcons.Default.PersonCropCircle,
+                        contentDescription = "Account",
+                        modifier = Modifier.fillMaxSize().size(24.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (available.y > 0f && !isRefreshing) {
-                    pullOffset = (pullOffset + available.y).coerceAtMost(200f)
-                    return Offset(0f, available.y)
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                if (pullOffset > PULL_THRESHOLD_DP) {
-                    pullOffset = 0f
-                    loadHome()
-                } else {
-                    pullOffset = 0f
-                }
-                return Velocity.Zero
             }
         }
-    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
-    ) {
-        Title(
-            title = stringResource(id = R.string.page_home_title),
-            rightIcon = CupertinoIcons.Default.PersonCropCircle,
-            onRightIcon = {
-                navController.toUI(UI.Settings.Main)
-            },
-            content = {
-                if (isRefreshing) {
-                    item("refresh") {
-                        Box(
-                            Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
-                        }
-                    }
-                }
-                if (loadError) {
-                    item("error") {
-                        Box(
-                            Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Unable to load. Pull down to refresh.",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 32.dp),
-                            )
-                        }
-                    }
-                } else if (sections.isEmpty()) {
-                    item("loading") {
-                        Box(
-                            Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                } else {
-                    sections.forEach { section ->
-                        item("header_${section.title}") {
-                            Text(
-                                text = section.title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                                lineHeight = 20.sp,
-                                modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp),
-                            )
-                        }
-                        item("carousel_${section.title}") {
-                            LazyRow(
-                                contentPadding = PaddingValues(start = 16.dp, end = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                items(section.items, key = { it.title + (it.videoId ?: it.browseId ?: "") }) { item ->
-                                    HomeCard(item = item, onClick = {
-                                        item.videoId?.let { vid ->
-                                            scope.launch(Dispatchers.IO) {
-                                                MediaController.playOnline(vid, item.title)
-                                            }
-                                        }
-                                    })
-                                }
-                            }
-                        }
-                    }
+        if (isRefreshing) {
+            item("refresh") {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp)
                 }
             }
-        )
+        }
 
-        if (pullOffset > 0f && !isRefreshing) {
-            Box(
-                Modifier.fillMaxWidth().padding(top = 8.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    progress = { (pullOffset / PULL_THRESHOLD_DP).coerceIn(0f, 1f) },
-                )
+        if (loadError) {
+            item("error") {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Unable to load. Pull down to refresh.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                }
+            }
+        } else if (sections.isEmpty() && !isRefreshing) {
+            item("loading") {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        } else {
+            sections.forEach { section ->
+                item("header_${section.title}") {
+                    Text(
+                        text = section.title,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        lineHeight = 20.sp,
+                        fontFamily = SfProFontFamily,
+                        modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp),
+                    )
+                }
+                item("carousel_${section.title}") {
+                    LazyRow(
+                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(section.items, key = { it.title + (it.videoId ?: it.browseId ?: "") }) { item ->
+                            HomeCard(item = item, onClick = {
+                                item.videoId?.let { vid ->
+                                    scope.launch(Dispatchers.IO) {
+                                        MediaController.playOnline(vid, item.title)
+                                    }
+                                }
+                            })
+                        }
+                    }
+                }
             }
         }
     }
