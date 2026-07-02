@@ -187,6 +187,8 @@ import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 
 
 @Stable
@@ -1515,7 +1517,12 @@ private fun Lyric(
 
             Spacer(modifier = Modifier.statusBarsHeight(110.dp))
 
-
+            val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
+            val lyricTextColor =
+                if (dominantBackground.luminance() < 0.4f)
+                    Color.White
+                else
+                    Color.Black
             YosLyricView(
                 //mediaViewModel = mediaViewModel,
                 lrcEntriesLambda = lrcEntries,
@@ -1532,7 +1539,9 @@ private fun Lyric(
                     SettingsLibrary.LyricBlurEffect
                 },
                 uiConfig = YosUIConfig(
-                    noLrcText = stringResource(id = R.string.tip_no_lyrics)
+                    noLrcText = stringResource(id = R.string.tip_no_lyrics),
+                    mainTextBasicColor = lyricTextColor.toArgb().toLong(),
+                    subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
                 ),
                 weightLambda = weightLambda,
                 wordSyncedLambda = wordSyncedLambda,

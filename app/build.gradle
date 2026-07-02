@@ -121,6 +121,8 @@ dependencies {
         exclude group: 'androidx.appcompat'
     }
 
+    implementation("com.airbnb.android:lottie-compose:6.4.0")
+
     // Ktor + Kotlinx Serialization for InnerTube API
     def ktor_version = "3.0.3"
     implementation "io.ktor:ktor-client-core:$ktor_version"

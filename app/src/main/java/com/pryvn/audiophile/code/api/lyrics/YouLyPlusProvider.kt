@@ -160,27 +160,43 @@ class YouLyPlusProvider : LyricsProvider {
         return null
     }
 
+    // Returns plain text lines (without timestamps)
     private fun YouLyPlusLyricsResponse.toLyricsText(): String? {
         if (lyrics.isEmpty()) return null
-        val timedLines = lyrics.filter { it.time != null }
-        if (timedLines.isNotEmpty()) {
-            return timedLines.joinToString("\n") { line ->
-                buildString {
-                    append(formatLrcTimestamp(line.time ?: 0L, bracketed = true))
-                    val syllables = line.syllabus.orEmpty().filter { !it.text.isNullOrBlank() && it.time != null }
-                    if (type.equals("Word", ignoreCase = true) && syllables.isNotEmpty()) {
-                        syllables.forEach { syllable ->
-                            append(formatLrcTimestamp(syllable.time ?: 0L, bracketed = false))
-                            append(syllable.text.orEmpty())
-                        }
-                    } else {
-                        append(line.text.orEmpty())
-                    }
-                }
-            }.takeIf { it.isNotBlank() }
-        }
-        return lyrics.mapNotNull { it.text }.map { it.trim() }.filter { it.isNotBlank() }
+        return lyrics.mapNotNull { it.text?.trim() }.filter { it.isNotBlank() }
             .joinToString("\n").takeIf { it.isNotBlank() }
+    }
+
+    // Returns both text and syllable data (for future use)
+    private fun YouLyPlusLyricsResponse.toLyricsWithSyllables(): Pair<String, List<List<WordTiming>>>? {
+        if (lyrics.isEmpty()) return null
+
+        val allSyllables = mutableListOf<List<WordTiming>>()
+        val lines = lyrics.mapNotNull { line ->
+            val syllables = line.syllabus?.mapNotNull { syllable ->
+                val text = syllable.text?.trim()
+                if (!text.isNullOrBlank() && syllable.time != null) {
+                    // Convert Long to Float explicitly
+                    val startMs = syllable.time.toFloat()
+                    val endMs = startMs + (syllable.duration?.toFloat() ?: 0f)
+                    WordTiming(
+                        startMs = startMs,
+                        endMs = endMs,
+                        text = text,
+                        isBackground = syllable.isBackground
+                    )
+                } else null
+            } ?: emptyList()
+
+            if (syllables.isNotEmpty()) {
+                allSyllables.add(syllables)
+            }
+            line.text?.trim()
+        }.filter { !it.isNullOrBlank() }
+
+        return if (lines.isNotEmpty() && allSyllables.isNotEmpty()) {
+            Pair(lines.joinToString("\n"), allSyllables)
+        } else null
     }
 
     private fun formatLrcTimestamp(timeMs: Long, bracketed: Boolean): String {

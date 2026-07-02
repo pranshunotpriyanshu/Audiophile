@@ -4,6 +4,14 @@ data class AudiophileLyrics(
     val provider: String,
     val text: String,
     val isWordSynced: Boolean = false,
+    val syllables: List<List<WordTiming>>? = null,
+)
+
+data class WordTiming(
+    val startMs: Float,
+    val endMs: Float,
+    val text: String,
+    val isBackground: Boolean = false,
 )
 
 data class AudiophileSyncedLine(

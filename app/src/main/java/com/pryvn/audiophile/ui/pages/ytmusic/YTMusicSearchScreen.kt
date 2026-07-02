@@ -286,8 +286,8 @@ fun YTMusicSearchScreen(
         if (isLoading) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner(
-                    modifier = Modifier.size(32.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(42.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
         } else if (showSuggestions && suggestions.isNotEmpty() && items.isEmpty() && !showResults) {

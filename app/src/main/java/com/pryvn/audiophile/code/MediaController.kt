@@ -248,14 +248,9 @@ object MediaController {
 
             // 播放列表切换事件
             println("prepare 尝试保存播放列表")
-            if (mainMusicList != null && playingMusicList.value != null) {
+            playingMusicList.value?.let { list ->
                 println("prepare 保存播放列表")
-                MusicLibrary.updatePlayList(
-                    PlayListV1(
-                        mainMusicList,
-                        playingMusicList.value
-                    )
-                )
+                MusicLibrary.updatePlayList(PlayListV1(mainMusicList, list))
             }
 
         } else {
