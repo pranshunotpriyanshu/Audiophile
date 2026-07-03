@@ -1154,27 +1154,17 @@ private fun ColumnScope.Album(
 
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
-        Box {
-            ShadowImageWithCache(
-                dataLambda = albumUrl, contentDescription = null, modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    }
-                    .padding(start = dp, end = dp, bottom = dp)
-                    .then(modifier),
-                imageQuality = ImageQuality.RAW,
-                shadowOverlay = true
-            )
-            if (isBuffering) {
-                AppleLoadingSpinner(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(bottom = dp),
-                    size = 64.dp
-                )
-            }
-        }
+        ShadowImageWithCache(
+            dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                }
+                .padding(start = dp, end = dp, bottom = dp)
+                .then(modifier),
+            imageQuality = ImageQuality.RAW,
+            shadowOverlay = true
+        )
     }
 }
 
@@ -2582,23 +2572,33 @@ private fun PlayerControl(
                                         }),
                                 contentAlignment = Alignment.Center
                             ) {
-                                AnimatedContent(targetState = isPlayingLambda(), transitionSpec = {
+                                val buttonState = when {
+                                    MediaViewModelObject.isBuffering.value -> "spinner"
+                                    isPlayingLambda() -> "pause"
+                                    else -> "play"
+                                }
+                                AnimatedContent(targetState = buttonState, transitionSpec = {
                                     (scaleIn(initialScale = 0.3f) + fadeIn()).togetherWith(
                                         scaleOut(
                                             targetScale = 0.3f
                                         ) + fadeOut()
                                     )
                                 }) {
-                                    if (it) {
-                                        Icon(
+                                    when (it) {
+                                        "spinner" -> AppleLoadingSpinner(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(12.dp),
+                                            size = 35.dp
+                                        )
+                                        "pause" -> Icon(
                                             painterResource(id = R.drawable.ic_nowplaying_pause),
                                             contentDescription = "Pause",
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .padding(10.dp)
                                         )
-                                    } else {
-                                        Icon(
+                                        else -> Icon(
                                             painterResource(id = R.drawable.ic_nowplaying_play),
                                             contentDescription = "Play",
                                             modifier = Modifier
