@@ -2,13 +2,14 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +26,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -34,10 +37,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -70,9 +75,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.*
 
-// -----------------------------------------------------------------------------
-// Data models – unchanged
-// -----------------------------------------------------------------------------
 data class SearchResultSection(val title: String, val items: List<Any>, val seeAll: Boolean = false)
 
 sealed class SearchContentState {
@@ -119,8 +121,8 @@ class SearchViewModel(private val context: Context) : ViewModel() {
                     val result = YouTubeApi.getSearchSuggestions(query)
                     result.onSuccess { sugg ->
                         _uiState.update { it.copy(suggestions = sugg, showSuggestions = true) }
-                    }.onFailure { /* ignore */ }
-                } catch (_: Exception) { /* ignore */ }
+                    }.onFailure { }
+                } catch (_: Exception) { }
             } else {
                 _uiState.update { it.copy(suggestions = emptyList(), showSuggestions = false) }
             }
@@ -245,10 +247,8 @@ data class SearchUiState(
     val recentSearches: List<String> = emptyList()
 )
 
-// -----------------------------------------------------------------------------
-// Main Screen – final, polished version
-// -----------------------------------------------------------------------------
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
+// ─── Apple Music Search Page ───────────────────────────────────────────────
+
 @Composable
 fun YTMusicSearchScreen(
     showBackButton: Boolean = true,
@@ -265,18 +265,20 @@ fun YTMusicSearchScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val density = LocalDensity.current
+    val isSearching = uiState.isFocused || uiState.isSearching
 
-    // IME animation for bottom search bar
     val imeInsets = WindowInsets.ime
-    val isImeVisible by remember { derivedStateOf { imeInsets.getBottom(density) > 0 } }
-    val imeBottom = imeInsets.getBottom(density)
-    val searchBarBottomOffset by animateDpAsState(
-        targetValue = if (isImeVisible && uiState.isFocused) imeBottom.dp else 0.dp,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "SearchBarBottomOffset"
+    val imeBottom by remember { derivedStateOf { imeInsets.getBottom(density) } }
+    val keyboardHeight by animateDpAsState(
+        targetValue = if (uiState.isFocused && imeBottom > 0) imeBottom.dp else 0.dp,
+        animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
+        label = "keyboardHeight"
+    )
+
+    val searchBarAnimOffset by animateDpAsState(
+        targetValue = if (uiState.isFocused && keyboardHeight > 0.dp) keyboardHeight else 0.dp,
+        animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
+        label = "searchBarOffset"
     )
 
     LaunchedEffect(initialQuery) {
@@ -300,187 +302,165 @@ fun YTMusicSearchScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()  // top padding for status bar
+            .background(Color(0xFF000000))
+            .statusBarsPadding()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 40.dp)
-                .padding(bottom = 20.dp) // bottom spacing
-        ) {
-            // Title row – hidden on results
-            AnimatedVisibility(
-                visible = contentState !is SearchContentState.Results,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                Row(
+        // ── Main scrollable content ──
+        Box(modifier = Modifier.fillMaxSize()) {
+            // When idle: show full page with categories
+            // When searching: show scrollable results
+            if (uiState.isFocused || uiState.isSearching) {
+                // Results area
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp, top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(bottom = if (uiState.isFocused && keyboardHeight > 0.dp) (keyboardHeight + 60.dp) else 220.dp),
+                    contentPadding = PaddingValues(top = 8.dp)
                 ) {
-                    if (showBackButton || isMoodGenreBrowse) {
-                        IconButton(
-                            onClick = { onBackClick?.invoke() },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.ic_back),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
+                    when (contentState) {
+                        SearchContentState.Loading -> {
+                            item { LoadingView(Modifier.fillMaxWidth().padding(vertical = 60.dp)) }
                         }
-                        Spacer(Modifier.width(4.dp))
-                    }
-                    Text(
-                        text = when {
-                            uiState.isSearching && uiState.query.isNotBlank() -> "Results"
-                            isMoodGenreBrowse && uiState.query.isNotBlank() -> uiState.query
-                            else -> "Search"
-                        },
-                        fontSize = 35.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 40.sp,
-                        fontFamily = SfProFontFamily,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (navController != null) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable(
-                                    enabled = true,
-                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { navController.toUI(UI.Settings.Main) }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = CupertinoIcons.Default.PersonCropCircle,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize().size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        SearchContentState.Suggestions -> {
+                            item { SuggestionsList(uiState.suggestions, viewModel::onSuggestionClick) }
                         }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Top search bar – hidden on results
-            AnimatedVisibility(
-                visible = contentState !is SearchContentState.Results,
-                enter = fadeIn() + slideInVertically(),
-                exit = fadeOut() + slideOutVertically()
-            ) {
-                Column {
-                    SearchBar(
-                        query = uiState.query,
-                        onQueryChange = viewModel::onQueryChange,
-                        onSearch = viewModel::performSearch,
-                        onClear = viewModel::clearQuery,
-                        onFocusChanged = viewModel::onSearchFocusChanged,
-                        isFocused = uiState.isFocused,
-                        focusRequester = focusRequester,
-                        placeholder = if (isMoodGenreBrowse) "Search within ${uiState.query}..." else "Search for songs, artists, albums...",
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-            }
-
-            // Main content – scrollable and animated
-            AnimatedContent(
-                targetState = contentState,
-                transitionSpec = {
-                    fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(200))
-                }
-            ) { state ->
-                when (state) {
-                    SearchContentState.Loading -> LoadingView(Modifier.fillMaxSize())
-                    SearchContentState.Suggestions ->
-                        SuggestionsContent(
-                            suggestions = uiState.suggestions,
-                            onSuggestionClick = viewModel::onSuggestionClick,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    SearchContentState.Recent ->
-                        RecentSearchesContent(
-                            recentSearches = uiState.recentSearches,
-                            onRecentClick = viewModel::onRecentSearchClick,
-                            onClearAll = viewModel::clearRecentSearches,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    SearchContentState.Results ->
-                        ResultsContent(
-                            sections = uiState.resultsSections,
-                            onSongClick = { song ->
-                                scope.launch(Dispatchers.IO) {
-                                    try {
+                        SearchContentState.Recent -> {
+                            item {
+                                RecentSearchesContent(
+                                    uiState.recentSearches,
+                                    viewModel::onRecentSearchClick,
+                                    viewModel::clearRecentSearches
+                                )
+                            }
+                        }
+                        SearchContentState.Results -> {
+                            items(uiState.resultsSections) { section ->
+                                ResultsSection(section, onSongClick = { song ->
+                                    scope.launch(Dispatchers.IO) {
                                         MediaController.playOnline(song.videoId, song.title)
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            // optional toast
-                                        }
                                     }
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    SearchContentState.Empty -> EmptyView(Modifier.fillMaxSize())
-                    SearchContentState.Idle -> IdleContent(
-                        onCategoryClick = viewModel::performSearch,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                                })
+                            }
+                        }
+                        SearchContentState.Empty -> {
+                            item { EmptyView(Modifier.fillMaxWidth()) }
+                        }
+                        else -> {}
+                    }
                 }
+            } else {
+                // Idle page with categories
+                IdlePage(
+                    onCategoryClick = viewModel::performSearch,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
 
-        // Bottom search bar – only on results, floats above content and keyboard
-        AnimatedVisibility(
-            visible = contentState is SearchContentState.Results,
-            enter = fadeIn() + slideInVertically { it },
-            exit = fadeOut() + slideOutVertically { it }
+        // ── Search bar overlay ──
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .background(Color(0xFF000000))
+                .padding(horizontal = 20.dp)
+                .padding(top = 40.dp)
         ) {
-            Box(
+            // Title row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showBackButton || isMoodGenreBrowse) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { onBackClick?.invoke() }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_back),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    text = "Search",
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = SfProFontFamily,
+                    letterSpacing = 0.3.sp,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2C2C2E))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { navController?.toUI(UI.Settings.Main) }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = CupertinoIcons.Default.PersonCropCircle,
+                        contentDescription = "Account",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White
+                    )
+                }
+            }
+
+            // Search bar
+            AppleSearchBar(
+                query = uiState.query,
+                onQueryChange = viewModel::onQueryChange,
+                onSearch = viewModel::performSearch,
+                onClear = viewModel::clearQuery,
+                onFocusChanged = viewModel::onSearchFocusChanged,
+                isFocused = uiState.isFocused,
+                focusRequester = focusRequester,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // ── Floating mini player ──
+        if (!uiState.isFocused) {
+            AppleMiniPlayer(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 12.dp) // safe area
-                    .offset { IntOffset(0, -searchBarBottomOffset.roundToPx()) }
-                    .animateContentSize(animationSpec = spring())
-            ) {
-                SearchBar(
-                    query = uiState.query,
-                    onQueryChange = viewModel::onQueryChange,
-                    onSearch = viewModel::performSearch,
-                    onClear = viewModel::clearQuery,
-                    onFocusChanged = viewModel::onSearchFocusChanged,
-                    isFocused = uiState.isFocused,
-                    focusRequester = focusRequester,
-                    placeholder = "Search for songs, artists, albums...",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 8.dp)
+            )
+        }
+    }
+
+    // Auto-focus and keyboard handling
+    LaunchedEffect(uiState.isFocused) {
+        if (uiState.isFocused) {
+            focusRequester.requestFocus()
         }
     }
 }
 
-// -----------------------------------------------------------------------------
-// Apple‑style Search Bar (from Figma)
-// -----------------------------------------------------------------------------
+// ─── Apple Search Bar ──────────────────────────────────────────────────────
+
 @Composable
-private fun SearchBar(
+private fun AppleSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
@@ -488,38 +468,30 @@ private fun SearchBar(
     onFocusChanged: (Boolean) -> Unit,
     isFocused: Boolean,
     focusRequester: FocusRequester,
-    placeholder: String,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val isDark = MaterialTheme.colorScheme.background == Color.Black
 
     Box(
         modifier = modifier
+            .height(40.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(
-                color = if (isDark) Color(0xFF1C1C1E) else Color(0xFFE5E5EA),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 14.dp, vertical = 2.dp)
-            .padding(vertical = 8.dp)
+            .background(Color(0xFF1C1C1E))
             .focusRequester(focusRequester)
-            .onFocusChanged { focusState ->
-                onFocusChanged(focusState.isFocused)
-            }
+            .onFocusChanged { onFocusChanged(it.isFocused) }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)
         ) {
             Icon(
                 painterResource(id = R.drawable.ic_uitabbar_search),
-                contentDescription = null,
+                contentDescription = "Search",
                 modifier = Modifier.size(18.dp),
-                tint = if (isDark) Color(0xFFA0A0A2) else Color(0xFF8E8E93)
+                tint = Color(0xFFA0A0A2)
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
             BasicTextField(
                 value = query,
                 onValueChange = onQueryChange,
@@ -527,10 +499,10 @@ private fun SearchBar(
                 textStyle = TextStyle(
                     fontSize = 17.sp,
                     fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = Color.White
                 ),
                 singleLine = true,
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                cursorBrush = SolidColor(Color(0xFFFF3B5C)),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
@@ -545,10 +517,10 @@ private fun SearchBar(
                     Box {
                         if (query.isEmpty()) {
                             Text(
-                                text = placeholder,
+                                text = "Artists, Songs, Lyrics, and More",
                                 fontSize = 17.sp,
                                 fontFamily = SfProFontFamily,
-                                color = if (isDark) Color(0xFFA0A0A2) else Color(0xFF8E8E93),
+                                color = Color(0xFFA0A0A2),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -558,7 +530,6 @@ private fun SearchBar(
                 }
             )
             if (query.isNotEmpty()) {
-                Spacer(Modifier.width(6.dp))
                 IconButton(
                     onClick = onClear,
                     modifier = Modifier.size(22.dp)
@@ -567,85 +538,76 @@ private fun SearchBar(
                         Icons.Default.Clear,
                         contentDescription = "Clear",
                         modifier = Modifier.size(16.dp),
-                        tint = if (isDark) Color(0xFFA0A0A2) else Color(0xFF8E8E93)
+                        tint = Color(0xFFA0A0A2)
                     )
                 }
+            } else {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = "Voice Search",
+                    modifier = Modifier.size(18.dp),
+                    tint = Color(0xFFA0A0A2)
+                )
             }
         }
-        // Red underline (Apple style)
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
-        )
     }
 }
 
-// -----------------------------------------------------------------------------
-// Idle Content – Browse Categories (scrollable)
-// -----------------------------------------------------------------------------
+// ─── Idle Page ─────────────────────────────────────────────────────────────
+
 @Composable
-private fun IdleContent(
+private fun IdlePage(
     onCategoryClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val moods = listOf("Happy", "Energetic", "Relaxed", "Sad", "Romantic", "Focus")
-    val genres = listOf("Workout", "Party", "Chill", "Travel", "Jazz", "Hip Hop", "Pop", "Rock", "Classical", "R&B", "Electronic", "Country")
-    val sectionBackgrounds = mapOf(
-        "Happy" to listOf(Color(0xFFFF9A9E), Color(0xFFFAD0C4)),
-        "Energetic" to listOf(Color(0xFFA18CD1), Color(0xFFFBC2EB)),
-        "Relaxed" to listOf(Color(0xFF96E6A1), Color(0xFFD4FC79)),
-        "Sad" to listOf(Color(0xFF89ABE3), Color(0xFFF5F7FA)),
-        "Romantic" to listOf(Color(0xFFF093FB), Color(0xFFF5576C)),
-        "Focus" to listOf(Color(0xFF4FACFE), Color(0xFF00F2FE)),
-        "Workout" to listOf(Color(0xFFFF6B6B), Color(0xFFEE5A24)),
-        "Party" to listOf(Color(0xFFF9D423), Color(0xFFFF4E50)),
-        "Chill" to listOf(Color(0xFF0ABD8B), Color(0xFF0052D4)),
-        "Travel" to listOf(Color(0xFF1E90FF), Color(0xFF00D2FF)),
-        "Jazz" to listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)),
-        "Hip Hop" to listOf(Color(0xFFF97316), Color(0xFFFACC15)),
-        "Pop" to listOf(Color(0xFFEC4899), Color(0xFF8B5CF6)),
-        "Rock" to listOf(Color(0xFF6B7280), Color(0xFF374151)),
-        "Classical" to listOf(Color(0xFFD4A574), Color(0xFFF5E6CC)),
-        "R&B" to listOf(Color(0xFF7C3AED), Color(0xFF6D28D9)),
-        "Electronic" to listOf(Color(0xFF06B6D4), Color(0xFF3B82F6)),
-        "Country" to listOf(Color(0xFFD97706), Color(0xFFFBBF24)),
-    )
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 80.dp) // avoid now‑playing bar
+            .padding(top = 120.dp)
+            .verticalScroll(scrollState)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 200.dp)
     ) {
         Text(
             text = "Browse Categories",
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Text(
-            text = "Discover music by mood",
-            fontSize = 14.sp,
-            fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-            modifier = Modifier.padding(bottom = 20.dp)
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            moods.chunked(2).forEach { rowItems ->
+        val categories = listOf(
+            CategoryData("Pop", Color(0xFFEC4899), Color(0xFF8B5CF6)),
+            CategoryData("Hip-Hop", Color(0xFFF97316), Color(0xFFFACC15)),
+            CategoryData("Rock", Color(0xFF6B7280), Color(0xFF374151)),
+            CategoryData("Electronic", Color(0xFF06B6D4), Color(0xFF3B82F6)),
+            CategoryData("R&B", Color(0xFF7C3AED), Color(0xFF6D28D9)),
+            CategoryData("Jazz", Color(0xFF8B5CF6), Color(0xFFEC4899)),
+            CategoryData("Classical", Color(0xFFD4A574), Color(0xFFF5E6CC)),
+            CategoryData("Country", Color(0xFFD97706), Color(0xFFFBBF24)),
+            CategoryData("Alternative", Color(0xFF0ABD8B), Color(0xFF0052D4)),
+            CategoryData("Indie", Color(0xFFA18CD1), Color(0xFFFBC2EB)),
+            CategoryData("Metal", Color(0xFF374151), Color(0xFF6B7280)),
+            CategoryData("Blues", Color(0xFF1E90FF), Color(0xFF00D2FF)),
+            CategoryData("Folk", Color(0xFF96E6A1), Color(0xFFD4FC79)),
+            CategoryData("Latin", Color(0xFFFF6B6B), Color(0xFFEE5A24)),
+            CategoryData("Reggae", Color(0xFF0ABD8B), Color(0xFFF9D423)),
+            CategoryData("Soul", Color(0xFFF093FB), Color(0xFFF5576C)),
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            categories.chunked(2).forEach { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    rowItems.forEach { mood ->
-                        MoodGenreCard(
-                            label = mood,
-                            colors = sectionBackgrounds[mood] ?: listOf(Color.Gray, Color.Gray),
-                            onClick = { onCategoryClick(mood) },
+                    rowItems.forEach { category ->
+                        CategoryCard(
+                            label = category.label,
+                            colors = listOf(category.color1, category.color2),
+                            onClick = { onCategoryClick(category.label) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -655,49 +617,55 @@ private fun IdleContent(
                 }
             }
         }
-
-        Spacer(Modifier.height(32.dp))
-
-        Text(
-            text = "Genres",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.height(16.dp))
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(genres) { genre ->
-                MoodGenreCard(
-                    label = genre,
-                    colors = sectionBackgrounds[genre] ?: listOf(Color.Gray, Color.Gray),
-                    onClick = { onCategoryClick(genre) },
-                    modifier = Modifier.width(130.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(32.dp))
     }
 }
 
+private data class CategoryData(val label: String, val color1: Color, val color2: Color)
+
 @Composable
-private fun MoodGenreCard(label: String, colors: List<Color>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun CategoryCard(
+    label: String,
+    colors: List<Color>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isPressed by remember { mutableStateOf(false) }
+
     Box(
         modifier = modifier
-            .height(110.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(brush = Brush.horizontalGradient(colors = colors))
-            .clickable(onClick = onClick)
+            .height(120.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                brush = Brush.horizontalGradient(colors = colors),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .scale(if (isPressed) 0.97f else 1f)
+            .graphicsLayer {
+                shadowElevation = if (isPressed) 0f else 2f
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    awaitPointerEvent()
+                    isPressed = true
+                    try {
+                        awaitPointerEvent()
+                    } finally {
+                        isPressed = false
+                    }
+                }
+            }
     ) {
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.0f), Color.Black.copy(alpha = 0.45f))
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f))
                     )
                 )
         )
@@ -709,24 +677,71 @@ private fun MoodGenreCard(label: String, colors: List<Color>, onClick: () -> Uni
             color = Color.White,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 14.dp, bottom = 12.dp)
+                .padding(start = 14.dp, bottom = 14.dp)
         )
     }
 }
 
-// -----------------------------------------------------------------------------
-// Recent Searches
-// -----------------------------------------------------------------------------
+// ─── Suggestions ───────────────────────────────────────────────────────────
+
+@Composable
+private fun SuggestionsList(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        items(suggestions) { suggestion ->
+            SuggestionRow(suggestion, onSuggestionClick)
+        }
+    }
+}
+
+@Composable
+private fun SuggestionRow(suggestion: String, onClick: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onClick(suggestion) }
+            )
+            .padding(vertical = 14.dp, horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = Color(0xFFA0A0A2).copy(alpha = 0.5f),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = suggestion,
+            fontSize = 16.sp,
+            fontFamily = SfProFontFamily,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+// ─── Recent Searches ───────────────────────────────────────────────────────
+
 @Composable
 private fun RecentSearchesContent(
     recentSearches: List<String>,
     onRecentClick: (String) -> Unit,
-    onClearAll: () -> Unit,
-    modifier: Modifier = Modifier
+    onClearAll: () -> Unit
 ) {
     Column(
-        modifier = modifier
-            .verticalScroll(rememberScrollState())
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
             .padding(vertical = 4.dp)
     ) {
         Row(
@@ -739,26 +754,24 @@ private fun RecentSearchesContent(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color.White
             )
             TextButton(onClick = onClearAll) {
                 Text(
                     text = "Clear",
                     fontSize = 14.sp,
                     fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color(0xFFFF3B5C)
                 )
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            recentSearches.forEach { query ->
-                RecentSearchRow(query, onRecentClick)
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                    thickness = 0.5.dp
-                )
-            }
+        Spacer(Modifier.height(8.dp))
+        recentSearches.forEach { query ->
+            RecentSearchRow(query, onRecentClick)
+            HorizontalDivider(
+                color = Color.White.copy(alpha = 0.08f),
+                thickness = 0.5.dp
+            )
         }
     }
 }
@@ -768,22 +781,26 @@ private fun RecentSearchRow(query: String, onClick: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick(query) }
-            .padding(vertical = 14.dp, horizontal = 4.dp),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onClick(query) }
+            )
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Default.History,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            tint = Color(0xFFA0A0A2).copy(alpha = 0.6f),
             modifier = Modifier.size(20.dp)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(14.dp))
         Text(
             text = query,
             fontSize = 16.sp,
             fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = Color.White,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -791,130 +808,74 @@ private fun RecentSearchRow(query: String, onClick: (String) -> Unit) {
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            tint = Color(0xFFA0A0A2).copy(alpha = 0.3f),
             modifier = Modifier.size(18.dp)
         )
     }
 }
 
-// -----------------------------------------------------------------------------
-// Suggestions
-// -----------------------------------------------------------------------------
-@Composable
-private fun SuggestionsContent(
-    suggestions: List<String>,
-    onSuggestionClick: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyColumn(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        items(suggestions) { suggestion ->
-            SuggestionRow(suggestion, onSuggestionClick)
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                thickness = 0.5.dp
-            )
-        }
-    }
-}
+// ─── Results ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun SuggestionRow(suggestion: String, onClick: (String) -> Unit) {
-    Row(
+private fun ResultsSection(
+    section: SearchResultSection,
+    onSongClick: (YTSongItem) -> Unit
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick(suggestion) }
-            .padding(vertical = 14.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(bottom = 16.dp)
     ) {
-        Icon(
-            Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = suggestion,
-            fontSize = 16.sp,
-            fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Results Content – LazyColumn with padding for bottom search bar
-// -----------------------------------------------------------------------------
-@Composable
-private fun ResultsContent(
-    sections: List<SearchResultSection>,
-    onSongClick: (YTSongItem) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyColumn(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 120.dp) // space for bottom bar
-    ) {
-        sections.forEach { section ->
-            item {
-                SectionHeader(title = section.title, seeAll = section.seeAll)
-            }
-            items(section.items) { item ->
-                when (item) {
-                    is YTSongItem -> SongRow(item, onSongClick)
-                    else -> {}
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, seeAll: Boolean) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = SfProFontFamily,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        if (seeAll) {
-            TextButton(onClick = { /* handle see all */ }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = section.title,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = SfProFontFamily,
+                color = Color.White
+            )
+            if (section.seeAll) {
                 Text(
                     text = "See All",
                     fontSize = 14.sp,
                     fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color(0xFFFF3B5C)
                 )
+            }
+        }
+        section.items.forEach { item ->
+            when (item) {
+                is YTSongItem -> AppleSearchResultRow(item, onSongClick)
             }
         }
     }
 }
 
 @Composable
-private fun SongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
-    val context = LocalContext.current
+private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
+    val ctx = LocalContext.current
+    var isPressed by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick(song) }
-            .padding(vertical = 10.dp),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onClick(song) }
+            )
+            .scale(if (isPressed) 0.98f else 1f)
+            .padding(horizontal = 24.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = ImageRequest.Builder(context)
+            model = ImageRequest.Builder(ctx)
                 .data(song.thumbnailUrl)
                 .crossfade(true)
                 .error(R.drawable.placeholder_music_default_artwork)
@@ -927,7 +888,7 @@ private fun SongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
             modifier = Modifier
                 .width(52.dp)
                 .height(52.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(6.dp))
         )
         Column(
             modifier = Modifier
@@ -941,7 +902,7 @@ private fun SongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color.White
             )
             val subtitle = buildString {
                 if (song.artists.isNotEmpty()) {
@@ -953,12 +914,12 @@ private fun SongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
                 }
             }
             if (subtitle.isNotBlank()) {
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    color = Color(0xFFA0A0A2),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -971,16 +932,81 @@ private fun SongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
                 text = "%d:%02d".format(min, sec),
                 fontSize = 13.sp,
                 fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                modifier = Modifier.padding(start = 10.dp, end = 2.dp)
+                color = Color(0xFFA0A0A2).copy(alpha = 0.6f),
+                modifier = Modifier.padding(start = 10.dp)
             )
         }
     }
 }
 
-// -----------------------------------------------------------------------------
-// Loading & Empty
-// -----------------------------------------------------------------------------
+// ─── Apple Mini Player ─────────────────────────────────────────────────────
+
+@Composable
+private fun AppleMiniPlayer(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(start = 8.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF2C2C2E)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = Color(0xFFA0A0A2)
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f)
+            ) {
+                Text(
+                    text = "Not Playing",
+                    fontSize = 15.sp,
+                    fontFamily = SfProFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Tap to start listening",
+                    fontSize = 12.sp,
+                    fontFamily = SfProFontFamily,
+                    color = Color(0xFFA0A0A2),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            IconButton(onClick = { }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+// ─── Loading & Empty ───────────────────────────────────────────────────────
+
 @Composable
 private fun LoadingView(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -990,35 +1016,37 @@ private fun LoadingView(modifier: Modifier = Modifier) {
 
 @Composable
 private fun EmptyView(modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.Search,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "No Results",
-                fontSize = 17.sp,
-                fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            Text(
-                text = "Try a different search term",
-                fontSize = 14.sp,
-                fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-            )
-        }
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Spacer(Modifier.height(60.dp))
+        Icon(
+            Icons.Default.Search,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = Color(0xFFA0A0A2).copy(alpha = 0.3f)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "No Results",
+            fontSize = 17.sp,
+            fontFamily = SfProFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFFA0A0A2)
+        )
+        Text(
+            text = "Try a different search term",
+            fontSize = 14.sp,
+            fontFamily = SfProFontFamily,
+            color = Color(0xFFA0A0A2).copy(alpha = 0.6f)
+        )
     }
 }
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
+// ─── Helper ────────────────────────────────────────────────────────────────
+
 private fun AudiophileOnlineTrack.toYTSongItem() = YTSongItem(
     videoId = id,
     title = title,

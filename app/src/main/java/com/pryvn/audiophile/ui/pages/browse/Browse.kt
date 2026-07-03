@@ -2,11 +2,14 @@ package com.pryvn.audiophile.ui.pages.browse
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,14 +50,18 @@ fun Browse(
     val scope = rememberCoroutineScope()
     var sections by remember { mutableStateOf<List<HomeSection>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
+    var selectedSection by remember { mutableIntStateOf(0) }
+
+    val tabs = listOf("New", "Charts", "Moods")
 
     fun loadBrowse() {
         if (isLoading) return
         isLoading = true
+        loadError = false
         scope.launch(Dispatchers.IO) {
             try {
-                val result = YouTubeApi.home()
+                val result = YouTubeApi.explore()
                 result.onSuccess { json ->
                     val parsed = YouTubeApi.parseHomeSections(json)
                     withContext(Dispatchers.Main) {
@@ -100,12 +107,24 @@ fun Browse(
                     modifier = Modifier
                         .size(24.dp)
                         .clickable {
-                            // Navigate to search tab
                             navController.toUI(UI.HomePage)
                         },
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(12.dp))
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { loadBrowse() }
+                        ),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.width(12.dp))
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -127,6 +146,39 @@ fun Browse(
             }
         }
 
+        // Section tabs
+        item("tabs") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                tabs.forEachIndexed { index, tab ->
+                    val isSelected = selectedSection == index
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else Color.Transparent
+                            )
+                            .clickable { selectedSection = index }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = tab,
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            fontFamily = SfProFontFamily,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            }
+        }
+
         if (isLoading) {
             item("loading") {
                 Box(
@@ -138,50 +190,65 @@ fun Browse(
             }
         } else if (loadError) {
             item("error") {
-                Box(
-                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Unable to load. Pull down to refresh.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                    )
-                }
-            }
-        } else if (sections.isNotEmpty()) {
-            // Featured section (first section gets a large card)
-            val featuredSection = sections.firstOrNull()
-            if (featuredSection != null) {
-                item("featured_header") {
-                    Text(
-                        text = featuredSection.title,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        lineHeight = 20.sp,
+                        text = "Unable to load content",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         fontFamily = SfProFontFamily,
-                        modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp),
                     )
-                }
-                item("featured_card") {
-                    if (featuredSection.items.isNotEmpty()) {
-                        FeaturedCard(
-                            item = featuredSection.items.first(),
-                            onClick = {
-                                featuredSection.items.first().videoId?.let { vid ->
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.playOnline(vid, featuredSection.items.first().title)
-                                    }
-                                }
-                            }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Check your internet connection and try again.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                        fontFamily = SfProFontFamily,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = { loadBrowse() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Retry",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfProFontFamily,
                         )
                     }
                 }
             }
+        } else if (sections.isNotEmpty()) {
+            // Featured section — large hero card
+            val featuredSection = sections.firstOrNull()
+            if (featuredSection != null && featuredSection.items.isNotEmpty()) {
+                item("featured") {
+                    FeaturedCard(item = featuredSection.items.first(), onClick = {
+                        featuredSection.items.first().videoId?.let { vid ->
+                            scope.launch(Dispatchers.IO) {
+                                MediaController.playOnline(vid, featuredSection.items.first().title)
+                            }
+                        }
+                    })
+                }
+            }
 
             // Remaining sections
-            sections.drop(1).forEach { section ->
-                item("header_${section.title}") {
+            sections.forEachIndexed { idx, section ->
+                item("header_${idx}") {
                     Text(
                         text = section.title,
                         fontWeight = FontWeight.Bold,
@@ -191,22 +258,19 @@ fun Browse(
                         modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                     )
                 }
-                item("list_${section.title}") {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                item("carousel_${idx}") {
+                    LazyRow(
+                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        section.items.take(5).forEach { item ->
-                            BrowseSongRow(
-                                item = item,
-                                onClick = {
-                                    item.videoId?.let { vid ->
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(vid, item.title)
-                                        }
+                        items(section.items.take(10), key = { it.title + (it.videoId ?: it.browseId ?: "${idx}_${it.title}") }) { item ->
+                            BrowseCard(item = item, onClick = {
+                                item.videoId?.let { vid ->
+                                    scope.launch(Dispatchers.IO) {
+                                        MediaController.playOnline(vid, item.title)
                                     }
                                 }
-                            )
+                            })
                         }
                     }
                 }
@@ -225,6 +289,7 @@ private fun FeaturedCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
+            .padding(top = 8.dp)
             .height(200.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
@@ -280,17 +345,16 @@ private fun FeaturedCard(
 }
 
 @Composable
-private fun BrowseSongRow(
+private fun BrowseCard(
     item: HomeItem,
     onClick: () -> Unit
 ) {
     val ctx = LocalContext.current
-    Row(
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .width(150.dp)
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AsyncImage(
             model = ImageRequest.Builder(ctx)
@@ -299,49 +363,31 @@ private fun BrowseSongRow(
                 .error(R.drawable.placeholder_music_default_artwork)
                 .fallback(R.drawable.placeholder_music_default_artwork)
                 .precision(Precision.INEXACT)
-                .size(128)
+                .size(300)
                 .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .width(48.dp)
-                .height(48.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .width(150.dp)
+                .height(150.dp),
         )
-        Column(
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .weight(1f)
-        ) {
+        Text(
+            text = item.title,
+            fontSize = 13.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontFamily = SfProFontFamily,
+            modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp),
+        )
+        if (item.artists.isNotEmpty()) {
             Text(
-                text = item.title,
-                fontSize = 15.sp,
+                text = item.artists.joinToString(", ") { it.name },
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (item.artists.isNotEmpty()) {
-                Text(
-                    text = item.artists.joinToString(", ") { it.name },
-                    fontSize = 13.sp,
-                    fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (item.durationSeconds != null) {
-            val min = item.durationSeconds / 60
-            val sec = item.durationSeconds % 60
-            Text(
-                text = "%d:%02d".format(min, sec),
-                fontSize = 13.sp,
-                fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
-                modifier = Modifier.padding(start = 8.dp)
+                modifier = Modifier.padding(horizontal = 2.dp),
             )
         }
     }

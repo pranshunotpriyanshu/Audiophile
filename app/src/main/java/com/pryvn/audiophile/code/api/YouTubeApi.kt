@@ -175,6 +175,90 @@ object YouTubeApi {
         return homeWithFallback(continuation = continuation)
     }
 
+    private suspend fun browseWithFallback(browseId: String, params: String? = null, continuation: String? = null): Result<JsonObject> = withContext(Dispatchers.IO) {
+        val setLogin = InnerTubeClient.hasLoginCookie
+        val configs = listOf(
+            ClientConfig(InnerTubeClient.CLIENT_NAME, InnerTubeClient.CLIENT_VERSION, InnerTubeClient.CLIENT_ID, ua = InnerTubeClient.USER_AGENT, origin = "https://music.youtube.com", referer = "https://music.youtube.com/"),
+            ClientConfig("WEB_REMIX", "2.20250101.00.00", "67", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", "https://www.youtube.com", "https://www.youtube.com/"),
+            ClientConfig("WEB", "2.20250101.00.00", "1", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", "https://www.youtube.com", "https://www.youtube.com/")
+        )
+
+        val effectiveBrowseId = if (continuation != null) null else browseId
+
+        for (config in configs) {
+            val result = if (continuation != null) {
+                InnerTubeClient.browse(
+                    continuation = continuation,
+                    setLogin = setLogin,
+                    clientName = config.clientName,
+                    clientVersion = config.clientVersion,
+                    clientId = config.clientId,
+                    ua = config.ua,
+                    origin = config.origin,
+                    referer = config.referer
+                )
+            } else {
+                InnerTubeClient.browse(
+                    browseId = effectiveBrowseId,
+                    params = params,
+                    setLogin = setLogin,
+                    clientName = config.clientName,
+                    clientVersion = config.clientVersion,
+                    clientId = config.clientId,
+                    ua = config.ua,
+                    origin = config.origin,
+                    referer = config.referer
+                )
+            }
+
+            if (result.isSuccess) {
+                val jsonResult = result.getOrNull()
+                if (jsonResult != null) {
+                    val hasContent = jsonResult["contents"] != null ||
+                            jsonResult["sectionListRenderer"] != null ||
+                            jsonResult["musicShelfRenderer"] != null
+                    if (hasContent) {
+                        return@withContext Result.success(jsonResult)
+                    }
+                    return@withContext Result.success(jsonResult)
+                }
+            }
+        }
+
+        return@withContext if (continuation != null) {
+            InnerTubeClient.browse(
+                continuation = continuation,
+                setLogin = setLogin,
+                clientName = InnerTubeClient.CLIENT_NAME,
+                clientVersion = InnerTubeClient.CLIENT_VERSION,
+                clientId = InnerTubeClient.CLIENT_ID,
+                ua = InnerTubeClient.USER_AGENT,
+                origin = "https://music.youtube.com",
+                referer = "https://music.youtube.com/"
+            )
+        } else {
+            InnerTubeClient.browse(
+                browseId = effectiveBrowseId,
+                params = params,
+                setLogin = setLogin,
+                clientName = InnerTubeClient.CLIENT_NAME,
+                clientVersion = InnerTubeClient.CLIENT_VERSION,
+                clientId = InnerTubeClient.CLIENT_ID,
+                ua = InnerTubeClient.USER_AGENT,
+                origin = "https://music.youtube.com",
+                referer = "https://music.youtube.com/"
+            )
+        }
+    }
+
+    suspend fun explore(continuation: String? = null): Result<JsonObject> {
+        return browseWithFallback(browseId = "FEmusic_explore", continuation = continuation)
+    }
+
+    suspend fun charts(continuation: String? = null): Result<JsonObject> {
+        return browseWithFallback(browseId = "FEmusic_charts", params = "ggMGCgQIgAQ%3D", continuation = continuation)
+    }
+
     suspend fun homeWithFallback(continuation: String? = null): Result<JsonObject> = withContext(Dispatchers.IO) {
         val setLogin = InnerTubeClient.hasLoginCookie
         val configs = listOf(

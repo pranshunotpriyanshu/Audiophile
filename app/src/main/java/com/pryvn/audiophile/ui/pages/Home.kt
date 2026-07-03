@@ -1,15 +1,19 @@
 package com.pryvn.audiophile.ui.pages
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -45,11 +49,12 @@ fun Home(
     val scope = rememberCoroutineScope()
     var sections by remember { mutableStateOf<List<HomeSection>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
 
     fun loadHome() {
-        if (isRefreshing) return
-        isRefreshing = true
+        if (isLoading) return
+        isLoading = true
+        loadError = false
         scope.launch(Dispatchers.IO) {
             try {
                 val result = YouTubeApi.home()
@@ -58,13 +63,13 @@ fun Home(
                     withContext(Dispatchers.Main) {
                         sections = parsed
                         loadError = false
-                        isRefreshing = false
+                        isLoading = false
                     }
                 }.onFailure {
-                    withContext(Dispatchers.Main) { loadError = true; isRefreshing = false }
+                    withContext(Dispatchers.Main) { loadError = true; isLoading = false }
                 }
             } catch (_: Exception) {
-                withContext(Dispatchers.Main) { loadError = true; isRefreshing = false }
+                withContext(Dispatchers.Main) { loadError = true; isLoading = false }
             }
         }
     }
@@ -98,12 +103,24 @@ fun Home(
                     modifier = Modifier
                         .size(24.dp)
                         .clickable {
-                            // Navigate to search tab
                             navController.toUI(UI.HomePage)
                         },
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(12.dp))
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { loadHome() }
+                        ),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.width(12.dp))
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -125,8 +142,8 @@ fun Home(
             }
         }
 
-        if (isRefreshing) {
-            item("refresh") {
+        if (isLoading) {
+            item("loading") {
                 Box(
                     Modifier.fillMaxWidth().padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center
@@ -138,24 +155,88 @@ fun Home(
 
         if (loadError) {
             item("error") {
-                Box(
-                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Unable to load. Pull down to refresh.",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        text = "Unable to load content",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        fontFamily = SfProFontFamily,
                     )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Check your internet connection and try again.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                        fontFamily = SfProFontFamily,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = { loadHome() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Retry",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfProFontFamily,
+                        )
+                    }
                 }
             }
-        } else if (sections.isEmpty() && !isRefreshing) {
-            item("loading") {
-                Box(
-                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center
+        } else if (sections.isEmpty() && !isLoading) {
+            item("empty") {
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 60.dp, horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator()
+                    Text(
+                        text = "No content available",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        fontFamily = SfProFontFamily,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Tap the refresh icon above to retry.",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                        fontFamily = SfProFontFamily,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = { loadHome() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Retry",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = SfProFontFamily,
+                        )
+                    }
                 }
             }
         } else {
@@ -223,6 +304,7 @@ private fun HomeCard(
             fontSize = 13.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            fontFamily = SfProFontFamily,
             modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp),
         )
         if (item.artists.isNotEmpty()) {
@@ -230,6 +312,7 @@ private fun HomeCard(
                 text = item.artists.joinToString(", ") { it.name },
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                fontFamily = SfProFontFamily,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 2.dp),

@@ -667,12 +667,12 @@ class MainActivity : BaseActivity() {
                                                         R.drawable.audiophile_icon
                                                     )
                                                 )
-                                                add(
-                                                    NavItem(
-                                                        stringResource(id = R.string.page_browse_title),
-                                                        R.drawable.ic_uitabbar_search
-                                                    )
-                                                )
+                add(
+                    NavItem(
+                        stringResource(id = R.string.page_browse_title),
+                        R.drawable.ic_uitabbar_browse
+                    )
+                )
                                                 add(
                                                     NavItem(
                                                         stringResource(id = R.string.page_search_title),
