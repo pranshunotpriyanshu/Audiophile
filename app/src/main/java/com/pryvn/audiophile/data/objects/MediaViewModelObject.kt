@@ -33,6 +33,7 @@ object MediaViewModelObject {
     val bitmap: MutableState<Uri?> = mutableStateOf(null)
 
     val isPlaying: MutableState<Boolean> = mutableStateOf(false)
+    val isBuffering: MutableState<Boolean> = mutableStateOf(false)
 
     val bitrate = mutableIntStateOf(0)
     val samplingRate = mutableIntStateOf(0)

@@ -139,6 +139,7 @@ import androidx.compose.ui.util.fastMap
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.Player
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
@@ -192,6 +193,7 @@ import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
 import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
 import androidx.compose.ui.graphics.luminance
@@ -1143,27 +1145,36 @@ private fun ColumnScope.Album(
         SpringSpec(stiffness = 400f, dampingRatio = 0.7f, visibilityThreshold = 0.001f)
     }
 
+    val isBuffering = MediaViewModelObject.isBuffering.value
     val scale = animateFloatAsState(
-        targetValue = if (isPlaying()) 0f else 1f,
+        targetValue = if (isPlaying() && !isBuffering) 0f else 1f,
         animationSpec = if (isPlaying()) springSpec else tweenSpec,
         visibilityThreshold = 0.001f
     )
 
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
-        ShadowImageWithCache(
-            dataLambda = albumUrl, contentDescription = null, modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.ModulateAlpha
-                    // scaleX = scale.value
-                    // scaleY = scale.value
-                }
-                .padding(start = dp, end = dp, bottom = dp)
-                .then(modifier),
-            imageQuality = ImageQuality.RAW,
-            shadowOverlay = true
-        )
+        Box {
+            ShadowImageWithCache(
+                dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    .padding(start = dp, end = dp, bottom = dp)
+                    .then(modifier),
+                imageQuality = ImageQuality.RAW,
+                shadowOverlay = true
+            )
+            if (isBuffering) {
+                AppleLoadingSpinner(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(bottom = dp),
+                    size = 64.dp
+                )
+            }
+        }
     }
 }
 
@@ -2342,8 +2353,8 @@ private fun PlayerControl(
     }
     val isPressed = remember("PlayerControl_isPressed") { mutableStateOf(false) }
     val isDragging = remember("PlayerControl_isDragging") { mutableStateOf(false) }
-    val timestampScale by animateFloatAsState(
-        targetValue = if (isPressed.value || isDragging.value) 1.3f else 1f,
+    val timestampFontSize by animateFloatAsState(
+        targetValue = if (isPressed.value || isDragging.value) 16f else 12f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
     )
     val seekbarAlpha by animateFloatAsState(
@@ -2394,6 +2405,9 @@ private fun PlayerControl(
                                 onWhile()
                             }
 
+                            MediaViewModelObject.isBuffering.value =
+                                mediaControl?.playbackState == Player.STATE_BUFFERING
+
                             delay(700)
                         }
                     }
@@ -2442,6 +2456,7 @@ private fun PlayerControl(
                                     },
                                     onDragEnd = {
                                         Vibrator.longClick(context)
+                                        MediaViewModelObject.isBuffering.value = true
                                         onSeek(sliderPosition.floatValue)
                                         isDragging.value = false
                                         isPressed.value = false
@@ -2488,7 +2503,7 @@ private fun PlayerControl(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp, horizontal = 7.dp)
-                            .height(28.dp),
+                            .heightIn(min = 22.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -2497,33 +2512,23 @@ private fun PlayerControl(
                         ) {
                             Text(
                                 text = playedTime.value,
-                                fontSize = 12.sp,
+                                fontSize = timestampFontSize.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
                                 color = Color.White.copy(alpha = 0.3f),
                                 modifier = Modifier
                                     .overlayEffect()
-                                    .graphicsLayer(
-                                        scaleX = timestampScale,
-                                        scaleY = timestampScale,
-                                        transformOrigin = TransformOrigin(0f, 0.5f),
-                                        alpha = seekbarAlpha
-                                    )
+                                    .graphicsLayer(alpha = seekbarAlpha)
                             )
                             Text(
                                 text = remainingTime.value,
-                                fontSize = 12.sp,
+                                fontSize = timestampFontSize.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
                                 color = Color.White.copy(alpha = 0.3f),
                                 modifier = Modifier
                                     .overlayEffect()
-                                    .graphicsLayer(
-                                        scaleX = timestampScale,
-                                        scaleY = timestampScale,
-                                        transformOrigin = TransformOrigin(1f, 0.5f),
-                                        alpha = seekbarAlpha
-                                    )
+                                    .graphicsLayer(alpha = seekbarAlpha)
                             )
                         }
 
