@@ -413,18 +413,6 @@ class YosPlaybackService : MediaSessionService() {
 
     private var saveJob: Job? = null
 
-    val sleepTimer = com.pryvn.audiophile.code.player.SleepTimer()
-
-    fun applyPlaybackSettings() {
-        val speed = SettingsLibrary.PlaybackSpeed
-        val pitch = SettingsLibrary.PlaybackPitch
-        if (speed > 0f && pitch > 0f) {
-            mediaControl?.setPlaybackParameters(
-                androidx.media3.common.PlaybackParameters(speed, pitch)
-            )
-        }
-    }
-
     fun saveDataWithDelay() {
         saveJob?.cancel()
         saveJob = CoroutineScope(Dispatchers.IO).launch {
@@ -482,7 +470,6 @@ class YosPlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
-        //player.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f, 1.0f)
         val forwardingPlayer = object : ForwardingPlayer(player) {
             override fun play() {
                 player.fadePlay()
@@ -496,9 +483,6 @@ class YosPlaybackService : MediaSessionService() {
                 return FadeExo.targetStatus != 0
             }
         }
-
-        var lyricsFetchJob: kotlinx.coroutines.Job? = null
-        var prefetchJob: kotlinx.coroutines.Job? = null
 
         forwardingPlayer.addListener(
             object : Player.Listener {
@@ -546,6 +530,9 @@ class YosPlaybackService : MediaSessionService() {
                         lrcEntries.value = lrcFactory.formatLrcEntries(finalLrcContent)
 
                         if (thisPath != null) {
+                            // MediaViewModelObject.isDolby.value = thisPath.endsWith(".m4a")
+                            // 改为 JOC 判断
+
                             if (samplingRate == 0 || bitrate == 0) {
                                 val audioInfo = AudioMetadataUtils.getQualityInfos(thisPath)
                                 if (samplingRate == 0) {
@@ -562,23 +549,18 @@ class YosPlaybackService : MediaSessionService() {
 
                         println("质量分析 采样率：${MediaViewModelObject.samplingRate.intValue}，比特率：${MediaViewModelObject.bitrate.intValue}")
 
-                        // Cancel any in-flight lyrics query before starting a new one
-                        lyricsFetchJob?.cancel()
-                        lyricsFetchJob = null
-
+                        // Fetch online lyrics from all providers
                         MediaViewModelObject.isLoadingLyrics.value = true
                         LyricsProcessor.resetLyricsState()
-                        lyricsFetchJob = CoroutineScope(Dispatchers.IO).launch {
+                        CoroutineScope(Dispatchers.IO).launch {
                             val currentTrack = musicPlaying.value
                             if (currentTrack != null) {
                                 val cacheKey = currentTrack.mediaId ?: (currentTrack.title ?: "unknown")
-                                val inMemory = MediaViewModelObject.lyricsCache[cacheKey]
-                                val lyricsText = inMemory ?: MusicLibrary.loadPersistedLyrics(cacheKey)
-                                if (lyricsText != null) {
-                                    MediaViewModelObject.lyricsCache[cacheKey] = lyricsText
+                                val cached = MediaViewModelObject.lyricsCache[cacheKey]
+                                if (cached != null) {
                                     val lrcFactory = YosLrcFactory()
                                     LyricsProcessor.applyLyrics(
-                                        AudiophileLyrics("Cache", lyricsText, isWordSynced = TTMLParser.isTtml(lyricsText)),
+                                        AudiophileLyrics("Cache", cached, isWordSynced = TTMLParser.isTtml(cached)),
                                     ) { lrcEntries.value = it }
                                     MediaViewModelObject.isLoadingLyrics.value = false
                                 } else {
@@ -591,36 +573,40 @@ class YosPlaybackService : MediaSessionService() {
                                     )
                                     if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
                                         MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
-                                        MusicLibrary.saveLyrics(cacheKey, onlineLyrics.text)
+                                        if (MediaViewModelObject.lyricsCache.size > 20) {
+                                            val keys = MediaViewModelObject.lyricsCache.keys.toList()
+                                            for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
+                                                MediaViewModelObject.lyricsCache.remove(keys[i])
+                                            }
+                                        }
                                         LyricsProcessor.applyLyrics(onlineLyrics) { lrcEntries.value = it }
                                     }
                                     MediaViewModelObject.isLoadingLyrics.value = false
                                 }
                             }
                         }
-                        // Prefetch lyrics for ALL remaining songs in the queue
-                        prefetchJob?.cancel()
-                        prefetchJob = CoroutineScope(Dispatchers.IO).launch {
+                        // Prefetch lyrics for upcoming songs
+                        CoroutineScope(Dispatchers.IO).launch {
                             val list = playingMusicList?.value ?: return@launch
                             val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
                             if (currentIndex >= 0) {
-                                val upcoming = list.subList(currentIndex + 1, list.size)
+                                val upcoming = list.subList(currentIndex + 1, kotlin.math.min(currentIndex + 16, list.size))
                                 for (track in upcoming) {
                                     val key = track.mediaId ?: (track.title ?: "unknown")
                                     if (!MediaViewModelObject.lyricsCache.containsKey(key)) {
-                                        val persisted = MusicLibrary.loadPersistedLyrics(key)
-                                        if (persisted != null) {
-                                            MediaViewModelObject.lyricsCache[key] = persisted
-                                        } else {
-                                            val lyrics = ArchiveTuneApis.fetchLyrics(
-                                                title = track.title,
-                                                artist = track.artists,
-                                                album = track.album,
-                                                durationMs = track.duration
-                                            )
-                                            if (lyrics != null && lyrics.text.isNotBlank()) {
-                                                MediaViewModelObject.lyricsCache[key] = lyrics.text
-                                                MusicLibrary.saveLyrics(key, lyrics.text)
+                                        val lyrics = ArchiveTuneApis.fetchLyrics(
+                                            title = track.title,
+                                            artist = track.artists,
+                                            album = track.album,
+                                            durationMs = track.duration
+                                        )
+                                        if (lyrics != null && lyrics.text.isNotBlank()) {
+                                            MediaViewModelObject.lyricsCache[key] = lyrics.text
+                                        }
+                                        if (MediaViewModelObject.lyricsCache.size > 20) {
+                                            val keys = MediaViewModelObject.lyricsCache.keys.toList()
+                                            for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
+                                                MediaViewModelObject.lyricsCache.remove(keys[i])
                                             }
                                         }
                                     }
@@ -631,22 +617,11 @@ class YosPlaybackService : MediaSessionService() {
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    // Flush in-flight lyrics query immediately on song change
-                    lyricsFetchJob?.cancel()
-                    lyricsFetchJob = null
-                    prefetchJob?.cancel()
-                    prefetchJob = null
-
+                    /*mediaSession?.let { MediaController.sendNotification(it,context) }*/
                     mediaItem?.let {
                         com.pryvn.audiophile.code.MediaController.onCase(
                             it.toYosMediaItem()
                         )
-
-                        val yosItem = it.toYosMediaItem()
-                        val videoId = yosItem.mediaId
-                        if (videoId != null && videoId.length == 11) {
-                            SponsorBlockManager.onNewVideo(videoId, forwardingPlayer)
-                        }
                     }
 
                     println("更新 $mediaItem")

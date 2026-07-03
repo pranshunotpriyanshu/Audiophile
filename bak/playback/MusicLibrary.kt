@@ -113,18 +113,6 @@ object MusicLibrary {
     private const val playListKey = "yos_play_list_v1"
     private const val playStatusKey = "yos_player_play_status"
 
-    private const val lyricsMmkvID = "yos_lyrics_cache"
-    private const val lyricsPrefix = "lyrics_"
-    private val lyricsMmkv by lazy { MMKV.mmkvWithID(lyricsMmkvID) }
-
-    fun saveLyrics(key: String, text: String) {
-        lyricsMmkv.encode(lyricsPrefix + key, text)
-    }
-
-    fun loadPersistedLyrics(key: String): String? {
-        return lyricsMmkv.decodeString(lyricsPrefix + key)
-    }
-
     var hideSongs by mutableDataSaverListStateOf(
         dataSaverInterface = SongListSaver,
         key = "hide_songs",

@@ -2,6 +2,7 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -294,6 +295,12 @@ fun YTMusicSearchScreen(
             uiState.isSearching && uiState.query.isNotBlank() && uiState.resultsSections.isEmpty() -> SearchContentState.Empty
             else -> SearchContentState.Idle
         }
+    }
+
+    BackHandler(
+        enabled = !showBackButton && contentState != SearchContentState.Idle
+    ) {
+        viewModel.clearQuery()
     }
 
     Box(

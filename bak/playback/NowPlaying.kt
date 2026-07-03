@@ -27,7 +27,6 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -40,9 +39,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -108,14 +104,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -2340,16 +2333,6 @@ private fun PlayerControl(
     val isSliding = remember("PlayerControl_isSliding") {
         mutableStateOf(false)
     }
-    val isPressed = remember("PlayerControl_isPressed") { mutableStateOf(false) }
-    val isDragging = remember("PlayerControl_isDragging") { mutableStateOf(false) }
-    val timestampScale by animateFloatAsState(
-        targetValue = if (isPressed.value || isDragging.value) 1.3f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
-    )
-    val seekbarAlpha by animateFloatAsState(
-        targetValue = if (isPressed.value || isDragging.value) 1f else 0.85f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
-    )
 
     YosWrapper {
         Column(
@@ -2401,84 +2384,46 @@ private fun PlayerControl(
 
                 // 进度条
                 YosWrapper {
-                    val seekBarHeight by animateDpAsState(
-                        targetValue = if (isPressed.value || isDragging.value) 12.dp else 7.dp,
-                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
-                    )
+                    //println("重组：控制区域内部 - 进度条")
+                    Slider(
+                        value = sliderPosition.floatValue,
+                        onValueChange = { newValue ->
+                            isSliding.value = true
 
-                    Box(
+                            sliderPosition.floatValue = newValue
+                            val newTotalSeconds = newValue.toLong() / 1000
+                            playedTime.value = formatTime(newTotalSeconds)
+
+                            val newRemainingSeconds =
+                                playingDuration.longValue / 1000 - newTotalSeconds
+                            remainingTime.value = "-${formatTime(newRemainingSeconds)}"
+
+                            onSlider()
+                        },
+                        onValueChangeFinished = {
+                            Vibrator.longClick(context)
+                            onSeek(sliderPosition.floatValue)
+                            isSliding.value = false
+                        },
+                        valueRange = 0f..playingDuration.longValue.toFloat().coerceAtLeast(0f),
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = Color.White,
+                            inactiveTrackColor = Color(0x0DFFFFFF)
+                        ),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
                             .overlayEffect()
-                            .graphicsLayer(alpha = seekbarAlpha)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        isPressed.value = true
-                                        tryAwaitRelease()
-                                        if (!isDragging.value) {
-                                            isPressed.value = false
-                                        }
-                                    }
-                                )
-                            }
-                            .pointerInput(Unit) {
-                                detectDragGestures(
-                                    onDragStart = {
-                                        isPressed.value = true
-                                        isDragging.value = true
-                                        isSliding.value = true
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        val range = playingDuration.longValue.toFloat().coerceAtLeast(0f)
-                                        val delta = dragAmount.x / size.width
-                                        sliderPosition.floatValue = (sliderPosition.floatValue + delta * range).coerceIn(0f, range)
-                                        val totalSeconds = (sliderPosition.floatValue / 1000).toLong()
-                                        playedTime.value = formatTime(totalSeconds)
-                                        val remainingSeconds = playingDuration.longValue / 1000 - totalSeconds
-                                        remainingTime.value = "-${formatTime(remainingSeconds)}"
-                                        onSlider()
-                                    },
-                                    onDragEnd = {
-                                        Vibrator.longClick(context)
-                                        onSeek(sliderPosition.floatValue)
-                                        isDragging.value = false
-                                        isPressed.value = false
-                                        isSliding.value = false
-                                    },
-                                    onDragCancel = {
-                                        isDragging.value = false
-                                        isPressed.value = false
-                                        isSliding.value = false
-                                    }
-                                )
-                            }
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val width = size.width
-                            val trackHeight = seekBarHeight.toPx()
-                            val trackY = size.height / 2f
-
-                            drawRoundRect(
-                                color = Color(0x0DFFFFFF),
-                                topLeft = Offset(0f, trackY - trackHeight / 2f),
-                                size = Size(width, trackHeight),
-                                cornerRadius = CornerRadius(trackHeight / 2f)
+                            .alpha(0.45f)
+                            .height(14.dp),
+                        thumb = {
+                        },
+                        track = {
+                            Track(
+                                sliderPositions = SliderPositions(
+                                    initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue)
+                                ), height = 7.dp
                             )
-
-                            val fraction = if (playingDuration.longValue > 0L)
-                                (sliderPosition.floatValue / playingDuration.longValue).coerceIn(0f, 1f) else 0f
-                            if (fraction > 0f) {
-                                drawRoundRect(
-                                    color = Color.White,
-                                    topLeft = Offset(0f, trackY - trackHeight / 2f),
-                                    size = Size(width * fraction, trackHeight),
-                                    cornerRadius = CornerRadius(trackHeight / 2f)
-                                )
-                            }
                         }
-                    }
+                    )
                 }
 
                 // 控制按钮&进度文本
@@ -2488,7 +2433,7 @@ private fun PlayerControl(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp, horizontal = 7.dp)
-                            .height(28.dp),
+                            .height(22.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -2501,14 +2446,7 @@ private fun PlayerControl(
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
                                 color = Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier
-                                    .overlayEffect()
-                                    .graphicsLayer(
-                                        scaleX = timestampScale,
-                                        scaleY = timestampScale,
-                                        transformOrigin = TransformOrigin(0f, 0.5f),
-                                        alpha = seekbarAlpha
-                                    )
+                                modifier = Modifier.overlayEffect()
                             )
                             Text(
                                 text = remainingTime.value,
@@ -2516,14 +2454,7 @@ private fun PlayerControl(
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
                                 color = Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier
-                                    .overlayEffect()
-                                    .graphicsLayer(
-                                        scaleX = timestampScale,
-                                        scaleY = timestampScale,
-                                        transformOrigin = TransformOrigin(1f, 0.5f),
-                                        alpha = seekbarAlpha
-                                    )
+                                modifier = Modifier.overlayEffect()
                             )
                         }
 

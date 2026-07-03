@@ -342,4 +342,109 @@ object SettingsLibrary {
         key = "shazam_enabled",
         initialValue = false
     )
+
+    // ---------- SponsorBlock ----------
+    @Stable
+    var SponsorBlockEnabled by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_enabled",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipSponsor by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_sponsor",
+        initialValue = true
+    )
+
+    @Stable
+    var SponsorBlockSkipIntro by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_intro",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipOutro by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_outro",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipSelfPromo by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_selfpromo",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipMusicOfftopic by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_music_offtopic",
+        initialValue = true
+    )
+
+    @Stable
+    var SponsorBlockSkipPreview by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_preview",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipFiller by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_filler",
+        initialValue = false
+    )
+
+    @Stable
+    var SponsorBlockSkipInteraction by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sponsorblock_skip_interaction",
+        initialValue = false
+    )
+
+    val sponsorBlockEnabledCategories: List<String>
+        get() = buildList {
+            if (SponsorBlockSkipSponsor) add("sponsor")
+            if (SponsorBlockSkipIntro) add("intro")
+            if (SponsorBlockSkipOutro) add("outro")
+            if (SponsorBlockSkipSelfPromo) add("selfpromo")
+            if (SponsorBlockSkipMusicOfftopic) add("music_offtopic")
+            if (SponsorBlockSkipPreview) add("preview")
+            if (SponsorBlockSkipFiller) add("filler")
+            if (SponsorBlockSkipInteraction) add("interaction")
+        }
+
+    // ---------- Playback Settings ----------
+    @Stable
+    var PlaybackSpeed by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "playback_speed",
+        initialValue = 1.0f
+    )
+
+    @Stable
+    var PlaybackPitch by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "playback_pitch",
+        initialValue = 0.0f
+    )
+
+    @Stable
+    var SkipSilence by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "skip_silence",
+        initialValue = false
+    )
+
+    @Stable
+    var NormalizeVolume by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "normalize_volume",
+        initialValue = false
+    )
 }

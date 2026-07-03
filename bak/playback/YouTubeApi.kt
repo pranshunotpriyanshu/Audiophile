@@ -544,50 +544,9 @@ object YouTubeApi {
     }
 
     suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
-        val innerTubeResult = runCatching {
+        return runCatching {
             val result = InnerTubeClient.playerWithFallback(videoId, playlistId)
             parsePlayerResponse(result.getOrThrow())
-        }
-        if (innerTubeResult.isSuccess && innerTubeResult.getOrNull()?.streamUrl != null) {
-            return innerTubeResult
-        }
-        val pipedResult = PipedClient.streamsWithFallback(videoId)
-        if (pipedResult.isSuccess) {
-            val piped = pipedResult.getOrNull()!!
-            val bestAudio = piped.audioStreams
-                .filter { !it.videoOnly }
-                .maxByOrNull { it.bitrate ?: 0 }
-            if (bestAudio != null) {
-                return Result.success(YTPlayerResponse(
-                    videoId = videoId,
-                    title = piped.title,
-                    artist = piped.uploader,
-                    thumbnailUrl = piped.thumbnailUrl,
-                    lengthSeconds = piped.duration,
-                    streamUrl = bestAudio.url,
-                    expiresInSeconds = null,
-                ))
-            }
-        }
-        return innerTubeResult
-    }
-
-    suspend fun playerWithPiped(videoId: String): Result<YTPlayerResponse> {
-        return runCatching {
-            val piped = PipedClient.streamsWithFallback(videoId).getOrThrow()
-            val bestAudio = piped.audioStreams
-                .filter { !it.videoOnly }
-                .maxByOrNull { it.bitrate ?: 0 }
-                ?: error("No audio streams available from Piped")
-            YTPlayerResponse(
-                videoId = videoId,
-                title = piped.title,
-                artist = piped.uploader,
-                thumbnailUrl = piped.thumbnailUrl,
-                lengthSeconds = piped.duration,
-                streamUrl = bestAudio.url,
-                expiresInSeconds = null,
-            )
         }
     }
 

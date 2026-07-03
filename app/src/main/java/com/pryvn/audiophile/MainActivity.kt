@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -396,8 +397,29 @@ class MainActivity : BaseActivity() {
                                         val fadeAnimationSpec: FiniteAnimationSpec<Float> =
                                             tween(
                                                 durationMillis = animateSpeed,
-                                                easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f),
-                                            )
+                                        easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f),
+                                        )
+
+                                        val backPressedTime = remember { mutableStateOf(0L) }
+
+                                        BackHandler(
+                                            enabled = route.value != UI.HomePage && !showNowPlaying.value
+                                        ) {
+                                            navController.popBackStack(UI.HomePage, false)
+                                        }
+
+                                        BackHandler(
+                                            enabled = route.value == UI.HomePage && !showNowPlaying.value
+                                        ) {
+                                            val currentTime = System.currentTimeMillis()
+                                            if (currentTime - backPressedTime.value > 2000L) {
+                                                backPressedTime.value = currentTime
+                                                Toast.makeText(this@MainActivity, getString(R.string.page_home_press_back_again), Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                finish()
+                                            }
+                                        }
+
                                         AnimatedNavHost(
                                             modifier = Modifier.then(
                                                 if (SettingsLibrary.BarBlurEffect && !showNowPlaying.value) {
@@ -823,7 +845,6 @@ class MainActivity : BaseActivity() {
                                                         parentHeight.intValue.toFloat()
                                                     )
                                                     scope.launch {
-                                                        //println("速度：$velocity 高度：${miniPlayerHeight + (parentHeightDp - miniPlayerHeight) * progress}")
                                                         if (velocity < 0f) {
                                                             offsetY.animateTo(
                                                                 0f,

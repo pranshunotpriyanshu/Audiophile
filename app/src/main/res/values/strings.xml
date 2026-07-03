@@ -152,4 +152,5 @@
     <string name="shazam_no_match">No match found</string>
     <string name="shazam_error">Recognition error</string>
     <string name="shazam_mic_permission">Microphone permission required</string>
+    <string name="page_home_press_back_again">Press back again to exit</string>
 </resources>

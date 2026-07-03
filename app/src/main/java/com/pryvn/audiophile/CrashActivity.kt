@@ -7,19 +7,27 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,14 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.blankj.utilcode.util.AppUtils
 import com.blankj.utilcode.util.ClipboardUtils
 import com.blankj.utilcode.util.DeviceUtils
-import com.google.accompanist.insets.ProvideWindowInsets
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.pryvn.audiophile.code.utils.others.subStringX
-import com.pryvn.audiophile.ui.theme.YosMusicTheme
-import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
-import com.pryvn.audiophile.ui.theme.isAudiophileInDarkMode
-import com.pryvn.audiophile.ui.theme.withNight
-import com.pryvn.audiophile.ui.widgets.basic.Title
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -65,79 +66,89 @@ class CrashActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        //WindowCompat.setDecorFitsSystemWindows(window, false)
-        //enableEdgeToEdge()
+        enableEdgeToEdge()
         val crashInfo = getCrashInfo(true, intent)
         setContent {
-            YosMusicTheme {
-                ProvideWindowInsets {
-
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.White withNight Color.Black,
-                    contentColor = Color.Black withNight Color.White
-                ) {
-                        val isNight = isAudiophileInDarkMode()
-
-                        rememberSystemUiController().run {
-                            setNavigationBarColor(Color.Transparent, darkIcons = !isNight)
-                            setStatusBarColor(Color.Transparent, darkIcons = !isNight)
-                        }
-
-                        CrashUI(context = this@CrashActivity, crashInfo = crashInfo) {
-                            val intent =
-                                Intent(this@CrashActivity, MainActivity::class.java)
-                            startActivity(intent)
-                            finish()
-                        }
-
-                    }
+            val isNight = isSystemInDarkTheme()
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = if (isNight) Color.Black else Color.White,
+                contentColor = if (isNight) Color.White else Color.Black
+            ) {
+                CrashUI(context = this@CrashActivity, crashInfo = crashInfo) {
+                    val intent = Intent(this@CrashActivity, MainActivity::class.java)
+                    startActivity(intent)
+                    finish()
                 }
             }
         }
     }
 
-        @Composable
+    @Composable
     fun CrashUI(context: Activity, crashInfo: String, onRestart: () -> Unit) {
         val toast = stringResource(R.string.tip_copied)
-        //val result = BarUtils.getStatusBarHeight()
-        Column(Modifier.fillMaxSize()) {
-            //Spacer(modifier = Modifier.height((result / context.resources.displayMetrics.density + 0.5f).dp))
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
             Column(
                 Modifier
                     .fillMaxSize()
                     .weight(1f)
             ) {
-                Title(
-                    title = stringResource(R.string.crash_title),
-                    subTitle = "Σ(っ °Д °;)っ " + stringResource(R.string.crash_subtitle),
-                    onBack = {
-                        //返回，也就是退出整个软件
-                        context.finish()
-                    },
-                    bottomPadding = 0.dp
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(start = 20.dp, end = 20.dp, top = 16.dp)
                 ) {
-                    item("CrashUI") {
-                        Column(Modifier.fillMaxSize()) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(top = 10.dp), tonalElevation = 7.dp
-                            ) {
-                                Column(
-                                    Modifier
-                                        .padding(horizontal = 20.dp)
-                                        .padding(vertical = 25.dp)
-                                ) {
-                                    SelectionContainer {
-                                        Text(
-                                            text = crashInfo.trim(),
-                                            Modifier.alpha(0.8f),
-                                            fontSize = 16.sp,
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clickable {
+                                context.finish()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "←",
+                            fontSize = 24.sp,
+                            color = Color(0xFFFF203C)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.crash_title),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isSystemInDarkTheme()) Color.White else Color.Black
+                    )
+                    Text(
+                        text = "Σ(っ °Д °;)っ " + stringResource(R.string.crash_subtitle),
+                        fontSize = 14.sp,
+                        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.6f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        tonalElevation = 7.dp
+                    ) {
+                        val scrollState = rememberScrollState()
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState)
+                                .padding(horizontal = 20.dp)
+                                .padding(vertical = 25.dp)
+                        ) {
+                            SelectionContainer {
+                                Text(
+                                    text = crashInfo.trim(),
+                                    Modifier.alpha(0.8f),
+                                    fontSize = 16.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
                             }
                         }
                     }
@@ -147,13 +158,13 @@ class CrashActivity : ComponentActivity() {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .height(IntrinsicSize.Max)
                     .padding(horizontal = 16.dp)
-                    .navigationBarsPadding(),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(bottom = 20.dp),
                 verticalArrangement = Arrangement.Bottom,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val shape = YosRoundedCornerShape(12.dp)
+                val shape = RoundedCornerShape(12.dp)
 
                 Box(
                     modifier = Modifier
@@ -171,20 +182,8 @@ class CrashActivity : ComponentActivity() {
                         )
                         .clip(shape)
                         .clickable(onClick = {
-                            // 复制详细信息
-                            ClipboardUtils.copyText(
-                                getCrashInfo(
-                                    true,
-                                    intent
-                                )
-                            )
-                            Toast
-                                .makeText(
-                                    context,
-                                    toast,
-                                    Toast.LENGTH_SHORT
-                                )
-                                .show()
+                            ClipboardUtils.copyText(getCrashInfo(true, intent))
+                            Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
                         }),
                     contentAlignment = Alignment.Center
                 ) {
@@ -200,27 +199,13 @@ class CrashActivity : ComponentActivity() {
                         .padding(top = 15.dp)
                         .height(45.dp)
                         .background(
-                            color = (Color.LightGray withNight Color.DarkGray).copy(
-                                alpha = 0.25f
-                            ),
+                            color = (if (isSystemInDarkTheme()) Color.DarkGray else Color.LightGray).copy(alpha = 0.25f),
                             shape = shape
                         )
                         .clip(shape)
                         .clickable(onClick = {
-                            // 复制简略信息
-                            ClipboardUtils.copyText(
-                                getCrashInfo(
-                                    false,
-                                    intent
-                                )
-                            )
-                            Toast
-                                .makeText(
-                                    context,
-                                    toast,
-                                    Toast.LENGTH_SHORT
-                                )
-                                .show()
+                            ClipboardUtils.copyText(getCrashInfo(false, intent))
+                            Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
                         }),
                     contentAlignment = Alignment.Center
                 ) {
@@ -240,12 +225,10 @@ class CrashActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 15.dp, bottom = 20.dp)
+                        .padding(top = 15.dp)
                         .height(45.dp)
                         .background(
-                            color = (Color.LightGray withNight Color.DarkGray).copy(
-                                alpha = 0.25f
-                            ),
+                            color = (if (isSystemInDarkTheme()) Color.DarkGray else Color.LightGray).copy(alpha = 0.25f),
                             shape = shape
                         )
                         .clip(shape)

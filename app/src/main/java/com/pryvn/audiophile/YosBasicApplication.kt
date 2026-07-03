@@ -30,9 +30,9 @@ class YosBasicApplication : Application() {
 
         Thread.setDefaultUncaughtExceptionHandler { _, e ->
             e.printStackTrace()
-            CrashActivity.startActivity(this, e.stackTraceToString())
-            android.os.Process.killProcess(android.os.Process.myPid())
-            exitProcess(1)
+            runCatching {
+                CrashActivity.startActivity(this, e.stackTraceToString())
+            }
         }
 
         // 初始化 MMKV
@@ -85,7 +85,9 @@ class YosBasicApplication : Application() {
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener(
             {
-                mediaControl = controllerFuture.get()
+                runCatching {
+                    mediaControl = controllerFuture.get()
+                }
 
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
@@ -95,15 +97,6 @@ class YosBasicApplication : Application() {
                         println("prepare 读取历史")
                         if (playListData.mainMusicList != null) {
                             println("prepare 准备调用")
-                            /*launch {
-                                runCatching {
-                                    // 无论设置与否，先还原
-                                    val thisMainMusicList = playListData.mainMusicList
-                                    mainMusicList.value = thisMainMusicList
-                                    println("prepare 恢复主歌单")
-                                }
-                            }*/
-
                             if (playStatusData.music != null) {
                                 com.pryvn.audiophile.code.MediaController.prepare(
                                     playStatusData.music,
