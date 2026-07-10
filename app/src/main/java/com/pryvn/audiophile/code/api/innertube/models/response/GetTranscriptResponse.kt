@@ -1,64 +1,72 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.response
 
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class GetTranscriptResponse(
-    val actions: List<Action>? = null,
+    val actions: List<Action>?,
 ) {
     @Serializable
     data class Action(
-        val updateEngagementPanelAction: UpdateEngagementPanelAction? = null,
-    )
-
-    @Serializable
-    data class UpdateEngagementPanelAction(
-        val content: Content? = null,
-    )
-
-    @Serializable
-    data class Content(
-        val transcriptRenderer: TranscriptRenderer? = null,
-    )
-
-    @Serializable
-    data class TranscriptRenderer(
-        val body: Body? = null,
-    )
-
-    @Serializable
-    data class Body(
-        val transcriptBodyRenderer: TranscriptBodyRenderer? = null,
-    )
-
-    @Serializable
-    data class TranscriptBodyRenderer(
-        val cueGroups: List<CueGroup>? = null,
-    )
-
-    @Serializable
-    data class CueGroup(
-        val transcriptCueGroupRenderer: TranscriptCueGroupRenderer? = null,
-    )
-
-    @Serializable
-    data class TranscriptCueGroupRenderer(
-        val cues: List<Cue>? = null,
-    )
-
-    @Serializable
-    data class Cue(
-        val transcriptCueRenderer: TranscriptCueRenderer? = null,
-    )
-
-    @Serializable
-    data class TranscriptCueRenderer(
-        val startOffsetMs: String? = null,
-        val cue: CueText? = null,
-    )
-
-    @Serializable
-    data class CueText(
-        val simpleText: String? = null,
-    )
+        val updateEngagementPanelAction: UpdateEngagementPanelAction,
+    ) {
+        @Serializable
+        data class UpdateEngagementPanelAction(
+            val content: Content,
+        ) {
+            @Serializable
+            data class Content(
+                val transcriptRenderer: TranscriptRenderer,
+            ) {
+                @Serializable
+                data class TranscriptRenderer(
+                    val body: Body,
+                ) {
+                    @Serializable
+                    data class Body(
+                        val transcriptBodyRenderer: TranscriptBodyRenderer,
+                    ) {
+                        @Serializable
+                        data class TranscriptBodyRenderer(
+                            val cueGroups: List<CueGroup>,
+                        ) {
+                            @Serializable
+                            data class CueGroup(
+                                val transcriptCueGroupRenderer: TranscriptCueGroupRenderer,
+                            ) {
+                                @Serializable
+                                data class TranscriptCueGroupRenderer(
+                                    val cues: List<Cue>,
+                                ) {
+                                    @Serializable
+                                    data class Cue(
+                                        val transcriptCueRenderer: TranscriptCueRenderer,
+                                    ) {
+                                        @Serializable
+                                        data class TranscriptCueRenderer(
+                                            val cue: SimpleText,
+                                            val startOffsetMs: Long,
+                                            val durationMs: Long,
+                                        ) {
+                                            @Serializable
+                                            data class SimpleText(
+                                                val simpleText: String,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

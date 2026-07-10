@@ -48,13 +48,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
-import androidx.navigation.NavController
 import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
 import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
+import androidx.navigation.NavController
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileOnlineTrack
 import com.pryvn.audiophile.code.api.YTAlbum
+import com.pryvn.audiophile.code.api.YTAlbumSearchItem
 import com.pryvn.audiophile.code.api.YTArtist
+import com.pryvn.audiophile.code.api.YTArtistSearchItem
+import com.pryvn.audiophile.code.api.YTPlaylist
+import com.pryvn.audiophile.code.api.YTSearchSection
 import com.pryvn.audiophile.code.api.YTSongItem
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.MediaController
@@ -143,8 +147,18 @@ class SearchViewModel(private val context: Context) : ViewModel() {
             try {
                 val result = YouTubeApi.search(query)
                 result.onSuccess { searchResult ->
-                    val items = searchResult.items
-                    val sections = listOf(SearchResultSection("Songs", items, false))
+                    val sections = if (searchResult.sections.isNotEmpty()) {
+                        searchResult.sections.map { section ->
+                            val combined = mutableListOf<Any>()
+                            combined.addAll(section.songs)
+                            combined.addAll(section.albums)
+                            combined.addAll(section.artists)
+                            combined.addAll(section.playlists)
+                            SearchResultSection(section.title, combined)
+                        }
+                    } else {
+                        listOf(SearchResultSection("Songs", searchResult.items, false))
+                    }
                     withContext(Dispatchers.Main) {
                         _uiState.update {
                             it.copy(resultsSections = sections, isLoading = false, isSearching = true)
@@ -399,10 +413,10 @@ fun YTMusicSearchScreen(
                 }
                 Text(
                     text = "Search",
-                    fontSize = 34.sp,
+                    fontSize = 35.sp,
                     fontWeight = FontWeight.Bold,
+                    lineHeight = 40.sp,
                     fontFamily = SfProFontFamily,
-                    letterSpacing = 0.3.sp,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
@@ -711,7 +725,7 @@ private fun SuggestionRow(suggestion: String, onClick: (String) -> Unit) {
                 indication = null,
                 onClick = { onClick(suggestion) }
             )
-            .padding(vertical = 14.dp, horizontal = 24.dp),
+            .padding(vertical = 14.dp, horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -743,7 +757,7 @@ private fun RecentSearchesContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 20.dp)
             .padding(vertical = 4.dp)
     ) {
         Row(
@@ -832,14 +846,15 @@ private fun ResultsSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = section.title,
-                fontSize = 22.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
+                lineHeight = 20.sp,
                 fontFamily = SfProFontFamily,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -855,6 +870,155 @@ private fun ResultsSection(
         section.items.forEach { item ->
             when (item) {
                 is YTSongItem -> AppleSearchResultRow(item, onSongClick)
+                is YTAlbumSearchItem -> AppleAlbumSearchRow(item)
+                is YTArtistSearchItem -> AppleArtistSearchRow(item)
+                is YTPlaylist -> ApplePlaylistSearchRow(item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppleAlbumSearchRow(album: YTAlbumSearchItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = album.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = album.title,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (album.artist != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = album.artist,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppleArtistSearchRow(artist: YTArtistSearchItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = artist.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(CircleShape)
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = artist.name,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Artist",
+                fontSize = 13.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun ApplePlaylistSearchRow(playlist: YTPlaylist) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = playlist.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = playlist.title,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            val subtitle = buildString {
+                if (playlist.author != null) append(playlist.author)
+                if (playlist.songCount != null) {
+                    if (isNotEmpty()) append("  \u2022  ")
+                    append("${playlist.songCount} songs")
+                }
+            }
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
@@ -874,7 +1038,7 @@ private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit
                 onClick = { onClick(song) }
             )
             .scale(if (isPressed) 0.98f else 1f)
-            .padding(horizontal = 24.dp, vertical = 6.dp),
+            .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CachedArtworkImage(

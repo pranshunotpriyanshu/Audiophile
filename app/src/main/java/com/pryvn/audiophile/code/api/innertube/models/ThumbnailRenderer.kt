@@ -1,40 +1,36 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
 data class ThumbnailRenderer(
-    @SerializedName("musicThumbnailRenderer") val musicThumbnailRenderer: MusicThumbnailRenderer? = null
+    @JsonNames("croppedSquareThumbnailRenderer")
+    val musicThumbnailRenderer: MusicThumbnailRenderer?,
+    val musicAnimatedThumbnailRenderer: MusicAnimatedThumbnailRenderer?,
+    val croppedSquareThumbnailRenderer: MusicThumbnailRenderer?,
 ) {
+    @Serializable
     data class MusicThumbnailRenderer(
-        @SerializedName("thumbnail") val thumbnail: Thumbnail? = null,
-        @SerializedName("thumbnailCrop") val thumbnailCrop: String? = null,
-        @SerializedName("thumbnailScale") val thumbnailScale: String? = null,
-        @SerializedName("rendererContext") val rendererContext: RendererContext? = null
+        val thumbnail: Thumbnails,
+        val thumbnailCrop: String?,
+        val thumbnailScale: String?,
     ) {
-        data class Thumbnail(
-            @SerializedName("thumbnails") val thumbnails: List<ThumbnailUrl>? = null
-        ) {
-            data class ThumbnailUrl(
-                @SerializedName("url") val url: String? = null,
-                @SerializedName("width") val width: Int? = null,
-                @SerializedName("height") val height: Int? = null
-            )
-        }
-
-        data class RendererContext(
-            @SerializedName("commandMetadata") val commandMetadata: CommandMetadata? = null
-        ) {
-            data class CommandMetadata(
-                @SerializedName("webCommandMetadata") val webCommandMetadata: WebCommandMetadata? = null
-            ) {
-                data class WebCommandMetadata(
-                    @SerializedName("url") val url: String? = null
-                )
-            }
-        }
+        fun getThumbnailUrl() = thumbnail.thumbnails.lastOrNull()?.normalizedUrl
     }
 
-    fun getThumbnailUrl(): String? {
-        return musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()?.url
-    }
+    @Serializable
+    data class MusicAnimatedThumbnailRenderer(
+        val animatedThumbnail: Thumbnails,
+        val backupRenderer: MusicThumbnailRenderer,
+    )
 }

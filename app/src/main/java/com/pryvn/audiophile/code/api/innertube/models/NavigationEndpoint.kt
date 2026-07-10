@@ -1,21 +1,34 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class NavigationEndpoint(
-    @SerialName("watchEndpoint") val watchEndpoint: Endpoint.WatchEndpoint? = null,
-    @SerialName("watchPlaylistEndpoint") val watchPlaylistEndpoint: Endpoint.WatchPlaylistEndpoint? = null,
-    @SerialName("browseEndpoint") val browseEndpoint: Endpoint.BrowseEndpoint? = null,
-    @SerialName("searchEndpoint") val searchEndpoint: Endpoint.SearchEndpoint? = null,
-    @SerialName("queueAddEndpoint") val queueAddEndpoint: Endpoint.QueueAddEndpoint? = null,
-    @SerialName("shareEntityEndpoint") val shareEntityEndpoint: Endpoint.ShareEntityEndpoint? = null,
+    val watchEndpoint: WatchEndpoint? = null,
+    val watchPlaylistEndpoint: WatchEndpoint? = null,
+    val browseEndpoint: BrowseEndpoint? = null,
+    val searchEndpoint: SearchEndpoint? = null,
+    val queueAddEndpoint: QueueAddEndpoint? = null,
+    val shareEntityEndpoint: ShareEntityEndpoint? = null,
 ) {
-    val anyWatchEndpoint: Endpoint.WatchEndpoint?
-        get() = watchEndpoint ?: Endpoint.WatchEndpoint(
-            playlistId = watchPlaylistEndpoint?.playlistId,
-            params = watchPlaylistEndpoint?.params,
-            index = watchPlaylistEndpoint?.index,
-        ).takeIf { watchPlaylistEndpoint != null }
+    val endpoint: Endpoint?
+        get() =
+            watchEndpoint
+                ?: watchPlaylistEndpoint
+                ?: browseEndpoint
+                ?: searchEndpoint
+                ?: queueAddEndpoint
+                ?: shareEntityEndpoint
+
+    val anyWatchEndpoint: WatchEndpoint?
+        get() =
+            watchEndpoint
+                ?: watchPlaylistEndpoint
 }

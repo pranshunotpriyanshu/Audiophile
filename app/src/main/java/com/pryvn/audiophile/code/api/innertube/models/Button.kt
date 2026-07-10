@@ -1,24 +1,23 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Button(
-    @SerializedName("buttonRenderer") val buttonRenderer: ButtonRenderer? = null
+    val buttonRenderer: ButtonRenderer,
 ) {
+    @Serializable
     data class ButtonRenderer(
-        @SerializedName("text") val text: Runs? = null,
-        @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null,
-        @SerializedName("icon") val icon: Icon? = null,
-        @SerializedName("accessibility") val accessibility: Accessibility? = null,
-        @SerializedName("size") val size: String? = null,
-        @SerializedName("style") val style: String? = null
-    ) {
-        data class Accessibility(
-            @SerializedName("accessibilityData") val accessibilityData: AccessibilityData? = null
-        ) {
-            data class AccessibilityData(
-                @SerializedName("label") val label: String? = null
-            )
-        }
-    }
+        val text: Runs,
+        val navigationEndpoint: NavigationEndpoint?,
+        val command: NavigationEndpoint?,
+        val icon: Icon?,
+    )
 }

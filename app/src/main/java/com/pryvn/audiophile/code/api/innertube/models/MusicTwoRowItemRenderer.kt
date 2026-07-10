@@ -1,42 +1,59 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ALBUM
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ARTIST
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_AUDIOBOOK
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
+/**
+ * Two row: a big thumbnail, a title, and a subtitle
+ * Used in [GridRenderer] and [MusicCarouselShelfRenderer]
+ * Item type: song, video, album, playlist, artist
+ */
+@Serializable
 data class MusicTwoRowItemRenderer(
-    @SerializedName("title") val title: Runs? = null,
-    @SerializedName("subtitle") val subtitle: Runs? = null,
-    @SerializedName("subtitleBadges") val subtitleBadges: List<Badges>? = null,
-    @SerializedName("menu") val menu: Menu? = null,
-    @SerializedName("thumbnailRenderer") val thumbnailRenderer: ThumbnailRenderer? = null,
-    @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null,
-    @SerializedName("thumbnailOverlay") val thumbnailOverlay: ThumbnailOverlay? = null
+    val title: Runs,
+    val subtitle: Runs?,
+    val subtitleBadges: List<Badges>?,
+    val menu: Menu?,
+    val thumbnailRenderer: ThumbnailRenderer,
+    val navigationEndpoint: NavigationEndpoint,
+    val thumbnailOverlay: MusicResponsiveListItemRenderer.Overlay?,
 ) {
-    data class ThumbnailOverlay(
-        @SerializedName("musicItemThumbnailOverlayRenderer") val musicItemThumbnailOverlayRenderer: MusicItemThumbnailOverlayRenderer? = null
-    ) {
-        data class MusicItemThumbnailOverlayRenderer(
-            @SerializedName("content") val content: Content? = null
-        ) {
-            data class Content(
-                @SerializedName("musicPlayButtonRenderer") val musicPlayButtonRenderer: MusicPlayButtonRenderer? = null
-            ) {
-                data class MusicPlayButtonRenderer(
-                    @SerializedName("playNavigationEndpoint") val playNavigationEndpoint: NavigationEndpoint? = null,
-                    @SerializedName("icon") val icon: Icon? = null
-                )
-            }
-        }
-    }
-
     val isSong: Boolean
-        get() = subtitle?.runs?.any { it.text?.contains("Song") == true } == true
-
+        get() = navigationEndpoint.endpoint is WatchEndpoint
     val isPlaylist: Boolean
-        get() = subtitle?.runs?.any { it.text?.contains("Playlist") == true } == true
-
+        get() =
+            navigationEndpoint.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_PLAYLIST
     val isAlbum: Boolean
-        get() = subtitle?.runs?.any { it.text?.contains("Album") == true } == true
-
+        get() =
+            navigationEndpoint.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_ALBUM ||
+                navigationEndpoint.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig
+                    ?.pageType ==
+                MUSIC_PAGE_TYPE_AUDIOBOOK
     val isArtist: Boolean
-        get() = subtitle?.runs?.any { it.text?.contains("Artist") == true } == true
+        get() =
+            navigationEndpoint.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_ARTIST
 }

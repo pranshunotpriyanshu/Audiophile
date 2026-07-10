@@ -1,108 +1,187 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.utils
 
+import com.pryvn.audiophile.code.api.innertube.YouTube
+import com.pryvn.audiophile.code.api.innertube.pages.LibraryPage
+import com.pryvn.audiophile.code.api.innertube.pages.PlaylistContinuationPage
+import com.pryvn.audiophile.code.api.innertube.pages.PlaylistPage
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
-import kotlin.math.abs
-import kotlin.math.floor
 
-fun String.sha1(): String {
-    val digest = MessageDigest.getInstance("SHA-1")
-    return digest.digest(this.toByteArray()).joinToString("") { "%02x".format(it) }
+// Cap for LibraryPage.continued() (e.g. FEmusic_liked_playlists / generated mixes)
+// to prevent hundreds of sequential continuation requests on the home screen.
+private const val LIBRARY_COMPLETION_MAX_REQUESTS = 50
+
+@JvmName("completedLibrary")
+suspend fun Result<PlaylistPage>.completed(): Result<PlaylistPage> =
+    runCatching {
+        val page = getOrThrow()
+        completePlaylistPage(page) { continuation ->
+            YouTube.playlistContinuation(continuation, page.playlist.id).getOrNull()
+        }
+    }
+
+internal suspend fun completePlaylistPage(
+    page: PlaylistPage,
+    fetchContinuationPage: suspend (String) -> PlaylistContinuationPage?,
+): PlaylistPage {
+    val songs = page.songs.toMutableList()
+    var continuation =
+        page.songsContinuation.normalizedContinuation()
+            ?: page.continuation.normalizedContinuation()
+    val seenContinuations = mutableSetOf<String>()
+    var requestCount = 0
+    val maxRequests = 500
+    var consecutiveEmptyResponses = 0
+
+    while (continuation != null && requestCount < maxRequests) {
+        if (continuation in seenContinuations) {
+            break
+        }
+        seenContinuations.add(continuation)
+        requestCount++
+
+        val continuationPage = fetchContinuationPage(continuation) ?: break
+
+        if (continuationPage.songs.isEmpty()) {
+            consecutiveEmptyResponses++
+            if (consecutiveEmptyResponses >= 2) break
+        } else {
+            consecutiveEmptyResponses = 0
+            songs += continuationPage.songs
+        }
+
+        continuation = continuationPage.continuation.normalizedContinuation()
+    }
+
+    return page.copy(
+        songs = songs,
+        songsContinuation = null,
+        continuation = null,
+    )
 }
 
-fun youtubeLoginCookieValue(cookie: String): String? {
-    if (cookie.isBlank()) return null
-    return cookie.split(";")
+@JvmName("completedPlaylist")
+suspend fun Result<LibraryPage>.completed(): Result<LibraryPage> =
+    runCatching {
+        val page = getOrThrow()
+        val items = page.items.toMutableList()
+        var continuation = page.continuation
+        val seenContinuations = mutableSetOf<String>()
+        var requestCount = 0
+        val maxRequests = LIBRARY_COMPLETION_MAX_REQUESTS
+        var consecutiveEmptyResponses = 0
+
+        while (continuation != null && requestCount < maxRequests) {
+            if (continuation in seenContinuations) {
+                break
+            }
+            seenContinuations.add(continuation)
+            requestCount++
+
+            val continuationPage = YouTube.libraryContinuation(continuation).getOrNull() ?: break
+
+            if (continuationPage.items.isEmpty()) {
+                consecutiveEmptyResponses++
+                if (consecutiveEmptyResponses >= 2) break
+            } else {
+                consecutiveEmptyResponses = 0
+                items += continuationPage.items
+            }
+
+            continuation = continuationPage.continuation
+        }
+        LibraryPage(
+            items = items,
+            continuation = null,
+        )
+    }
+
+fun ByteArray.toHex(): String = joinToString(separator = "") { eachByte -> "%02x".format(eachByte) }
+
+fun sha1(str: String): String = MessageDigest.getInstance("SHA-1").digest(str.toByteArray()).toHex()
+
+fun parseCookieString(cookie: String): Map<String, String> =
+    cookie
+        .split(";")
         .map { it.trim() }
-        .firstOrNull { it.startsWith("SAPISID=") || it.startsWith("__Secure-3PAPISID=") }
-        ?.substringAfter("=")
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-}
-
-fun parseQueryString(query: String): Map<String, String> {
-    if (query.isBlank()) return emptyMap()
-    return query.split("&")
-        .filter { it.contains("=") }
-        .associate {
-            val key = it.substringBefore("=").trim()
-            val value = it.substringAfter("=").trim()
-                .let { v -> java.net.URLDecoder.decode(v, "UTF-8") }
-            key to value
-        }
-}
-
-fun baseUrl(url: String): String {
-    return try {
-        val uri = java.net.URI(url)
-        val scheme = uri.scheme ?: return url
-        val host = uri.host ?: return url
-        val port = if (uri.port in 1..65535 && uri.port != 80 && uri.port != 443) ":${uri.port}" else ""
-        "$scheme://$host$port"
-    } catch (_: Throwable) {
-        url.substringBefore("?").substringBefore("#")
-    }
-}
-
-fun getDocumentId(url: String): String? {
-    return try {
-        val uri = java.net.URI(url)
-        val path = uri.path ?: return null
-        path.trimStart('/').split("/").lastOrNull()?.takeIf { it.isNotEmpty() }
-    } catch (_: Throwable) {
-        null
-    }
-}
-
-fun String.splitOnFirst(delimiter: String): Pair<String, String> {
-    val idx = this.indexOf(delimiter)
-    return if (idx >= 0) {
-        this.substring(0, idx) to this.substring(idx + delimiter.length)
-    } else {
-        this to ""
-    }
-}
-
-fun parseDuration(text: String): Long {
-    if (text.isBlank()) return 0L
-    val cleaned = text.trim()
-    if (cleaned.contains(":")) {
-        val parts = cleaned.split(":")
-        return when (parts.size) {
-            2 -> {
-                val min = parts[0].toLongOrNull() ?: 0L
-                val sec = parts[1].toLongOrNull() ?: 0L
-                TimeUnit.MINUTES.toMillis(min) + TimeUnit.SECONDS.toMillis(sec)
+        .filter { it.isNotBlank() }
+        .mapNotNull { part ->
+            val splitIndex = part.indexOf('=')
+            if (splitIndex == -1) {
+                null
+            } else {
+                val key = part.substring(0, splitIndex).trim()
+                if (key.isEmpty()) null else key to part.substring(splitIndex + 1).trim()
             }
-            3 -> {
-                val hour = parts[0].toLongOrNull() ?: 0L
-                val min = parts[1].toLongOrNull() ?: 0L
-                val sec = parts[2].toLongOrNull() ?: 0L
-                TimeUnit.HOURS.toMillis(hour) + TimeUnit.MINUTES.toMillis(min) + TimeUnit.SECONDS.toMillis(sec)
+        }.toMap()
+
+fun hasYouTubeLoginCookie(cookie: String?): Boolean = youtubeLoginCookieValue(cookie) != null
+
+fun youtubeLoginCookieValue(cookie: String?): String? {
+    val cookieMap = cookie?.let(::parseCookieString).orEmpty()
+    return YOUTUBE_LOGIN_COOKIE_NAMES.firstNotNullOfOrNull { cookieName ->
+        cookieMap[cookieName]?.takeIf(String::isNotBlank)
+    }
+}
+
+private val YOUTUBE_LOGIN_COOKIE_NAMES =
+    listOf(
+        "SAPISID",
+        "__Secure-3PAPISID",
+        "__Secure-1PAPISID",
+        "APISID",
+    )
+
+fun String.parseTime(): Int? {
+    val normalized =
+        buildString(length) {
+            for (char in this@parseTime) {
+                val digit = Character.digit(char, 10)
+                when {
+                    digit >= 0 -> append(digit)
+                    char.isDurationSeparator() -> append(':')
+                    char.isIgnorableDurationChar() -> Unit
+                    else -> return null
+                }
             }
-            else -> 0L
         }
-    }
-    val match = Regex("""(\d+)""").find(cleaned)
-    return match?.groupValues?.get(1)?.toLongOrNull() ?: 0L
-}
 
-fun formatDuration(durationMs: Long): String {
-    if (durationMs <= 0) return "0:00"
-    val totalSeconds = abs(durationMs) / 1000
-    val hours = floor(totalSeconds / 3600.0).toInt()
-    val minutes = floor((totalSeconds % 3600) / 60.0).toInt()
-    val seconds = (totalSeconds % 60).toInt()
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
-    } else {
-        "%d:%02d".format(minutes, seconds)
+    val parts = normalized.split(':')
+    if (parts.any { it.isBlank() || it.length > 3 }) return null
+    if (parts.size !in 2..3) return null
+    if (parts.drop(1).any { it.length !in 1..2 }) return null
+
+    val values = parts.map { it.toIntOrNull() ?: return null }
+    if (values.drop(1).any { it !in 0..59 }) return null
+
+    return when (values.size) {
+        2 -> values[0] * 60 + values[1]
+        3 -> values[0] * 3600 + values[1] * 60 + values[2]
+        else -> null
     }
 }
 
-fun getTranscriptParams(videoId: String): String {
-    val innerParams = "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20240101.00.00\"}},\"videoId\":\"$videoId\"}"
-    return java.util.Base64.getEncoder().encodeToString(innerParams.toByteArray())
-        .replace("+", "-")
-        .replace("/", "_")
-}
+private fun Char.isDurationSeparator(): Boolean =
+    this == ':' ||
+        this == '.' ||
+        this == ',' ||
+        this == '：' ||
+        this == '．' ||
+        this == '﹕' ||
+        this == '꞉' ||
+        this == '∶' ||
+        this == '٫'
+
+private fun Char.isIgnorableDurationChar(): Boolean =
+    isWhitespace() ||
+        Character.getType(this) == Character.FORMAT.toInt()
+
+fun isPrivateId(browseId: String): Boolean = browseId.contains("privately")
+
+private fun String?.normalizedContinuation(): String? = this?.takeUnless(String::isBlank)

@@ -1,6 +1,16 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube
 
 import com.pryvn.audiophile.code.api.innertube.models.YouTubeClient
+import com.pryvn.audiophile.code.api.innertube.utils.hasYouTubeLoginCookie
+import com.pryvn.audiophile.code.api.innertube.utils.sha1
+import java.util.Locale
 
 data class PlaybackAuthState(
     val cookie: String? = null,
@@ -9,44 +19,105 @@ data class PlaybackAuthState(
     val poToken: String? = null,
     val poTokenGvs: String? = null,
     val poTokenPlayer: String? = null,
-    val webClientPoTokenEnabled: Boolean = true,
+    val webClientPoTokenEnabled: Boolean = false,
 ) {
     val hasLoginCookie: Boolean
-        get() = !cookie.isNullOrBlank()
+        get() = hasYouTubeLoginCookie(cookie)
 
     val hasPlaybackLoginContext: Boolean
         get() = hasLoginCookie && !dataSyncId.isNullOrBlank()
 
-    fun resolveGvsPoToken(client: YouTubeClient? = null): String? = poTokenGvs
+    val sessionId: String?
+        get() = if (hasPlaybackLoginContext) dataSyncId else visitorData
 
-    fun resolvePlayerPoToken(client: YouTubeClient? = null, explicitPoToken: String? = null): String? =
-        explicitPoToken ?: poTokenPlayer
+    val fingerprint: String
+        get() =
+            sha1(
+                listOf(
+                    cookie.orEmpty(),
+                    visitorData.orEmpty(),
+                    dataSyncId.orEmpty(),
+                    poToken.orEmpty(),
+                    poTokenGvs.orEmpty(),
+                    poTokenPlayer.orEmpty(),
+                    webClientPoTokenEnabled.toString(),
+                ).joinToString(separator = "\u0000"),
+            )
 
-    fun normalized(): PlaybackAuthState = this
+    fun normalized(): PlaybackAuthState =
+        copy(
+            cookie = cookie.normalizeAuthValue(),
+            visitorData = visitorData.normalizeAuthValue(),
+            dataSyncId = dataSyncId.normalizeDataSyncId(),
+            poToken = poToken.normalizeAuthValue(),
+            poTokenGvs = poTokenGvs.normalizeAuthValue(),
+            poTokenPlayer = poTokenPlayer.normalizeAuthValue(),
+        )
+
+    fun resolvePlayerPoToken(
+        client: YouTubeClient,
+        explicitPoToken: String? = null,
+    ): String? {
+        val explicit = explicitPoToken.normalizeAuthValue()
+        if (explicit != null) return explicit
+        if (!webClientPoTokenEnabled) return null
+        if (!needsServiceIntegrity(client)) return null
+        return poTokenPlayer ?: poToken
+    }
+
+    fun resolveGvsPoToken(client: YouTubeClient? = null): String? {
+        if (client != null && !needsServiceIntegrity(client)) return null
+        if (!webClientPoTokenEnabled) return null
+        return poTokenGvs ?: poToken
+    }
 
     companion object {
         val EMPTY = PlaybackAuthState()
+
+        internal fun needsServiceIntegrity(client: YouTubeClient): Boolean {
+            val name = client.clientName.uppercase(Locale.US)
+            return name == "WEB" ||
+                name == "WEB_REMIX" ||
+                name == "WEB_CREATOR" ||
+                name == "MWEB" ||
+                name == "WEB_EMBEDDED_PLAYER" ||
+                name == "TVHTML5" ||
+                name == "TVHTML5_SIMPLY_EMBEDDED_PLAYER" ||
+                name == "TVHTML5_SIMPLY"
+        }
     }
 }
 
-private val YOUTUBE_LOGIN_COOKIE_NAMES = listOf(
-    "SAPISID",
-    "__Secure-3PAPISID",
-    "__Secure-1PAPISID",
-    "APISID",
-)
+private fun String?.normalizeAuthValue(): String? {
+    val trimmed = this?.trim()
+    return trimmed?.takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+}
 
-fun youtubeLoginCookieValue(cookie: String?): String? {
-    if (cookie.isNullOrBlank()) return null
-    val cookieMap = cookie.split(";")
-        .map { it.trim() }
-        .filter { it.isNotBlank() }
-        .mapNotNull { part ->
-            val eq = part.indexOf('=')
-            if (eq <= 0) null else part.substring(0, eq).trim() to part.substring(eq + 1).trim()
+private fun String?.normalizeDataSyncId(): String? {
+    val normalized = this.normalizeAuthValue()?.decodePercentEscapes() ?: return null
+    return normalized.takeIf { !it.contains("||") }
+        ?: normalized.takeIf { it.endsWith("||") }?.substringBefore("||")
+        ?: normalized.substringAfter("||")
+}
+
+private fun String.decodePercentEscapes(): String {
+    if (!contains('%')) return this
+
+    val builder = StringBuilder(length)
+    var index = 0
+    while (index < length) {
+        val char = this[index]
+        if (char == '%' && index + 2 < length) {
+            val high = Character.digit(this[index + 1], 16)
+            val low = Character.digit(this[index + 2], 16)
+            if (high >= 0 && low >= 0) {
+                builder.append(((high shl 4) + low).toChar())
+                index += 3
+                continue
+            }
         }
-        .toMap()
-    return YOUTUBE_LOGIN_COOKIE_NAMES.firstNotNullOfOrNull { name ->
-        cookieMap[name]?.takeIf { it.isNotBlank() }
+        builder.append(char)
+        index += 1
     }
+    return builder.toString()
 }

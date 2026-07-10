@@ -1,156 +1,75 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.pages
 
-import com.pryvn.audiophile.code.api.innertube.models.*
-import kotlinx.serialization.json.*
+import com.pryvn.audiophile.code.api.innertube.models.Album
+import com.pryvn.audiophile.code.api.innertube.models.Artist
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint
+import com.pryvn.audiophile.code.api.innertube.models.PlaylistPanelVideoRenderer
+import com.pryvn.audiophile.code.api.innertube.models.SongItem
+import com.pryvn.audiophile.code.api.innertube.models.WatchEndpoint
+import com.pryvn.audiophile.code.api.innertube.models.oddElements
+import com.pryvn.audiophile.code.api.innertube.models.splitBySeparator
+import com.pryvn.audiophile.code.api.innertube.utils.parseTime
 
 data class NextResult(
-    val title: String?,
+    val title: String? = null,
     val items: List<SongItem>,
-    val currentIndex: Int?,
-    val lyricsEndpoint: BrowseEndpoint?,
-    val relatedEndpoint: BrowseEndpoint?,
+    val currentIndex: Int? = null,
+    val lyricsEndpoint: BrowseEndpoint? = null,
+    val relatedEndpoint: BrowseEndpoint? = null,
     val continuation: String?,
-    val endpoint: BrowseEndpoint?,
+    val endpoint: WatchEndpoint, // current or continuation next endpoint
 )
 
 object NextPage {
-    fun fromPlaylistPanelVideoRenderer(renderer: JsonObject): SongItem? {
-        val title = renderer["title"]?.jsonObject
-            ?.get("runs")?.jsonArray
-            ?.firstOrNull()?.jsonObject
-            ?.get("text")?.jsonPrimitive?.contentOrNull ?: return null
-
-        val videoId = renderer["videoId"]?.jsonPrimitive?.contentOrNull ?: return null
-
-        val artistRuns = renderer["longBylineText"]?.jsonObject
-            ?.get("runs")?.jsonArray
-        val artistName = artistRuns?.firstOrNull()?.jsonObject
-            ?.get("text")?.jsonPrimitive?.contentOrNull
-        val artistId = artistRuns?.firstOrNull()?.jsonObject
-            ?.get("navigationEndpoint")?.jsonObject
-            ?.get("browseEndpoint")?.jsonObject
-            ?.get("browseId")?.jsonPrimitive?.contentOrNull
-        val artists = if (artistName != null) {
-            listOf(YTItem.Artist(name = artistName, id = artistId))
-        } else emptyList()
-
-        val thumbnailUrl = renderer["thumbnail"]?.jsonObject
-            ?.get("thumbnails")?.jsonArray
-            ?.lastOrNull()?.jsonObject
-            ?.get("url")?.jsonPrimitive?.contentOrNull
-
-        val lengthText = renderer["lengthText"]?.jsonObject
-            ?.get("simpleText")?.jsonPrimitive?.contentOrNull
-        var durationSeconds: Int? = null
-        lengthText?.let { text ->
-            val parts = text.split(":")
-            durationSeconds = when (parts.size) {
-                2 -> parts[0].toIntOrNull()?.let { m -> parts[1].toIntOrNull()?.let { s -> m * 60 + s } }
-                3 -> parts[0].toIntOrNull()?.let { h -> parts[1].toIntOrNull()?.let { m -> parts[2].toIntOrNull()?.let { s -> h * 3600 + m * 60 + s } } }
-                else -> null
-            }
-        }
-
-        val playlistId = renderer["navigationEndpoint"]?.jsonObject
-            ?.get("watchEndpoint")?.jsonObject
-            ?.get("playlistId")?.jsonPrimitive?.contentOrNull
-
+    fun fromPlaylistPanelVideoRenderer(renderer: PlaylistPanelVideoRenderer): SongItem? {
+        val longByLineRuns = renderer.longBylineText?.runs?.splitBySeparator() ?: return null
         return SongItem(
-            id = videoId,
-            title = title,
-            artists = artists,
-            thumbnailUrl = thumbnailUrl,
-            durationSeconds = durationSeconds,
-            playlistId = playlistId,
-        )
-    }
-
-    fun fromNextResponse(json: JsonObject): NextResult {
-        val contents = json["contents"]?.jsonObject
-            ?.get("singleColumnMusicWatchNextResultsRenderer")?.jsonObject
-            ?.get("tabbedRenderer")?.jsonObject
-            ?.get("watchNextTabbedResultsRenderer")?.jsonObject
-            ?.get("tabs")?.jsonArray
-
-        val tabContent = contents?.firstOrNull()?.jsonObject
-            ?.get("tabRenderer")?.jsonObject
-            ?.get("content")?.jsonObject
-
-        val playlistPanel = tabContent?.get("musicQueueRenderer")?.jsonObject
-            ?.get("content")?.jsonObject
-            ?.get("playlistPanelRenderer")?.jsonObject
-
-        val title = playlistPanel?.get("title")?.jsonObject
-            ?.get("runs")?.jsonArray
-            ?.firstOrNull()?.jsonObject
-            ?.get("text")?.jsonPrimitive?.contentOrNull
-            ?: playlistPanel?.get("titleText")?.jsonObject
-                ?.get("runs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("text")?.jsonPrimitive?.contentOrNull
-
-        var currentIndex: Int? = null
-        val items = playlistPanel?.get("contents")?.jsonArray
-            ?.mapNotNull { content ->
-                val renderer = content.jsonObject["playlistPanelVideoRenderer"]?.jsonObject
-                if (renderer != null) {
-                    if (renderer["selected"]?.jsonPrimitive?.booleanOrNull == true) {
-                        currentIndex = content.jsonObject.values.indexOfFirst {
-                            it is JsonObject && it.containsKey("playlistPanelVideoRenderer")
-                        }
-                    }
-                    fromPlaylistPanelVideoRenderer(renderer)
-                } else null
-            }.orEmpty()
-
-        val endpoint = json["currentVideoEndpoint"]?.jsonObject
-            ?.get("watchEndpoint")?.jsonObject?.let {
-                BrowseEndpoint(
-                    browseId = it["browseId"]?.jsonPrimitive?.contentOrNull,
-                    params = it["params"]?.jsonPrimitive?.contentOrNull,
-                )
-            }
-
-        val continuation = playlistPanel?.get("continuations")?.jsonArray
-            ?.firstOrNull()?.jsonObject
-            ?.get("continuationEndpoint")?.jsonObject
-            ?.get("continuationCommand")?.jsonObject
-            ?.get("token")?.jsonPrimitive?.contentOrNull
-
-        val buttons = tabContent?.get("videoSecondaryInfoRenderer")?.jsonObject
-            ?.get("videoActions")?.jsonObject
-            ?.get("menuRenderer")?.jsonObject
-            ?.get("topLevelButtons")?.jsonArray
-
-        var lyricsEndpoint: BrowseEndpoint? = null
-        var relatedEndpoint: BrowseEndpoint? = null
-
-        buttons?.forEach { button ->
-            val toggleBtn = button.jsonObject["toggleButtonRenderer"]?.jsonObject
-            val navEp = toggleBtn?.get("defaultNavigationEndpoint")?.jsonObject
-            val browseEp = navEp?.get("browseEndpoint")?.jsonObject
-            val browseId = browseEp?.get("browseId")?.jsonPrimitive?.contentOrNull
-            if (browseId == "FEmusic_library_header_pick") {
-                lyricsEndpoint = BrowseEndpoint(
-                    browseId = browseId,
-                    params = browseEp["params"]?.jsonPrimitive?.contentOrNull,
-                )
-            } else if (browseId == "FEmusic_related") {
-                relatedEndpoint = BrowseEndpoint(
-                    browseId = browseId,
-                    params = browseEp["params"]?.jsonPrimitive?.contentOrNull,
-                )
-            }
-        }
-
-        return NextResult(
-            title = title,
-            items = items,
-            currentIndex = currentIndex,
-            lyricsEndpoint = lyricsEndpoint,
-            relatedEndpoint = relatedEndpoint,
-            continuation = continuation,
-            endpoint = endpoint,
+            id = renderer.videoId ?: return null,
+            title =
+                renderer.title
+                    ?.runs
+                    ?.firstOrNull()
+                    ?.text ?: return null,
+            artists =
+                longByLineRuns.firstOrNull()?.oddElements()?.map {
+                    Artist(
+                        name = it.text,
+                        id = it.navigationEndpoint?.browseEndpoint?.browseId,
+                    )
+                } ?: return null,
+            album =
+                longByLineRuns
+                    .getOrNull(1)
+                    ?.firstOrNull()
+                    ?.takeIf {
+                        it.navigationEndpoint?.browseEndpoint != null
+                    }?.let {
+                        Album(
+                            name = it.text,
+                            id = it.navigationEndpoint?.browseEndpoint?.browseId!!,
+                        )
+                    },
+            duration =
+                renderer.lengthText
+                    ?.runs
+                    ?.firstOrNull()
+                    ?.text
+                    ?.parseTime() ?: return null,
+            thumbnail =
+                renderer.thumbnail.thumbnails
+                    .lastOrNull()
+                    ?.url ?: return null,
+            explicit =
+                renderer.badges?.find {
+                    it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                } != null,
         )
     }
 }

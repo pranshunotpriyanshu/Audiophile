@@ -3,16 +3,6 @@ package com.pryvn.audiophile.ui
 import androidx.compose.runtime.Stable
 import androidx.navigation.NavController
 
-/*object UI {
-    const val HomePage = "HomePage"
-
-    const val Settings = "Settings"
-
-    object Settings {
-        const val LyricGetter = "LyricGetter"
-    }
-}*/
-
 @Stable
 interface UI {
     companion object {
@@ -33,6 +23,8 @@ interface UI {
         const val YTMusicExplore = "YTMusicExplore"
         const val YTMusicSearch = "YTMusicSearch"
         const val YTMusicPlaylists = "YTMusicPlaylists"
+        const val OnlinePlaylist = "OnlinePlaylist"
+        const val OnlineAlbumInfo = "OnlineAlbumInfo"
         const val YTMusicMainSearch = "YTMusicMainSearch"
     }
 
@@ -42,7 +34,6 @@ interface UI {
             const val Main = "Main"
             const val LibraryOverview = "LibraryOverview"
 
-            const val LyricGetter = "LyricGetter"
             const val ExoplayerSetting = "ExoplayerSetting"
             const val About = "About"
             const val MediaCodec = "MediaCodec"

@@ -1,15 +1,22 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.body
 
-import com.pryvn.audiophile.code.api.innertube.models.Context
 import kotlinx.serialization.Serializable
+import com.pryvn.audiophile.code.api.innertube.models.Context
 
 @Serializable
 data class NextBody(
     val context: Context,
-    val videoId: String? = null,
-    val playlistId: String? = null,
-    val playlistSetVideoId: String? = null,
-    val index: Int? = null,
-    val params: String? = null,
-    val continuation: String? = null,
+    val videoId: String?,
+    val playlistId: String?,
+    val playlistSetVideoId: String?,
+    val index: Int?,
+    val params: String?,
+    val continuation: String?,
 )

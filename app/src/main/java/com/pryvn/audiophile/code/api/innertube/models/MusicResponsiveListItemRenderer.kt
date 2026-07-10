@@ -1,90 +1,112 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ALBUM
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ARTIST
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_AUDIOBOOK
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_LIBRARY_ARTIST
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
+/**
+ * Typical list item
+ * Used in [MusicCarouselShelfRenderer], [MusicShelfRenderer]
+ * Appears in quick picks, search results, table items, etc.
+ */
+@Serializable
 data class MusicResponsiveListItemRenderer(
-    @SerializedName("badges") val badges: List<Badges>? = null,
-    @SerializedName("fixedColumns") val fixedColumns: List<FixedColumn>? = null,
-    @SerializedName("flexColumns") val flexColumns: List<FlexColumn>? = null,
-    @SerializedName("thumbnail") val thumbnail: ThumbnailRenderer? = null,
-    @SerializedName("menu") val menu: Menu? = null,
-    @SerializedName("playlistItemData") val playlistItemData: PlaylistItemData? = null,
-    @SerializedName("overlay") val overlay: Overlay? = null,
-    @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null
+    val badges: List<Badges>?,
+    val fixedColumns: List<FlexColumn>?,
+    val flexColumns: List<FlexColumn>,
+    val thumbnail: ThumbnailRenderer?,
+    val menu: Menu?,
+    val playlistItemData: PlaylistItemData?,
+    val overlay: Overlay?,
+    val navigationEndpoint: NavigationEndpoint?,
 ) {
-    data class FixedColumn(
-        @SerializedName("musicResponsiveListItemFixedColumnRenderer") val musicResponsiveListItemFixedColumnRenderer: MusicResponsiveListItemFixedColumnRenderer? = null
-    ) {
-        data class MusicResponsiveListItemFixedColumnRenderer(
-            @SerializedName("text") val text: Runs? = null,
-            @SerializedName("accessibility") val accessibility: Accessibility? = null
-        ) {
-            data class Accessibility(
-                @SerializedName("accessibilityData") val accessibilityData: AccessibilityData? = null
-            ) {
-                data class AccessibilityData(
-                    @SerializedName("label") val label: String? = null
-                )
-            }
-        }
-    }
+    val isSong: Boolean
+        get() = navigationEndpoint == null || navigationEndpoint.watchEndpoint != null || navigationEndpoint.watchPlaylistEndpoint != null
+    val isPlaylist: Boolean
+        get() =
+            navigationEndpoint
+                ?.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_PLAYLIST
+    val isAlbum: Boolean
+        get() =
+            navigationEndpoint
+                ?.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_ALBUM ||
+                navigationEndpoint
+                    ?.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig
+                    ?.pageType ==
+                MUSIC_PAGE_TYPE_AUDIOBOOK
+    val isArtist: Boolean
+        get() =
+            navigationEndpoint
+                ?.browseEndpoint
+                ?.browseEndpointContextSupportedConfigs
+                ?.browseEndpointContextMusicConfig
+                ?.pageType ==
+                MUSIC_PAGE_TYPE_ARTIST ||
+                navigationEndpoint
+                    ?.browseEndpoint
+                    ?.browseEndpointContextSupportedConfigs
+                    ?.browseEndpointContextMusicConfig
+                    ?.pageType ==
+                MUSIC_PAGE_TYPE_LIBRARY_ARTIST
 
+    @Serializable
     data class FlexColumn(
-        @SerializedName("musicResponsiveListItemFlexColumnRenderer") val musicResponsiveListItemFlexColumnRenderer: MusicResponsiveListItemFlexColumnRenderer? = null
+        @JsonNames("musicResponsiveListItemFixedColumnRenderer")
+        val musicResponsiveListItemFlexColumnRenderer: MusicResponsiveListItemFlexColumnRenderer,
     ) {
+        @Serializable
         data class MusicResponsiveListItemFlexColumnRenderer(
-            @SerializedName("text") val text: Runs? = null,
-            @SerializedName("displayPriority") val displayPriority: String? = null
+            val text: Runs?,
         )
     }
 
+    @Serializable
     data class PlaylistItemData(
-        @SerializedName("videoId") val videoId: String? = null,
-        @SerializedName("playlistSetVideoId") val playlistSetVideoId: String? = null
+        val playlistSetVideoId: String?,
+        val videoId: String,
     )
 
+    @Serializable
     data class Overlay(
-        @SerializedName("musicItemThumbnailOverlayRenderer") val musicItemThumbnailOverlayRenderer: MusicItemThumbnailOverlayRenderer? = null
+        val musicItemThumbnailOverlayRenderer: MusicItemThumbnailOverlayRenderer,
     ) {
+        @Serializable
         data class MusicItemThumbnailOverlayRenderer(
-            @SerializedName("content") val content: Content? = null
+            val content: Content,
         ) {
+            @Serializable
             data class Content(
-                @SerializedName("musicPlayButtonRenderer") val musicPlayButtonRenderer: MusicPlayButtonRenderer? = null
+                val musicPlayButtonRenderer: MusicPlayButtonRenderer,
             ) {
+                @Serializable
                 data class MusicPlayButtonRenderer(
-                    @SerializedName("playNavigationEndpoint") val playNavigationEndpoint: NavigationEndpoint? = null,
-                    @SerializedName("icon") val icon: Icon? = null
+                    val playNavigationEndpoint: NavigationEndpoint?,
                 )
             }
         }
     }
-
-    val isSong: Boolean
-        get() = flexColumns?.any { column ->
-            column.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.any { run ->
-                run.text?.contains("Song") == true
-            } == true
-        } == true
-
-    val isPlaylist: Boolean
-        get() = flexColumns?.any { column ->
-            column.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.any { run ->
-                run.text?.contains("Playlist") == true
-            } == true
-        } == true
-
-    val isAlbum: Boolean
-        get() = flexColumns?.any { column ->
-            column.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.any { run ->
-                run.text?.contains("Album") == true
-            } == true
-        } == true
-
-    val isArtist: Boolean
-        get() = flexColumns?.any { column ->
-            column.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.any { run ->
-                run.text?.contains("Artist") == true
-            } == true
-        } == true
 }

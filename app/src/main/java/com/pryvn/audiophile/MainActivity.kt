@@ -40,6 +40,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -47,6 +49,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -67,6 +74,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.CompositionLocalProvider
+import com.pryvn.audiophile.ui.pages.LocalSeekbarRect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -136,7 +145,6 @@ import com.pryvn.audiophile.ui.pages.library.playlists.PlayLists
 import com.pryvn.audiophile.ui.pages.settings.Settings
 import com.pryvn.audiophile.ui.pages.settings.audio.exoPlayer.ExoPlayerSettings
 import com.pryvn.audiophile.ui.pages.settings.audio.exoPlayer.MediaCodec
-import com.pryvn.audiophile.ui.pages.settings.extend.statusBarLyric.LyricGetter
 import com.pryvn.audiophile.ui.pages.settings.library.LibraryOverview
 import com.pryvn.audiophile.ui.pages.settings.others.About
 import com.pryvn.audiophile.ui.pages.settings.performance.LyricSetting
@@ -516,9 +524,6 @@ class MainActivity : BaseActivity() {
                                             composable(UI.Settings.LibraryOverview) {
                                                 LibraryOverview(navController)
                                             }
-                                            composable(UI.Settings.LyricGetter) {
-                                                LyricGetter(navController)
-                                            }
                                             composable(ExoplayerSetting) {
                                                 ExoPlayerSettings(navController)
                                             }
@@ -686,15 +691,15 @@ class MainActivity : BaseActivity() {
                                                 add(
                                                     NavItem(
                                                         stringResource(id = R.string.page_home_title),
-                                                        R.drawable.audiophile_icon
+                                                        R.drawable.ic_app_logo
                                                     )
                                                 )
-                add(
-                    NavItem(
-                        stringResource(id = R.string.page_browse_title),
-                        R.drawable.ic_uitabbar_browse
-                    )
-                )
+                                                add(
+                                                    NavItem(
+                                                        stringResource(id = R.string.page_browse_title),
+                                                        R.drawable.ic_uitabbar_browse
+                                                    )
+                                                )
                                                 add(
                                                     NavItem(
                                                         stringResource(id = R.string.page_search_title),
@@ -772,32 +777,16 @@ class MainActivity : BaseActivity() {
 
                                     println("重组：播放条&播放界面 外层")
 
-                                    val dragState = rememberDraggableState { delta ->
-                                        scope.launch {
-                                            offsetY.snapTo(offsetY.value + delta)
-                                        }
-                                    }
-
-                                    /*.graphicsLayer {
-                                        if (yosBottomSheetConfig.barShowCorner) {
-                                            shadowElevation = 7.5.dp.toPx()
-                                            spotShadowColor = Color.Black.copy(alpha = 0.2f)
-
-                                            *//*compositingStrategy =
-                                                        CompositingStrategy.Offscreen*//*
-                                                }
-                                            }*/
-                                    /*.drawWithContent {
-                                        drawContent()
-                                        drawOutline(
-                                            outline = navShape.createOutline(size, layoutDirection, this),
-                                            color = color.copy(alpha = yosBottomSheetConfig.menuAlpha),
-                                            style = Stroke(width = 0.3.dp.toPx())
-                                        )
-                                    }*/
-
                                     val showNavBar = route.value in listOf(
                                         UI.HomePage,
+                                    )
+                                    val seekbarRect = remember { mutableStateOf<Rect>(Rect.Zero) }
+                                    val surfaceInRoot = remember { mutableStateOf<Offset>(Offset.Zero) }
+                                    Box(
+                                        Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer { alpha = yosBottomSheetConfig.progress * 0.5f }
+                                            .background(Color.Black)
                                     )
                                     Surface(
                                         modifier = Modifier
@@ -818,8 +807,6 @@ class MainActivity : BaseActivity() {
                                             }
                                         }
                                             .graphicsLayer {
-                                                //translationY = ((parentHeight.intValue - miniPlayerHeightPx) * (1 - yosBottomSheetConfig.progress))
-
                                                 if (yosBottomSheetConfig.barShowCorner) {
                                                     compositingStrategy = CompositingStrategy.Offscreen
                                                     clip = true
@@ -835,30 +822,60 @@ class MainActivity : BaseActivity() {
                                                     clip = false
                                                 }
                                             }
-                                            .draggable(
-                                                reverseDirection = true,
-                                                orientation = Orientation.Vertical,
-                                                state = dragState,
-                                                onDragStopped = { velocity ->
-                                                    offsetY.updateBounds(
-                                                        0f,
-                                                        parentHeight.intValue.toFloat()
-                                                    )
-                                                    scope.launch {
-                                                        if (velocity < 0f) {
-                                                            offsetY.animateTo(
-                                                                0f,
-                                                                initialVelocity = velocity
-                                                            )
-                                                        } else {
-                                                            offsetY.animateTo(
-                                                                parentHeight.intValue.toFloat(),
-                                                                initialVelocity = velocity
-                                                            )
+                                            .onGloballyPositioned { surfaceInRoot.value = it.localToRoot(Offset.Zero) }
+                                            .pointerInput(Unit) {
+                                                awaitEachGesture {
+                                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                                    if (nowPageNowPlaying.value != Album) return@awaitEachGesture
+                                                    val touchInRoot = surfaceInRoot.value + down.position
+                                                    if (touchInRoot.x >= seekbarRect.value.left &&
+                                                        touchInRoot.x <= seekbarRect.value.right &&
+                                                        touchInRoot.y >= seekbarRect.value.top &&
+                                                        touchInRoot.y <= seekbarRect.value.bottom) {
+                                                        return@awaitEachGesture
+                                                    }
+                                                    down.consume()
+
+                                                    var lastY = down.position.y
+                                                    val velocityTracker = VelocityTracker()
+                                                    velocityTracker.addPosition(down.uptimeMillis, down.position)
+                                                    var totalDisplacement = 0f
+
+                                                    do {
+                                                        val event = awaitPointerEvent()
+                                                        val change = event.changes.firstOrNull() ?: break
+                                                        if (!change.pressed) break
+                                                        val delta = -(change.position.y - lastY)
+                                                        totalDisplacement += abs(delta)
+                                                        lastY = change.position.y
+                                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
+
+                                                        scope.launch {
+                                                            offsetY.snapTo((offsetY.value + delta).coerceIn(0f, parentHeight.intValue.toFloat()))
+                                                        }
+
+                                                        change.consume()
+                                                    } while (true)
+
+                                                    if (totalDisplacement < 20f && offsetY.value < parentHeight.intValue * 0.5f) {
+                                                        scope.launch {
+                                                            offsetY.animateTo(parentHeight.intValue.toFloat())
+                                                        }
+                                                    } else if (totalDisplacement >= 20f) {
+                                                        val velocity = -velocityTracker.calculateVelocity().y
+                                                        val midPoint = parentHeight.intValue * 0.5f
+                                                        offsetY.updateBounds(0f, parentHeight.intValue.toFloat())
+                                                        scope.launch {
+                                                            val shouldExpand = if (abs(velocity) > 0.5f) velocity > 0f else offsetY.value > midPoint
+                                                            if (shouldExpand) {
+                                                                offsetY.animateTo(parentHeight.intValue.toFloat(), initialVelocity = velocity.coerceAtLeast(0f))
+                                                            } else {
+                                                                offsetY.animateTo(0f, initialVelocity = velocity.coerceAtMost(0f))
+                                                            }
                                                         }
                                                     }
                                                 }
-                                            )
+                                            }
                                             .layout { measurable, constraints ->
                                                 val placeable = measurable.measure(
                                                     constraints.copy(
@@ -883,19 +900,21 @@ class MainActivity : BaseActivity() {
                                             }
 
                                         // NowPlaying
-                                        YosWrapper {
-                                            NowPlaying(
-                                                mainViewModel = mainViewModel,
-                                                mediaViewModel = mediaViewModel,
-                                                navController = navController,
-                                                isPlayingStatusLambda = { isPlaying.value },
-                                                isPlayingOnChanged = {
-                                                    isPlaying.value = it
-                                                },
-                                                nowPageLambda = { nowPageNowPlaying.value },
-                                                showMiniPlayer = { yosBottomSheetConfig.showMenu }
-                                            ) {
-                                                nowPageNowPlaying.value = it
+                                        CompositionLocalProvider(LocalSeekbarRect provides seekbarRect) {
+                                            YosWrapper {
+                                                NowPlaying(
+                                                    mainViewModel = mainViewModel,
+                                                    mediaViewModel = mediaViewModel,
+                                                    navController = navController,
+                                                    isPlayingStatusLambda = { isPlaying.value },
+                                                    isPlayingOnChanged = {
+                                                        isPlaying.value = it
+                                                    },
+                                                    nowPageLambda = { nowPageNowPlaying.value },
+                                                    showMiniPlayer = { yosBottomSheetConfig.showMenu }
+                                                ) {
+                                                    nowPageNowPlaying.value = it
+                                                }
                                             }
                                         }
 

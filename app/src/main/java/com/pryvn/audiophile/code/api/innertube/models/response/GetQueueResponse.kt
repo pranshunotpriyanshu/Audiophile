@@ -1,75 +1,21 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.response
 
 import kotlinx.serialization.Serializable
+import com.pryvn.audiophile.code.api.innertube.models.PlaylistPanelRenderer
 
 @Serializable
 data class GetQueueResponse(
-    val queueDatas: List<QueueData> = emptyList(),
+    val queueDatas: List<QueueData>,
 ) {
     @Serializable
     data class QueueData(
-        val content: QueueContent? = null,
+        val content: PlaylistPanelRenderer.Content,
     )
-
-    @Serializable
-    data class QueueContent(
-        val playlistPanelVideoRenderer: PlaylistPanelVideoRenderer? = null,
-    )
-
-    @Serializable
-    data class PlaylistPanelVideoRenderer(
-        val title: Title? = null,
-        val lengthText: LengthText? = null,
-        val shortBylineText: ShortBylineText? = null,
-        val videoId: String? = null,
-        val thumbnail: Thumbnail? = null,
-    ) {
-        @Serializable
-        data class Title(val runs: List<Run>? = null) {
-            @Serializable
-            data class Run(val text: String? = null)
-        }
-
-        @Serializable
-        data class LengthText(val simpleText: String? = null)
-
-        @Serializable
-        data class ShortBylineText(val runs: List<Run>? = null) {
-            @Serializable
-            data class Run(
-                val text: String? = null,
-                val navigationEndpoint: NavigationEndpoint? = null,
-            )
-        }
-
-        @Serializable
-        data class Thumbnail(val thumbnails: List<ThumbnailUrl>? = null) {
-            @Serializable
-            data class ThumbnailUrl(val url: String? = null)
-        }
-
-        @Serializable
-        data class NavigationEndpoint(val watchEndpoint: WatchEndpoint? = null) {
-            @Serializable
-            data class WatchEndpoint(val videoId: String? = null, val playlistId: String? = null)
-        }
-    }
-
-    @Serializable
-    data class Run(val text: String? = null)
-
-    @Serializable
-    data class ShortBylineText(val runs: List<Run>? = null) {
-        @Serializable
-        data class Run(
-            val text: String? = null,
-            val navigationEndpoint: NavigationEndpoint? = null,
-        )
-    }
-
-    @Serializable
-    data class NavigationEndpoint(val watchEndpoint: WatchEndpoint? = null) {
-        @Serializable
-        data class WatchEndpoint(val videoId: String? = null, val playlistId: String? = null)
-    }
 }

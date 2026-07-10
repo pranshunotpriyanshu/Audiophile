@@ -1,18 +1,28 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class ResponseContext(
-    @SerializedName("visitorData") val visitorData: String? = null,
-    @SerializedName("serviceTrackingParams") val serviceTrackingParams: List<ServiceTrackingParam>? = null
+    val visitorData: String?,
+    val serviceTrackingParams: List<ServiceTrackingParam>?,
 ) {
+    @Serializable
     data class ServiceTrackingParam(
-        @SerializedName("service") val service: String? = null,
-        @SerializedName("params") val params: List<Param>? = null
+        val params: List<Param>,
+        val service: String,
     ) {
+        @Serializable
         data class Param(
-            @SerializedName("key") val key: String? = null,
-            @SerializedName("value") val value: String? = null
+            val key: String,
+            val value: String,
         )
     }
 }

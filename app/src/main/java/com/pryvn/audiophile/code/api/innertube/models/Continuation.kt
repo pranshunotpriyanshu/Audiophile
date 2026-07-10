@@ -1,23 +1,26 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
 data class Continuation(
-    @SerializedName("continuation") val continuation: String? = null
-)
-
-data class ContinuationResponse(
-    @SerializedName("continuation") val continuation: Continuation? = null
+    @JsonNames("nextContinuationData", "nextRadioContinuationData")
+    val nextContinuationData: NextContinuationData?,
 ) {
-    data class Continuation(
-        @SerializedName("nextContinuationData") val nextContinuationData: NextContinuationData? = null
-    ) {
-        data class NextContinuationData(
-            @SerializedName("continuation") val continuation: String? = null
-        )
-    }
+    @Serializable
+    data class NextContinuationData(
+        val continuation: String,
+    )
 }
 
-fun List<ContinuationResponse?>?.getContinuation(): String? {
-    return this?.firstOrNull()?.continuation?.nextContinuationData?.continuation
-}
+fun List<Continuation>.getContinuation() = firstOrNull()?.nextContinuationData?.continuation

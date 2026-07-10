@@ -1,38 +1,28 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class PlaylistPanelRenderer(
-    @SerializedName("title") val title: String? = null,
-    @SerializedName("subtitle") val subtitle: Runs? = null,
-    @SerializedName("contents") val contents: List<Content>? = null,
-    @SerializedName("continuations") val continuations: List<ContinuationResponse>? = null,
-    @SerializedName("autoPlay") val autoPlay: Boolean? = null,
-    @SerializedName("header") val header: Header? = null
+    val title: String?,
+    val titleText: Runs?,
+    val shortBylineText: Runs?,
+    val contents: List<Content>,
+    val isInfinite: Boolean?,
+    val numItemsToShow: Int?,
+    val playlistId: String?,
+    val continuations: List<Continuation>?,
 ) {
+    @Serializable
     data class Content(
-        @SerializedName("playlistPanelVideoRenderer") val playlistPanelVideoRenderer: PlaylistPanelVideoRenderer? = null
-    ) {
-        data class PlaylistPanelVideoRenderer(
-            @SerializedName("videoId") val videoId: String? = null,
-            @SerializedName("title") val title: Runs? = null,
-            @SerializedName("shortBylineText") val shortBylineText: Runs? = null,
-            @SerializedName("longBylineText") val longBylineText: Runs? = null,
-            @SerializedName("thumbnail") val thumbnail: ThumbnailRenderer? = null,
-            @SerializedName("lengthSeconds") val lengthSeconds: String? = null,
-            @SerializedName("index") val index: Int? = null,
-            @SerializedName("playlistSetVideoId") val playlistSetVideoId: String? = null,
-            @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null,
-            @SerializedName("menu") val menu: Menu? = null
-        )
-    }
-
-    data class Header(
-        @SerializedName("playlistPanelHeaderRenderer") val playlistPanelHeaderRenderer: PlaylistPanelHeaderRenderer? = null
-    ) {
-        data class PlaylistPanelHeaderRenderer(
-            @SerializedName("title") val title: Runs? = null,
-            @SerializedName("subtitle") val subtitle: Runs? = null
-        )
-    }
+        val playlistPanelVideoRenderer: PlaylistPanelVideoRenderer?,
+        val automixPreviewVideoRenderer: AutomixPreviewVideoRenderer?,
+    )
 }

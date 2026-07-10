@@ -1,115 +1,87 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.pages
 
+import com.pryvn.audiophile.code.api.innertube.models.MusicResponsiveListItemRenderer
+import com.pryvn.audiophile.code.api.innertube.models.MusicShelfRenderer
+import com.pryvn.audiophile.code.api.innertube.models.SectionListRenderer
 import com.pryvn.audiophile.code.api.innertube.models.SongItem
-import com.pryvn.audiophile.code.api.innertube.models.YTItem
-import kotlinx.serialization.json.*
-
-data class HistorySection(
-    val title: String,
-    val songs: List<SongItem>,
-)
+import com.pryvn.audiophile.code.api.innertube.models.getItems
 
 data class HistoryPage(
     val sections: List<HistorySection>?,
 ) {
+    data class HistorySection(
+        val title: String,
+        val songs: List<SongItem>,
+    )
+
     companion object {
-        fun fromSectionListContent(json: JsonObject): HistoryPage {
-            val contents = json["contents"]?.jsonObject
-                ?.get("sectionListRenderer")?.jsonObject
-                ?.get("contents")?.jsonArray ?: return HistoryPage(sections = null)
-
-            val sections = contents.mapNotNull { content ->
-                val shelf = content.jsonObject["musicShelfRenderer"]?.jsonObject ?: return@mapNotNull null
-                val title = shelf["title"]?.jsonObject
-                    ?.get("runs")?.jsonArray
-                    ?.firstOrNull()?.jsonObject
-                    ?.get("text")?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-
-                val shelfContents = shelf["contents"]?.jsonArray ?: return@mapNotNull null
-                val songs = shelfContents.mapNotNull { item ->
-                    val renderer = item.jsonObject["musicResponsiveListItemRenderer"]?.jsonObject ?: return@mapNotNull null
-                    parseSongItem(renderer)
-                }
-
-                HistorySection(title = title, songs = songs)
-            }
-
-            return HistoryPage(sections = sections)
-        }
-
-        private fun parseSongItem(renderer: JsonObject): SongItem? {
-            val flexColumns = renderer["flexColumns"]?.jsonArray ?: return null
-            val title = flexColumns.firstOrNull()?.jsonObject
-                ?.get("musicResponsiveListItemFlexColumnRenderer")?.jsonObject
-                ?.get("text")?.jsonObject
-                ?.get("runs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("text")?.jsonPrimitive?.contentOrNull ?: return null
-
-            val videoId = renderer["playlistItemData"]?.jsonObject
-                ?.get("videoId")?.jsonPrimitive?.contentOrNull
-                ?: renderer["navigationEndpoint"]?.jsonObject
-                    ?.get("watchEndpoint")?.jsonObject
-                    ?.get("videoId")?.jsonPrimitive?.contentOrNull
-                ?: return null
-
-            val playlistId = renderer["navigationEndpoint"]?.jsonObject
-                ?.get("watchEndpoint")?.jsonObject
-                ?.get("playlistId")?.jsonPrimitive?.contentOrNull
-
-            val subtitleRuns = flexColumns.getOrNull(1)?.jsonObject
-                ?.get("musicResponsiveListItemFlexColumnRenderer")?.jsonObject
-                ?.get("text")?.jsonObject
-                ?.get("runs")?.jsonArray
-
-            val artists = mutableListOf<YTItem.Artist>()
-            var album: YTItem.Album? = null
-
-            subtitleRuns?.forEach { run ->
-                val text = run.jsonObject["text"]?.jsonPrimitive?.contentOrNull ?: return@forEach
-                val navEp = run.jsonObject["navigationEndpoint"]?.jsonObject
-                val browseId = navEp?.get("browseEndpoint")?.jsonObject
-                    ?.get("browseId")?.jsonPrimitive?.contentOrNull
-                if (browseId?.startsWith("UC") == true) {
-                    artists.add(YTItem.Artist(name = text, id = browseId))
-                } else if (browseId?.startsWith("MPRE") == true) {
-                    album = YTItem.Album(name = text, id = browseId)
-                }
-            }
-
-            val thumbnailUrl = renderer["thumbnail"]?.jsonObject
-                ?.get("musicThumbnailRenderer")?.jsonObject
-                ?.get("thumbnail")?.jsonObject
-                ?.get("thumbnails")?.jsonArray
-                ?.lastOrNull()?.jsonObject
-                ?.get("url")?.jsonPrimitive?.contentOrNull
-
-            var durationSeconds: Int? = null
-            renderer["fixedColumns"]?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("musicResponsiveListItemFixedColumnRenderer")?.jsonObject
-                ?.get("text")?.jsonObject
-                ?.get("runs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("text")?.jsonPrimitive?.contentOrNull
-                ?.let { text ->
-                    val parts = text.split(":")
-                    durationSeconds = when (parts.size) {
-                        2 -> parts[0].toIntOrNull()?.let { m -> parts[1].toIntOrNull()?.let { s -> m * 60 + s } }
-                        3 -> parts[0].toIntOrNull()?.let { h -> parts[1].toIntOrNull()?.let { m -> parts[2].toIntOrNull()?.let { s -> h * 3600 + m * 60 + s } } }
-                        else -> null
+        fun fromSectionListContent(content: SectionListRenderer.Content): List<HistorySection> {
+            val directSongs = mutableListOf<SongItem>()
+            val sections =
+                buildList {
+                    content.musicShelfRenderer?.toHistorySection()?.let(::add)
+                    content.itemSectionRenderer?.contents.orEmpty().forEach { itemSectionContent ->
+                        itemSectionContent.musicShelfRenderer?.toHistorySection()?.let(::add)
+                        itemSectionContent.musicResponsiveListItemRenderer
+                            ?.let { fromMusicResponsiveListItemRenderer(it) }
+                            ?.let(directSongs::add)
                     }
                 }
 
-            return SongItem(
-                id = videoId,
-                title = title,
-                artists = artists,
-                album = album,
-                thumbnailUrl = thumbnailUrl,
-                durationSeconds = durationSeconds,
-                playlistId = playlistId,
-            )
+            return if (directSongs.isEmpty()) {
+                sections
+            } else {
+                sections +
+                    HistorySection(
+                        title =
+                            content.musicShelfRenderer
+                                ?.title
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text
+                                .orEmpty(),
+                        songs = directSongs,
+                    )
+            }
         }
+
+        fun fromMusicShelfRenderer(renderer: MusicShelfRenderer): HistorySection =
+            renderer.toHistorySection()
+                ?: HistorySection(
+                    title =
+                        renderer.title
+                            ?.runs
+                            ?.firstOrNull()
+                            ?.text
+                            .orEmpty(),
+                    songs = emptyList(),
+                )
+
+        private fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? =
+            renderer.toSongItem(albumColumnIndex = 3)
     }
+}
+
+private fun MusicShelfRenderer.toHistorySection(): HistoryPage.HistorySection? {
+    val songs =
+        contents.orEmpty().getItems().mapNotNull {
+            it.toSongItem(albumColumnIndex = 3)
+        }
+    if (songs.isEmpty()) return null
+    return HistoryPage.HistorySection(
+        title =
+            title
+                ?.runs
+                ?.firstOrNull()
+                ?.text
+                .orEmpty(),
+        songs = songs,
+    )
 }

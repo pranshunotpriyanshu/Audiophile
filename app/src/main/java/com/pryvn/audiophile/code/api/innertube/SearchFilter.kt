@@ -1,12 +1,15 @@
 package com.pryvn.audiophile.code.api.innertube
 
-data class SearchFilter(val value: String) {
+@JvmInline
+value class SearchFilter(
+    val value: String,
+) {
     companion object {
-        val SONGS = SearchFilter("EgWKAQIIAWoKEAMQBBAJEAoQBQ==")
-        val VIDEOS = SearchFilter("EgWKAQIQAWoKEAMQBBAJEAoQBQ==")
-        val ALBUMS = SearchFilter("EgWKAQIYAWoKEAMQBBAJEAoQBQ==")
-        val ARTISTS = SearchFilter("EgWKAQIgAWoKEAMQBBAJEAoQBQ==")
-        val PLAYLISTS = SearchFilter("EgWKAQIsAWoKEAMQBBAJEAoQBQ==")
-        val ALL = SearchFilter("")
+        val FILTER_SONG = SearchFilter("EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D")
+        val FILTER_VIDEO = SearchFilter("EgWKAQIQAWoKEAkQChAFEAMQBA%3D%3D")
+        val FILTER_ALBUM = SearchFilter("EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D")
+        val FILTER_ARTIST = SearchFilter("EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D")
+        val FILTER_FEATURED_PLAYLIST = SearchFilter("EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D")
+        val FILTER_COMMUNITY_PLAYLIST = SearchFilter("EgeKAQQoAEABagoQAxAEEAoQCRAF")
     }
 }

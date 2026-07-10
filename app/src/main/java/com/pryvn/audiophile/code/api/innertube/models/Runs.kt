@@ -1,37 +1,50 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Runs(
-    @SerializedName("runs") val runs: List<Run>? = null
+    val runs: List<Run>?,
 )
 
+@Serializable
 data class Run(
-    @SerializedName("text") val text: String? = null,
-    @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null
+    val text: String,
+    val navigationEndpoint: NavigationEndpoint?,
 )
 
-fun List<Run>?.splitBySeparator(): List<List<Run>> {
-    if (this.isNullOrEmpty()) return emptyList()
-    val result = mutableListOf<List<Run>>()
-    var current = mutableListOf<Run>()
-    for (run in this) {
+fun List<Run>.splitBySeparator(): List<List<Run>> {
+    val res = mutableListOf<List<Run>>()
+    var tmp = mutableListOf<Run>()
+    forEach { run ->
         if (run.text == " • ") {
-            if (current.isNotEmpty()) {
-                result.add(current)
-                current = mutableListOf()
-            }
+            res.add(tmp)
+            tmp = mutableListOf()
         } else {
-            current.add(run)
+            tmp.add(run)
         }
     }
-    if (current.isNotEmpty()) {
-        result.add(current)
-    }
-    return result
+    res.add(tmp)
+    return res
 }
 
-fun List<Run>?.oddElements(): List<Run> {
-    if (this.isNullOrEmpty()) return emptyList()
-    return this.filterIndexed { index, _ -> index % 2 == 1 }
-}
+fun List<List<Run>>.clean(): List<List<Run>> =
+    if (getOrNull(0)?.getOrNull(0)?.navigationEndpoint != null ||
+        (getOrNull(0)?.getOrNull(0)?.text?.contains(regex = Regex("[&,]"))) != false
+    ) {
+        this
+    } else {
+        this.drop(1)
+    }
+
+fun List<Run>.oddElements() =
+    filterIndexed { index, _ ->
+        index % 2 == 0
+    }

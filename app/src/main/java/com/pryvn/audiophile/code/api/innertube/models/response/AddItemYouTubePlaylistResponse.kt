@@ -1,19 +1,27 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.response
 
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class AddItemYouTubePlaylistResponse(
-    val playlistEditResults: List<PlaylistEditResult> = emptyList(),
+    val status: String,
+    val playlistEditResults: List<PlaylistEditResult>,
 ) {
     @Serializable
     data class PlaylistEditResult(
-        val playlistEditVideoAddedResultData: PlaylistEditVideoAddedResultData? = null,
-    )
-
-    @Serializable
-    data class PlaylistEditVideoAddedResultData(
-        val videoId: String? = null,
-        val setVideoId: String? = null,
-    )
+        val playlistEditVideoAddedResultData: PlaylistEditVideoAddedResultData,
+    ) {
+        @Serializable
+        data class PlaylistEditVideoAddedResultData(
+            val setVideoId: String,
+            val videoId: String,
+        )
+    }
 }

@@ -1,14 +1,33 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class GridRenderer(
-    @SerializedName("header") val header: Any? = null,
-    @SerializedName("items") val items: List<Item>? = null,
-    @SerializedName("continuations") val continuations: List<ContinuationResponse>? = null
+    val header: Header?,
+    val items: List<Item>,
+    val continuations: List<Continuation>?,
 ) {
+    @Serializable
+    data class Header(
+        val gridHeaderRenderer: GridHeaderRenderer,
+    ) {
+        @Serializable
+        data class GridHeaderRenderer(
+            val title: Runs,
+        )
+    }
+
+    @Serializable
     data class Item(
-        @SerializedName("musicResponsiveListItemRenderer") val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null,
-        @SerializedName("musicTwoRowItemRenderer") val musicTwoRowItemRenderer: MusicTwoRowItemRenderer? = null
+        val musicNavigationButtonRenderer: MusicNavigationButtonRenderer?,
+        val musicTwoRowItemRenderer: MusicTwoRowItemRenderer?,
     )
 }

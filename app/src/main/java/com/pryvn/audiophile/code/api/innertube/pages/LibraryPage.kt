@@ -1,137 +1,216 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.pages
 
+import com.pryvn.audiophile.code.api.innertube.models.AlbumItem
+import com.pryvn.audiophile.code.api.innertube.models.Artist
+import com.pryvn.audiophile.code.api.innertube.models.ArtistItem
+import com.pryvn.audiophile.code.api.innertube.models.MusicResponsiveListItemRenderer
+import com.pryvn.audiophile.code.api.innertube.models.MusicTwoRowItemRenderer
+import com.pryvn.audiophile.code.api.innertube.models.PlaylistItem
+import com.pryvn.audiophile.code.api.innertube.models.Run
 import com.pryvn.audiophile.code.api.innertube.models.YTItem
-import kotlinx.serialization.json.*
 
 data class LibraryPage(
     val items: List<YTItem>,
     val continuation: String?,
 ) {
     companion object {
-        fun fromBrowseResponse(json: JsonObject): LibraryPage {
-            val contents = json["contents"]?.jsonObject
-                ?.get("singleColumnBrowseResultsRenderer")?.jsonObject
-                ?.get("tabs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("tabRenderer")?.jsonObject
-                ?.get("content")?.jsonObject
-                ?: json["contents"]?.jsonObject
+        fun fromMusicTwoRowItemRenderer(renderer: MusicTwoRowItemRenderer): YTItem? {
+            return when {
+                renderer.isAlbum -> {
+                    val browseId = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null
+                    val playlistId =
+                        renderer.thumbnailOverlay
+                            ?.musicItemThumbnailOverlayRenderer
+                            ?.content
+                            ?.musicPlayButtonRenderer
+                            ?.playNavigationEndpoint
+                            ?.watchPlaylistEndpoint
+                            ?.playlistId
+                            ?: renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.firstOrNull()
+                                ?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint
+                                ?.playlistId
+                            ?: browseId.removePrefix("MPREb_").let { "OLAK5uy_$it" }
 
-            val sections = contents?.get("sectionListRenderer")?.jsonObject
-                ?.get("contents")?.jsonArray
+                    AlbumItem(
+                        browseId = browseId,
+                        playlistId = playlistId,
+                        title =
+                            renderer.title.runs
+                                ?.firstOrNull()
+                                ?.text ?: return null,
+                        artists = parseArtists(renderer.subtitle?.runs),
+                        year =
+                            renderer.subtitle
+                                ?.runs
+                                ?.lastOrNull()
+                                ?.text
+                                ?.toIntOrNull(),
+                        thumbnail =
+                            renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl()
+                                ?: return null,
+                        explicit =
+                            renderer.subtitleBadges?.find {
+                                it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                            } != null,
+                    )
+                }
 
-            val items = mutableListOf<YTItem>()
-            var continuation: String? = null
+                renderer.isPlaylist -> {
+                    PlaylistItem(
+                        id =
+                            renderer.navigationEndpoint.browseEndpoint
+                                ?.browseId
+                                ?.removePrefix("VL") ?: return null,
+                        title =
+                            renderer.title.runs
+                                ?.firstOrNull()
+                                ?.text ?: return null,
+                        author = null,
+                        songCountText =
+                            renderer.subtitle
+                                ?.runs
+                                ?.lastOrNull()
+                                ?.text,
+                        thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                        playEndpoint =
+                            renderer.thumbnailOverlay
+                                ?.musicItemThumbnailOverlayRenderer
+                                ?.content
+                                ?.musicPlayButtonRenderer
+                                ?.playNavigationEndpoint
+                                ?.watchPlaylistEndpoint,
+                        shuffleEndpoint =
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find {
+                                    it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE"
+                                }?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint,
+                        radioEndpoint =
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find {
+                                    it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
+                                }?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint,
+                        isEditable =
+                            renderer.menu?.menuRenderer?.items?.find {
+                                it.menuNavigationItemRenderer?.icon?.iconType == "EDIT"
+                            } != null,
+                    )
+                }
 
-            sections?.forEach { section ->
-                val shelf = section.jsonObject["musicShelfRenderer"]?.jsonObject ?: return@forEach
-                val shelfContents = shelf["contents"]?.jsonArray ?: return@forEach
-                shelfContents.forEach { content ->
-                    val twoRow = content.jsonObject["musicTwoRowItemRenderer"]?.jsonObject
-                    val listItem = content.jsonObject["musicResponsiveListItemRenderer"]?.jsonObject
-                    when {
-                        twoRow != null -> parseTwoRowItem(twoRow)?.let { items.add(it) }
-                        listItem != null -> parseListItem(listItem)?.let { items.add(it) }
+                renderer.isArtist -> {
+                    ArtistItem(
+                        id = renderer.navigationEndpoint.browseEndpoint?.browseId ?: return null,
+                        title =
+                            renderer.title.runs
+                                ?.lastOrNull()
+                                ?.text ?: return null,
+                        thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                        shuffleEndpoint =
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find {
+                                    it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE"
+                                }?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint ?: return null,
+                        radioEndpoint =
+                            renderer.menu.menuRenderer.items
+                                .find {
+                                    it.menuNavigationItemRenderer?.icon?.iconType == "MIX"
+                                }?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint ?: return null,
+                    )
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+
+        fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): YTItem? {
+            return when {
+                renderer.isSong -> {
+                    renderer.toSongItem()
+                }
+
+                renderer.isArtist -> {
+                    ArtistItem(
+                        id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+                        title =
+                            renderer.flexColumns
+                                .firstOrNull()
+                                ?.musicResponsiveListItemFlexColumnRenderer
+                                ?.text
+                                ?.runs
+                                ?.firstOrNull()
+                                ?.text
+                                ?: return null,
+                        thumbnail =
+                            renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
+                                ?: return null,
+                        shuffleEndpoint =
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
+                                ?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint,
+                        radioEndpoint =
+                            renderer.menu
+                                ?.menuRenderer
+                                ?.items
+                                ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+                                ?.menuNavigationItemRenderer
+                                ?.navigationEndpoint
+                                ?.watchPlaylistEndpoint,
+                    )
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+
+        private fun parseArtists(runs: List<Run>?): List<Artist> {
+            val artists = mutableListOf<Artist>()
+
+            if (runs != null) {
+                for (run in runs) {
+                    if (run.navigationEndpoint != null) {
+                        artists.add(
+                            Artist(
+                                id = run.navigationEndpoint.browseEndpoint?.browseId!!,
+                                name = run.text,
+                            ),
+                        )
                     }
                 }
-                val shelfContinuation = shelf["continuations"]?.jsonArray
-                    ?.firstOrNull()?.jsonObject
-                    ?.get("continuation")?.jsonObject
-                    ?.get("nextContinuationData")?.jsonObject
-                    ?.get("continuation")?.jsonPrimitive?.contentOrNull
-                if (shelfContinuation != null) continuation = shelfContinuation
             }
-
-            return LibraryPage(items = items, continuation = continuation)
-        }
-
-        private fun parseTwoRowItem(renderer: JsonObject): YTItem? {
-            val title = renderer["title"]?.jsonObject
-                ?.get("runs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("text")?.jsonPrimitive?.contentOrNull ?: return null
-
-            val navEp = renderer["navigationEndpoint"]?.jsonObject
-            val browseId = navEp?.get("browseEndpoint")?.jsonObject
-                ?.get("browseId")?.jsonPrimitive?.contentOrNull
-            val videoId = navEp?.get("watchEndpoint")?.jsonObject
-                ?.get("videoId")?.jsonPrimitive?.contentOrNull
-
-            val subtitleRuns = renderer["subtitle"]?.jsonObject
-                ?.get("runs")?.jsonArray
-            val subtitle = subtitleRuns?.joinToString("") {
-                it.jsonObject["text"]?.jsonPrimitive?.contentOrNull ?: ""
-            }?.takeIf { it.isNotBlank() }
-
-            val thumbnailUrl = renderer["thumbnailRenderer"]?.jsonObject
-                ?.get("musicThumbnailRenderer")?.jsonObject
-                ?.get("thumbnail")?.jsonObject
-                ?.get("thumbnails")?.jsonArray
-                ?.lastOrNull()?.jsonObject
-                ?.get("url")?.jsonPrimitive?.contentOrNull
-
-            val id = browseId ?: videoId ?: return null
-            val type = when {
-                browseId?.startsWith("UC") == true -> YTItem.Type.ARTIST
-                browseId?.startsWith("MPRE") == true -> YTItem.Type.ALBUM
-                browseId?.startsWith("VL") == true -> YTItem.Type.PLAYLIST
-                videoId != null -> YTItem.Type.VIDEO
-                else -> YTItem.Type.SONG
-            }
-
-            return YTItem(
-                id = id,
-                title = title,
-                type = type,
-                thumbnailUrl = thumbnailUrl,
-                browseId = browseId,
-                playlistId = navEp?.get("watchEndpoint")?.jsonObject
-                    ?.get("playlistId")?.jsonPrimitive?.contentOrNull,
-            )
-        }
-
-        private fun parseListItem(renderer: JsonObject): YTItem? {
-            val flexColumns = renderer["flexColumns"]?.jsonArray ?: return null
-            val title = flexColumns.firstOrNull()?.jsonObject
-                ?.get("musicResponsiveListItemFlexColumnRenderer")?.jsonObject
-                ?.get("text")?.jsonObject
-                ?.get("runs")?.jsonArray
-                ?.firstOrNull()?.jsonObject
-                ?.get("text")?.jsonPrimitive?.contentOrNull ?: return null
-
-            val navEp = renderer["navigationEndpoint"]?.jsonObject
-            val browseId = navEp?.get("browseEndpoint")?.jsonObject
-                ?.get("browseId")?.jsonPrimitive?.contentOrNull
-            val videoId = renderer["playlistItemData"]?.jsonObject
-                ?.get("videoId")?.jsonPrimitive?.contentOrNull
-                ?: navEp?.get("watchEndpoint")?.jsonObject
-                    ?.get("videoId")?.jsonPrimitive?.contentOrNull
-
-            val thumbnailUrl = renderer["thumbnail"]?.jsonObject
-                ?.get("musicThumbnailRenderer")?.jsonObject
-                ?.get("thumbnail")?.jsonObject
-                ?.get("thumbnails")?.jsonArray
-                ?.lastOrNull()?.jsonObject
-                ?.get("url")?.jsonPrimitive?.contentOrNull
-
-            val id = browseId ?: videoId ?: return null
-            val type = when {
-                browseId?.startsWith("UC") == true -> YTItem.Type.ARTIST
-                browseId?.startsWith("MPRE") == true -> YTItem.Type.ALBUM
-                browseId?.startsWith("VL") == true -> YTItem.Type.PLAYLIST
-                videoId != null -> YTItem.Type.VIDEO
-                else -> YTItem.Type.SONG
-            }
-
-            return YTItem(
-                id = id,
-                title = title,
-                type = type,
-                thumbnailUrl = thumbnailUrl,
-                browseId = browseId,
-                playlistId = navEp?.get("watchEndpoint")?.jsonObject
-                    ?.get("playlistId")?.jsonPrimitive?.contentOrNull,
-            )
+            return artists
         }
     }
 }

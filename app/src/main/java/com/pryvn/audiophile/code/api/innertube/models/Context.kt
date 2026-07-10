@@ -1,3 +1,10 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
 import kotlinx.serialization.Serializable
@@ -5,36 +12,38 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Context(
     val client: Client,
-    val user: User? = null,
-    val request: Request? = null,
     val thirdParty: ThirdParty? = null,
+    private val request: Request = Request(),
+    private val user: User = User(),
 ) {
     @Serializable
     data class Client(
         val clientName: String,
         val clientVersion: String,
-        val clientId: String? = null,
         val osName: String? = null,
         val osVersion: String? = null,
-        val platform: String? = null,
-        val hl: String = "en",
-        val gl: String = "US",
-        val visitorData: String? = null,
+        val deviceMake: String? = null,
+        val deviceModel: String? = null,
+        val androidSdkVersion: String? = null,
+        val gl: String,
+        val hl: String,
+        val visitorData: String?,
+    )
+
+    @Serializable
+    data class ThirdParty(
+        val embedUrl: String,
+    )
+
+    @Serializable
+    data class Request(
+        val internalExperimentFlags: Array<String> = emptyArray(),
+        val useSsl: Boolean = true,
     )
 
     @Serializable
     data class User(
         val lockedSafetyMode: Boolean = false,
         val onBehalfOfUser: String? = null,
-    )
-
-    @Serializable
-    data class Request(
-        val useSsl: Boolean = true,
-    )
-
-    @Serializable
-    data class ThirdParty(
-        val embedUrl: String? = null,
     )
 }

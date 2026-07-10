@@ -7,9 +7,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,8 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
+import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,6 +38,7 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
@@ -77,59 +80,36 @@ fun Browse(
 
     LaunchedEffect(Unit) { loadBrowse() }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 100.dp)
+    val listState = rememberLazyListState()
+
+    PullToRefreshLayout(
+        isRefreshing = isLoading,
+        onRefresh = { loadBrowse() },
+        listState = listState,
+        modifier = Modifier.fillMaxSize()
     ) {
-        item("header") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(id = R.string.page_browse_title),
-                    fontSize = 35.sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = 40.sp,
-                    fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                Box(
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 100.dp)
+        ) {
+            item("header") {
+                Row(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clickable { navController.toUI(UI.HomePage) },
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painterResource(id = R.drawable.ic_uitabbar_search),
-                        contentDescription = "Search",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                    Text(
+                        text = stringResource(id = R.string.page_browse_title),
+                        fontSize = 35.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 40.sp,
+                        fontFamily = SfProFontFamily,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { loadBrowse() }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -242,9 +222,18 @@ fun Browse(
             if (featuredSection != null && featuredSection.items.isNotEmpty()) {
                 item("featured") {
                     FeaturedCard(item = featuredSection.items.first(), onClick = {
-                        featuredSection.items.first().videoId?.let { vid ->
-                            scope.launch(Dispatchers.IO) {
-                                MediaController.playOnline(vid, featuredSection.items.first().title)
+                        val first = featuredSection.items.first()
+                        if (first.playlistId != null) {
+                            LibraryObject.setTargetPlaylistId(first.playlistId)
+                            navController.toUI(UI.OnlinePlaylist)
+                        } else if (first.browseId != null) {
+                            LibraryObject.setTargetBrowseId(first.browseId)
+                            navController.toUI(UI.OnlineAlbumInfo)
+                        } else {
+                            first.videoId?.let { vid ->
+                                scope.launch(Dispatchers.IO) {
+                                    MediaController.playOnline(vid, first.title)
+                                }
                             }
                         }
                     })
@@ -270,9 +259,17 @@ fun Browse(
                     ) {
                         items(section.items.take(10), key = { it.title + (it.videoId ?: it.browseId ?: "${idx}_${it.title}") }) { item ->
                             BrowseCard(item = item, onClick = {
-                                item.videoId?.let { vid ->
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.playOnline(vid, item.title)
+                                if (item.playlistId != null) {
+                                    LibraryObject.setTargetPlaylistId(item.playlistId)
+                                    navController.toUI(UI.OnlinePlaylist)
+                                } else if (item.browseId != null) {
+                                    LibraryObject.setTargetBrowseId(item.browseId)
+                                    navController.toUI(UI.OnlineAlbumInfo)
+                                } else {
+                                    item.videoId?.let { vid ->
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.playOnline(vid, item.title)
+                                        }
                                     }
                                 }
                             })
@@ -281,6 +278,7 @@ fun Browse(
                 }
             }
         }
+    }
     }
 }
 

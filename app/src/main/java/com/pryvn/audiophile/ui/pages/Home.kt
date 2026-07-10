@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
+import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,8 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,38 +92,6 @@ fun Home(
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable { navController.toUI(UI.HomePage) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(id = R.drawable.ic_uitabbar_search),
-                        contentDescription = "Search",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { loadHome() }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    )
-                }
-                Spacer(Modifier.width(4.dp))
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -250,7 +218,7 @@ fun Home(
                         fontSize = 20.sp,
                         lineHeight = 20.sp,
                         fontFamily = SfProFontFamily,
-                        modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp),
+                        modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                     )
                 }
                 item("carousel_${section.title}") {

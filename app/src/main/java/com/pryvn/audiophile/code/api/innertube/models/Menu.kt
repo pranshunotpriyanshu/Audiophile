@@ -1,60 +1,59 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Menu(
-    @SerializedName("menuRenderer") val menuRenderer: MenuRenderer? = null
+    val menuRenderer: MenuRenderer,
 ) {
+    @Serializable
     data class MenuRenderer(
-        @SerializedName("items") val items: List<MenuItem>? = null,
-        @SerializedName("topLevelButtons") val topLevelButtons: List<TopLevelButton>? = null
+        val items: List<Item>?,
+        val topLevelButtons: List<TopLevelButton>?,
     ) {
-        data class MenuItem(
-            @SerializedName("menuNavigationItemRenderer") val menuNavigationItemRenderer: MenuNavigationItemRenderer? = null,
-            @SerializedName("menuServiceItemRenderer") val menuServiceItemRenderer: MenuServiceItemRenderer? = null
+        @Serializable
+        data class Item(
+            val menuNavigationItemRenderer: MenuNavigationItemRenderer?,
+            val menuServiceItemRenderer: MenuServiceItemRenderer?,
+            val toggleMenuServiceItemRenderer: ToggleMenuServiceRenderer?,
         ) {
+            @Serializable
             data class MenuNavigationItemRenderer(
-                @SerializedName("text") val text: Runs? = null,
-                @SerializedName("navigationEndpoint") val navigationEndpoint: NavigationEndpoint? = null,
-                @SerializedName("icon") val icon: Icon? = null
+                val text: Runs,
+                val icon: Icon,
+                val navigationEndpoint: NavigationEndpoint,
             )
 
+            @Serializable
             data class MenuServiceItemRenderer(
-                @SerializedName("text") val text: Runs? = null,
-                @SerializedName("serviceEndpoint") val serviceEndpoint: NavigationEndpoint? = null,
-                @SerializedName("icon") val icon: Icon? = null
+                val text: Runs,
+                val icon: Icon,
+                val serviceEndpoint: NavigationEndpoint,
+            )
+
+            @Serializable
+            data class ToggleMenuServiceRenderer(
+                val defaultIcon: Icon,
+                val defaultServiceEndpoint: DefaultServiceEndpoint,
             )
         }
 
+        @Serializable
         data class TopLevelButton(
-            @SerializedName("buttonRenderer") val buttonRenderer: Button.ButtonRenderer? = null,
-            @SerializedName("toggleButtonRenderer") val toggleButtonRenderer: ToggleButtonRenderer? = null
+            val buttonRenderer: ButtonRenderer?,
         ) {
-            data class ToggleButtonRenderer(
-                @SerializedName("isToggled") val isToggled: Boolean? = null,
-                @SerializedName("isDisabled") val isDisabled: Boolean? = null,
-                @SerializedName("defaultIcon") val defaultIcon: Icon? = null,
-                @SerializedName("toggledIcon") val toggledIcon: Icon? = null,
-                @SerializedName("defaultText") val defaultText: Runs? = null,
-                @SerializedName("toggledText") val toggledText: Runs? = null,
-                @SerializedName("defaultTooltip") val defaultTooltip: String? = null,
-                @SerializedName("toggledTooltip") val toggledTooltip: String? = null,
-                @SerializedName("toggleButtonSupportedData") val toggleButtonSupportedData: ToggleButtonSupportedData? = null,
-                @SerializedName("defaultNavigationEndpoint") val defaultNavigationEndpoint: NavigationEndpoint? = null
-            ) {
-                data class ToggleButtonSupportedData(
-                    @SerializedName("toggleButtonId") val toggleButtonId: String? = null,
-                    @SerializedName("accessibilityData") val accessibilityData: AccessibilityData? = null
-                ) {
-                    data class AccessibilityData(
-                        @SerializedName("accessibilityData") val accessibilityData: AccessibilityLabel? = null
-                    ) {
-                        data class AccessibilityLabel(
-                            @SerializedName("label") val label: String? = null
-                        )
-                    }
-                }
-            }
+            @Serializable
+            data class ButtonRenderer(
+                val icon: Icon,
+                val navigationEndpoint: NavigationEndpoint,
+            )
         }
     }
 }

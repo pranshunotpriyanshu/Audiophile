@@ -19,6 +19,16 @@ object LibraryObject {
     }
 
     @Stable
+    private val targetPlaylistId = mutableStateOf("")
+    fun setTargetPlaylistId(id: String) { targetPlaylistId.value = id }
+    fun getTargetPlaylistId(): String { return targetPlaylistId.value }
+
+    @Stable
+    private val targetBrowseId = mutableStateOf("")
+    fun setTargetBrowseId(id: String) { targetBrowseId.value = id }
+    fun getTargetBrowseId(): String { return targetBrowseId.value }
+
+    @Stable
     private val targetList: MutableState<List<YosMediaItem>> = mutableStateOf(emptyList())
     @Stable
     private val targetListTitle = mutableStateOf("")

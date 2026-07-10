@@ -1,14 +1,23 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class SubscriptionButton(
-    @SerializedName("subscribeButtonRenderer") val subscribeButtonRenderer: SubscribeButtonRenderer? = null
+    val subscribeButtonRenderer: SubscribeButtonRenderer,
 ) {
+    @Serializable
     data class SubscribeButtonRenderer(
-        @SerializedName("subscribed") val subscribed: Boolean? = null,
-        @SerializedName("channelId") val channelId: String? = null,
-        @SerializedName("showSubscriptionFeedback") val showSubscriptionFeedback: Boolean? = null,
-        @SerializedName("onTap") val onTap: NavigationEndpoint? = null
+        val subscribed: Boolean,
+        val channelId: String,
+        val subscriberCountText: Runs? = null,
+        val subscriberCountWithSubscribeText: Runs? = null,
     )
 }

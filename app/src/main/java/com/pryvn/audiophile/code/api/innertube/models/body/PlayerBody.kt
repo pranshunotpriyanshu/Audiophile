@@ -1,30 +1,35 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.body
 
-import com.pryvn.audiophile.code.api.innertube.models.Context
 import kotlinx.serialization.Serializable
+import com.pryvn.audiophile.code.api.innertube.models.Context
 
 @Serializable
 data class PlayerBody(
     val context: Context,
     val videoId: String,
-    val playlistId: String? = null,
+    val playlistId: String?,
     val playbackContext: PlaybackContext? = null,
-    val contentCheckOk: Boolean = true,
-    val racyCheckOk: Boolean = true,
     val serviceIntegrityDimensions: ServiceIntegrityDimensions? = null,
-)
+) {
+    @Serializable
+    data class PlaybackContext(
+        val contentPlaybackContext: ContentPlaybackContext,
+    ) {
+        @Serializable
+        data class ContentPlaybackContext(
+            val signatureTimestamp: Int,
+        )
+    }
 
-@Serializable
-data class PlaybackContext(
-    val contentPlaybackContext: ContentPlaybackContext,
-)
-
-@Serializable
-data class ContentPlaybackContext(
-    val signatureTimestamp: Int,
-)
-
-@Serializable
-data class ServiceIntegrityDimensions(
-    val poToken: String? = null,
-)
+    @Serializable
+    data class ServiceIntegrityDimensions(
+        val poToken: String,
+    )
+}

@@ -1,8 +1,14 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.body
 
-import com.pryvn.audiophile.code.api.innertube.models.Context
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
+import com.pryvn.audiophile.code.api.innertube.models.Context
 
 @Serializable
 data class LikeBody(
@@ -10,13 +16,15 @@ data class LikeBody(
     val target: Target,
 ) {
     @Serializable
-    data class Target(
-        val videoId: String? = null,
-        val playlistId: String? = null,
-    ) {
-        companion object {
-            fun VideoTarget(videoId: String) = Target(videoId = videoId)
-            fun PlaylistTarget(playlistId: String) = Target(playlistId = playlistId)
-        }
+    sealed class Target {
+        @Serializable
+        data class VideoTarget(
+            val videoId: String,
+        ) : Target()
+
+        @Serializable
+        data class PlaylistTarget(
+            val playlistId: String,
+        ) : Target()
     }
 }

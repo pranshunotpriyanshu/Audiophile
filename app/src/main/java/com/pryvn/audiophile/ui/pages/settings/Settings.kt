@@ -275,17 +275,6 @@ fun Settings(navController: NavController) =
                         ListHeader(content = stringResource(id = R.string.settings_play_history_desc))
 
                         GroupSpacer()
-                        // ---- Extend section ----
-                        ListHeader(stringResource(id = R.string.settings_extend))
-                        RoundColumn {
-                            LabelItem(
-                                title = stringResource(id = R.string.settings_extend_statusbarlyric),
-                            ) {
-                                navController.toUI(UI.Settings.LyricGetter)
-                            }
-                        }
-
-                        GroupSpacer()
                         // ---- Others section ----
                         ListHeader(stringResource(id = R.string.settings_others))
                         RoundColumn {

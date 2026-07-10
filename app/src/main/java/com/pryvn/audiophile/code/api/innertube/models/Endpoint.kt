@@ -1,72 +1,114 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ALBUM
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_ARTIST
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_AUDIOBOOK
+import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
 @Serializable
-sealed class Endpoint {
+sealed class Endpoint
 
+@Serializable
+data class WatchEndpoint(
+    val videoId: String? = null,
+    val playlistId: String? = null,
+    val playlistSetVideoId: String? = null,
+    val params: String? = null,
+    val index: Int? = null,
+    val watchEndpointMusicSupportedConfigs: WatchEndpointMusicSupportedConfigs? = null,
+) : Endpoint() {
     @Serializable
-    data class WatchEndpoint(
-        @SerialName("videoId") val videoId: String? = null,
-        @SerialName("playlistId") val playlistId: String? = null,
-        @SerialName("playlistSetVideoId") val playlistSetVideoId: String? = null,
-        @SerialName("params") val params: String? = null,
-        @SerialName("index") val index: Int? = null,
-    ) : Endpoint()
-
-    @Serializable
-    data class BrowseEndpoint(
-        @SerialName("browseId") val browseId: String? = null,
-        @SerialName("params") val params: String? = null,
-    ) : Endpoint() {
-        val isArtistEndpoint: Boolean
-            get() = browseId?.startsWith("UC") == true
-
-        val isAlbumEndpoint: Boolean
-            get() = browseId?.startsWith("MPREb") == true
-
-        val isPlaylistEndpoint: Boolean
-            get() = browseId?.startsWith("VL") == true
-
-        companion object {
-            const val PAGE_TYPE_UNKNOWN = "UNKNOWN"
-            const val PAGE_TYPE_MUSIC_HOME = "MUSIC_HOME"
-            const val PAGE_TYPE_MUSIC_SEARCH = "MUSIC_SEARCH"
-            const val PAGE_TYPE_MUSIC_LIBRARY = "MUSIC_LIBRARY"
-            const val PAGE_TYPE_MUSIC_ARTIST = "MUSIC_ARTIST"
-            const val PAGE_TYPE_MUSIC_ALBUM = "MUSIC_ALBUM"
-            const val PAGE_TYPE_MUSIC_PLAYLIST = "MUSIC_PLAYLIST"
+    data class WatchEndpointMusicSupportedConfigs(
+        val watchEndpointMusicConfig: WatchEndpointMusicConfig,
+    ) {
+        @Serializable
+        data class WatchEndpointMusicConfig(
+            val musicVideoType: String,
+        ) {
+            companion object {
+                const val MUSIC_VIDEO_TYPE_OMV = "MUSIC_VIDEO_TYPE_OMV"
+                const val MUSIC_VIDEO_TYPE_UGC = "MUSIC_VIDEO_TYPE_UGC"
+                const val MUSIC_VIDEO_TYPE_ATV = "MUSIC_VIDEO_TYPE_ATV"
+            }
         }
     }
+}
+
+@Serializable
+data class BrowseEndpoint(
+    val browseId: String,
+    val params: String? = null,
+    val browseEndpointContextSupportedConfigs: BrowseEndpointContextSupportedConfigs? = null,
+) : Endpoint() {
+    val isArtistEndpoint: Boolean
+        get() = browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_ARTIST
+    val isAlbumEndpoint: Boolean
+        get() =
+            browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_ALBUM ||
+                browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_AUDIOBOOK
+    val isPlaylistEndpoint: Boolean
+        get() = browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_PLAYLIST
 
     @Serializable
-    data class SearchEndpoint(
-        @SerialName("params") val params: String? = null,
-        @SerialName("query") val query: String? = null,
-    ) : Endpoint()
-
-    @Serializable
-    data class QueueAddEndpoint(
-        @SerialName("queueInsertPosition") val queueInsertPosition: String? = null,
-        @SerialName("queueTarget") val queueTarget: QueueTarget? = null,
-    ) : Endpoint() {
+    data class BrowseEndpointContextSupportedConfigs(
+        val browseEndpointContextMusicConfig: BrowseEndpointContextMusicConfig,
+    ) {
         @Serializable
-        data class QueueTarget(
-            @SerialName("videoId") val videoId: String? = null,
-            @SerialName("playlistId") val playlistId: String? = null,
-        )
+        data class BrowseEndpointContextMusicConfig(
+            val pageType: String,
+        ) {
+            companion object {
+                const val MUSIC_PAGE_TYPE_ALBUM = "MUSIC_PAGE_TYPE_ALBUM"
+                const val MUSIC_PAGE_TYPE_AUDIOBOOK = "MUSIC_PAGE_TYPE_AUDIOBOOK"
+                const val MUSIC_PAGE_TYPE_PLAYLIST = "MUSIC_PAGE_TYPE_PLAYLIST"
+                const val MUSIC_PAGE_TYPE_ARTIST = "MUSIC_PAGE_TYPE_ARTIST"
+                const val MUSIC_PAGE_TYPE_LIBRARY_ARTIST = "MUSIC_PAGE_TYPE_LIBRARY_ARTIST"
+                const val MUSIC_PAGE_TYPE_USER_CHANNEL = "MUSIC_PAGE_TYPE_USER_CHANNEL"
+                const val MUSIC_PAGE_TYPE_TRACK_LYRICS = "MUSIC_PAGE_TYPE_TRACK_LYRICS"
+                const val MUSIC_PAGE_TYPE_TRACK_RELATED = "MUSIC_PAGE_TYPE_TRACK_RELATED"
+            }
+        }
     }
+}
 
-    @Serializable
-    data class ShareEntityEndpoint(
-        @SerialName("serializedShareEntity") val serializedShareEntity: String? = null,
-    ) : Endpoint()
+@Serializable
+data class SearchEndpoint(
+    val params: String?,
+    val query: String,
+) : Endpoint()
 
+@Serializable
+data class QueueAddEndpoint(
+    val queueInsertPosition: String,
+    val queueTarget: QueueTarget,
+) : Endpoint() {
     @Serializable
-    data class WatchPlaylistEndpoint(
-        @SerialName("playlistId") val playlistId: String? = null,
-        @SerialName("params") val params: String? = null,
-        @SerialName("index") val index: Int? = null,
+    data class QueueTarget(
+        val videoId: String? = null,
+        val playlistId: String? = null,
+    )
+}
+
+@Serializable
+data class ShareEntityEndpoint(
+    val serializedShareEntity: String,
+) : Endpoint()
+
+@Serializable
+data class DefaultServiceEndpoint(
+    var subscribeEndpoint: SubscribeEndpoint?,
+) : Endpoint() {
+    @Serializable
+    data class SubscribeEndpoint(
+        val channelIds: List<String>,
+        val params: String? = null,
     ) : Endpoint()
 }

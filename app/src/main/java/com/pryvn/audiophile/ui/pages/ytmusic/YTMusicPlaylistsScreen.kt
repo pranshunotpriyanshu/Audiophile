@@ -19,6 +19,9 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.YTPlaylist
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
+import com.pryvn.audiophile.data.objects.LibraryObject
+import com.pryvn.audiophile.ui.UI
+import com.pryvn.audiophile.ui.toUI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -134,7 +137,8 @@ fun YTMusicPlaylistsScreen(navController: NavController) {
                 }
                 items(playlists) { playlist ->
                     PlaylistRow(playlist = playlist, onClick = {
-                        navController.popBackStack()
+                        LibraryObject.setTargetPlaylistId(playlist.id)
+                        navController.toUI(UI.OnlinePlaylist)
                     })
                 }
             }

@@ -1,23 +1,34 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class MusicShelfRenderer(
-    @SerializedName("title") val title: Runs? = null,
-    @SerializedName("contents") val contents: List<Content>? = null,
-    @SerializedName("continuations") val continuations: List<ContinuationResponse>? = null,
-    @SerializedName("bottomEndpoint") val bottomEndpoint: NavigationEndpoint? = null,
-    @SerializedName("moreContentButton") val moreContentButton: Button? = null
+    val title: Runs?,
+    val contents: List<Content>?,
+    val continuations: List<Continuation>?,
+    val bottomEndpoint: NavigationEndpoint?,
+    val moreContentButton: Button?,
 ) {
+    @Serializable
     data class Content(
-        @SerializedName("musicResponsiveListItemRenderer") val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer? = null
+        val musicResponsiveListItemRenderer: MusicResponsiveListItemRenderer?,
+        val continuationItemRenderer: ContinuationItemRenderer?,
     )
 }
 
-fun MusicShelfRenderer?.getItems(): List<MusicResponsiveListItemRenderer> {
-    return this?.contents?.mapNotNull { it.musicResponsiveListItemRenderer } ?: emptyList()
-}
+fun List<MusicShelfRenderer.Content>.getItems(): List<MusicResponsiveListItemRenderer> = mapNotNull { it.musicResponsiveListItemRenderer }
 
-fun MusicShelfRenderer?.getContinuation(): String? {
-    return this?.continuations.getContinuation()
-}
+fun List<MusicShelfRenderer.Content>.getContinuation(): String? =
+    firstOrNull { it.continuationItemRenderer != null }
+        ?.continuationItemRenderer
+        ?.continuationEndpoint
+        ?.continuationCommand
+        ?.token

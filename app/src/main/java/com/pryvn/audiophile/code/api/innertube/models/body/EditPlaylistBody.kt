@@ -1,8 +1,14 @@
+/*
+ * ArchiveTune (2026)
+ * © Rukamori — github.com/rukamori
+ * GPL-3.0 License | Contributors: see git history
+ * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
+ */
+
 package com.pryvn.audiophile.code.api.innertube.models.body
 
-import com.pryvn.audiophile.code.api.innertube.models.Context
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
+import com.pryvn.audiophile.code.api.innertube.models.Context
 
 @Serializable
 data class EditPlaylistBody(
@@ -12,37 +18,36 @@ data class EditPlaylistBody(
 )
 
 @Serializable
-data class Action(
-    val action: String,
-    val addedVideoId: String? = null,
-    val addedFullListId: String? = null,
-    val removedVideoId: String? = null,
-    val setVideoId: String? = null,
-    val movedSetVideoIdSuccessor: String? = null,
-    val playlistName: String? = null,
-) {
-    companion object {
-        fun AddVideoAction(addedVideoId: String) = Action(
-            action = "ACTION_ADD_VIDEO",
-            addedVideoId = addedVideoId,
-        )
-        fun AddPlaylistAction(addedFullListId: String) = Action(
-            action = "ACTION_ADD_PLAYLIST",
-            addedFullListId = addedFullListId,
-        )
-        fun RemoveVideoAction(removedVideoId: String, setVideoId: String) = Action(
-            action = "ACTION_REMOVE_VIDEO",
-            removedVideoId = removedVideoId,
-            setVideoId = setVideoId,
-        )
-        fun MoveVideoAction(setVideoId: String, movedSetVideoIdSuccessor: String?) = Action(
-            action = "ACTION_MOVE_VIDEO",
-            setVideoId = setVideoId,
-            movedSetVideoIdSuccessor = movedSetVideoIdSuccessor,
-        )
-        fun RenamePlaylistAction(playlistName: String) = Action(
-            action = "ACTION_SET_PLAYLIST_NAME",
-            playlistName = playlistName,
-        )
-    }
+sealed class Action {
+    @Serializable
+    data class AddVideoAction(
+        val action: String = "ACTION_ADD_VIDEO",
+        val addedVideoId: String,
+    ) : Action()
+
+    @Serializable
+    data class AddPlaylistAction(
+        val action: String = "ACTION_ADD_PLAYLIST",
+        val addedFullListId: String,
+    ) : Action()
+
+    @Serializable
+    data class MoveVideoAction(
+        val action: String = "ACTION_MOVE_VIDEO_BEFORE",
+        val setVideoId: String,
+        val movedSetVideoIdSuccessor: String?,
+    ) : Action()
+
+    @Serializable
+    data class RemoveVideoAction(
+        val action: String = "ACTION_REMOVE_VIDEO",
+        val setVideoId: String,
+        val removedVideoId: String,
+    ) : Action()
+
+    @Serializable
+    data class RenamePlaylistAction(
+        val action: String = "ACTION_SET_PLAYLIST_NAME",
+        val playlistName: String,
+    ) : Action()
 }
