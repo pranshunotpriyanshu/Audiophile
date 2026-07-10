@@ -122,7 +122,10 @@ class SearchViewModel(private val context: Context) : ViewModel() {
                 try {
                     val result = YouTubeApi.getSearchSuggestions(query)
                     result.onSuccess { sugg ->
-                        _uiState.update { it.copy(suggestions = sugg, showSuggestions = true) }
+                        _uiState.update {
+                            if (it.query == query) it.copy(suggestions = sugg, showSuggestions = true)
+                            else it
+                        }
                     }.onFailure { }
                 } catch (_: Exception) { }
             } else {
@@ -134,9 +137,11 @@ class SearchViewModel(private val context: Context) : ViewModel() {
     fun performSearch(query: String) {
         if (query.isBlank()) return
         addRecentSearch(query)
+        suggestionJob?.cancel()
         _uiState.update {
             it.copy(
                 showSuggestions = false,
+                showRecent = false,
                 isLoading = true,
                 resultsSections = emptyList(),
                 isSearching = true
