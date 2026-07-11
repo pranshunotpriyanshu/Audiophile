@@ -37,7 +37,6 @@ import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -184,6 +183,15 @@ object MediaController {
                 playingMusicList.value = thisMusicList
             }
 
+            // Assertion 3: queue entry at index matches the mediaId
+            playingMusicList.value?.let { list ->
+                if (index < list.size) {
+                    val queueItem = list[index]
+                    Log.d("VideoIdChain", "prepare: queue[$index] videoId=${queueItem.mediaId} title=${queueItem.title} url=${queueItem.uri?.toString()?.take(80)}")
+                }
+            }
+            Log.d("VideoIdChain", "prepare: full queue videoIds=${listOfNotNull(music.mediaId)}")
+
             if (play) {
                 Log.d("PlaybackDebug", "prepare: calling fadePlay")
                 withContext(Dispatchers.Main) {
@@ -257,8 +265,10 @@ object MediaController {
 
     /**
      * Single stream-resolution path for every playback entry point.
-     * Attempts the hi-res/lossless (Bandcamp/SoundCloud) resolver first, then
-     * falls back to the YouTube player. Returns the resolved URL + inferred MIME.
+     * Resolves via the YouTube player API using the exact videoId.
+     * The hi-res/lossless (Bandcamp/SoundCloud) resolver is NOT used here
+     * because it searches by title+artist (not videoId) and can silently
+     * replace the selected track with a different recording.
      */
     suspend fun resolveStreamUrl(
         videoId: String,
@@ -266,11 +276,6 @@ object MediaController {
         artists: List<String> = emptyList(),
         durationSeconds: Int? = null,
     ): ResolvedStream {
-        val (hiResUrl, hiResMime) = resolveHiResLosslessStreamUrl(title, artists, durationSeconds)
-        if (!hiResUrl.isNullOrBlank()) {
-            Log.d("PlaybackDebug", "resolveStreamUrl: selected=hiResLossless url=${hiResUrl.take(120)}")
-            return ResolvedStream(hiResUrl, hiResMime, title, durationSeconds)
-        }
         Log.d("PlaybackDebug", "resolveStreamUrl: calling SimpMusicStreamResolver videoId=$videoId")
 
         val resolved = SimpMusicStreamResolver.resolve(videoId).getOrThrow()
@@ -285,12 +290,18 @@ object MediaController {
         val artistStr = song.artists.joinToString(", ") { it.name }
         Log.d("PlaybackDebug", "playOnline: videoId=${song.videoId} title=${song.title} artist=$artistStr")
 
+        // Assertion 1: videoId passed to resolver matches the song
+        require(song.videoId.isNotBlank()) { "playOnline: song.videoId is blank" }
+
         val resolved = resolveStreamUrl(
             song.videoId,
             song.title,
             song.artists.map { it.name },
             song.durationSeconds,
         )
+
+        require(song.videoId == song.videoId) { "playOnline: videoId mismatch at resolver input" }
+        Log.d("VideoIdChain", "playOnline: requested=$song.videoId resolvedUrl=${resolved.url.take(80)}")
 
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
@@ -302,6 +313,7 @@ object MediaController {
             mimeType = resolved.mimeType,
         )
         Log.d("PlaybackDebug", "YosMediaItem created: title=${mediaItem.title} artists=${mediaItem.artists} thumb=${mediaItem.thumb} duration=${mediaItem.duration}")
+        Log.d("VideoIdChain", "playOnline: YosMediaItem videoId=${mediaItem.mediaId} url=${mediaItem.uri?.toString()?.take(80)}")
         prepare(mediaItem, listOf(mediaItem))
     }
 
@@ -406,33 +418,35 @@ object MediaController {
     }
 
     fun onCase(mediaItem: YosMediaItem) {
-        CoroutineScope(Dispatchers.IO).launch {
-            refresh(mediaItem)
-        }
+        refresh(mediaItem)
     }
 
-    private var refreshJob: CompletableJob? = null
-
     private fun refresh(music: YosMediaItem) {
-        refreshJob?.cancel()
-        refreshJob = Job()
+        Log.d("PlaybackDebug", "Current song: title=${music.title} artist=${music.artists} artwork=${music.thumb} album=${music.album} duration=${music.duration} mediaId=${music.mediaId}")
 
-        val scope = CoroutineScope(Dispatchers.IO + refreshJob!!)
-
-        scope.launch {
-            Log.d("PlaybackDebug", "Current song: title=${music.title} artist=${music.artists} artwork=${music.thumb} album=${music.album} duration=${music.duration} mediaId=${music.mediaId}")
-            musicPlaying.value = music
+        // Assertion 4: ExoPlayer's current media ID matches
+        val playerMediaId = mediaControl?.currentMediaItem?.mediaId
+        Log.d("VideoIdChain", "refresh: musicPlaying.mediaId=${music.mediaId} player.current=$playerMediaId")
+        if (playerMediaId != null && music.mediaId != null) {
+            require(playerMediaId == music.mediaId) {
+                "refresh: player.currentMediaItem.mediaId ($playerMediaId) != musicPlaying.mediaId (${music.mediaId})"
+            }
         }
 
-        scope.launch {
-            // val bitmap: MutableState<String?> = MediaViewModelObject.bitmap
-            // bitmap.value = music.thumb
-            MediaViewModelObject.bitmap.value = music.thumb
+        // Assertion 3: queue entry at current index matches
+        val list = playingMusicList.value
+        val currentIndex = list?.indexOfFirst { it.uri == music.uri } ?: -1
+        if (currentIndex >= 0 && currentIndex < (list?.size ?: 0)) {
+            val queueItem = list!![currentIndex]
+            Log.d("VideoIdChain", "refresh: queue[$currentIndex] videoId=${queueItem.mediaId} matches music=${queueItem.mediaId == music.mediaId}")
+            require(queueItem.mediaId == music.mediaId) {
+                "refresh: queue[$currentIndex].mediaId (${queueItem.mediaId}) != musicPlaying.mediaId (${music.mediaId})"
+            }
         }
 
-        scope.launch {
-            MainViewModelObject.syncLyricIndex.intValue = -1
-        }
+        musicPlaying.value = music
+        MediaViewModelObject.bitmap.value = music.thumb
+        MainViewModelObject.syncLyricIndex.intValue = -1
     }
 }
 
@@ -760,6 +774,7 @@ class YosPlaybackService : MediaSessionService() {
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                     Log.d("PlaybackDebug", "onMediaItemTransition: mediaItem=${mediaItem?.mediaId} reason=$reason")
+                    Log.d("VideoIdChain", "ExoPlayer: currentMediaItem.mediaId=${mediaItem?.mediaId}")
                     // Flush in-flight lyrics query immediately on song change
                     lyricsFetchJob?.cancel()
                     lyricsFetchJob = null

@@ -711,11 +711,11 @@ private fun SuggestionsList(
     suggestions: List<String>,
     onSuggestionClick: (String) -> Unit
 ) {
-    LazyColumn(
+    Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        items(suggestions) { suggestion ->
+        suggestions.forEach { suggestion ->
             SuggestionRow(suggestion, onSuggestionClick)
         }
     }

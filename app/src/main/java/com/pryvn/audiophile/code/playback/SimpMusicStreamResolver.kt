@@ -43,6 +43,15 @@ object SimpMusicStreamResolver {
 
         val playerResponse = youTube.player(videoId).getOrThrow()
 
+        // Assertion 2: response videoId matches requested videoId
+        val responseVideoId = playerResponse.videoDetails?.videoId
+        Log.d("VideoIdChain", "Resolver: requested=$videoId response.videoDetails.id=$responseVideoId")
+        if (responseVideoId != null) {
+            require(responseVideoId == videoId) {
+                "Resolver: response videoDetails.videoId ($responseVideoId) != requested videoId ($videoId)"
+            }
+        }
+
         val url = pickBestAudioUrl(playerResponse)
             ?: throw RuntimeException("Could not retrieve audio stream. Try a different song.")
 
