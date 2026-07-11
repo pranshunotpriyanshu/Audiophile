@@ -216,6 +216,11 @@ class MainActivity : BaseActivity() {
                                 YouTube.cookie = cookie
                                 YouTube.visitorData = SettingsLibrary.YtMusicVisitorData
                                 YouTube.dataSyncId = SettingsLibrary.YtMusicDataSyncId
+                                com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                    cookie = cookie,
+                                    visitorData = SettingsLibrary.YtMusicVisitorData,
+                                    dataSyncId = SettingsLibrary.YtMusicDataSyncId,
+                                )
                             }
                             InnerTubeClient.ensureVisitorData()
                             val visitorData = InnerTubeClient.visitorData
@@ -225,6 +230,11 @@ class MainActivity : BaseActivity() {
                             if (YouTube.visitorData.isNullOrBlank()) {
                                 YouTube.visitorData = visitorData
                             }
+                            com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                cookie = SettingsLibrary.YtMusicCookie,
+                                visitorData = visitorData,
+                                dataSyncId = SettingsLibrary.YtMusicDataSyncId,
+                            )
                         }
                     }
 

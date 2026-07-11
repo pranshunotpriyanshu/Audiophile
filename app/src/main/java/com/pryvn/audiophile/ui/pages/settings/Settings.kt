@@ -138,6 +138,11 @@ fun Settings(navController: NavController) =
                                             YouTube.cookie = null
                                             YouTube.visitorData = null
                                             YouTube.dataSyncId = null
+                                            com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                                cookie = null,
+                                                visitorData = null,
+                                                dataSyncId = null,
+                                            )
                                             showLogoutDialog = false
                                         },
                                         onDismiss = { showLogoutDialog = false },

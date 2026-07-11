@@ -92,6 +92,7 @@ configurations.configureEach {
         force "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
         force "com.squareup.okio:okio:3.6.0"
     }
+    exclude group: "com.google.protobuf", module: "protobuf-java"
 }
 
 dependencies {
@@ -142,12 +143,15 @@ dependencies {
     implementation "io.ktor:ktor-client-cio:$ktor_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
 
-    // ArchiveTune stream resolution layer dependencies
+    // SimpMusic-derived playback pipeline
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
     implementation "com.jakewharton.timber:timber:5.0.1"
     implementation "androidx.datastore:datastore-preferences:1.1.1"
     implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.2") {
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.3") {
+        exclude group: "com.google.code.findbugs", module: "jsr305"
+    }
+    implementation("com.github.maxrave-dev:PipePipeExtractor:c3139c584d") {
         exclude group: "com.google.code.findbugs", module: "jsr305"
     }
 

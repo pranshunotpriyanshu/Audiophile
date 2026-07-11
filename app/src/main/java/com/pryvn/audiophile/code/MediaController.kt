@@ -55,12 +55,8 @@ import android.util.Log
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.lyrics.AudiophileLyrics
 import com.pryvn.audiophile.code.api.YTSongItem
+import com.pryvn.audiophile.code.playback.SimpMusicStreamResolver
 import moe.rukamori.archivetune.playback.HiResLosslessPlaybackResolver
-import moe.rukamori.archivetune.innertube.YouTube
-import moe.rukamori.archivetune.innertube.models.YouTubeClient
-import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
-import moe.rukamori.archivetune.innertube.NewPipeUtils
-import com.pryvn.audiophile.code.api.potoken.BotGuardTokenGenerator
 import com.pryvn.audiophile.code.api.parseSyncedLyrics
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
@@ -275,105 +271,14 @@ object MediaController {
             Log.d("PlaybackDebug", "resolveStreamUrl: selected=hiResLossless url=${hiResUrl.take(120)}")
             return ResolvedStream(hiResUrl, hiResMime, title, durationSeconds)
         }
-        // ── Stage A: ArchiveTune production playback pipeline ──
-        Log.d("PlaybackDebug", "resolveStreamUrl: calling ArchiveTune YouTube.player() videoId=$videoId client=${YouTubeClient.WEB_REMIX.clientName}")
+        Log.d("PlaybackDebug", "resolveStreamUrl: calling SimpMusicStreamResolver videoId=$videoId")
 
-        // 1) Fetch signature timestamp
-        val sigTs = NewPipeUtils.getSignatureTimestamp(videoId).getOrNull()
-        Log.d("PlaybackDebug", "resolveStreamUrl: signatureTimestamp=$sigTs")
+        val resolved = SimpMusicStreamResolver.resolve(videoId).getOrThrow()
 
-        // 2) Mint PoToken if visitorData is available
-        val sessionId = YouTube.visitorData
-        if (!sessionId.isNullOrBlank()) {
-            val tokenResult = runCatching { BotGuardTokenGenerator.mintToken(videoId, sessionId) }.getOrNull()
-            if (tokenResult != null) {
-                YouTube.authState = YouTube.authState.copy(
-                    poTokenPlayer = tokenResult.playerToken,
-                    poToken = tokenResult.sessionToken,
-                    webClientPoTokenEnabled = true,
-                )
-                Log.d("PlaybackDebug", "resolveStreamUrl: PoToken minted successfully")
-            } else {
-                Log.w("PlaybackDebug", "resolveStreamUrl: PoToken minting returned null, continuing without")
-            }
-        } else {
-            Log.w("PlaybackDebug", "resolveStreamUrl: no visitorData available, skipping PoToken")
-        }
-
-        // 3) Call ArchiveTune's production player endpoint
-        val playerResponse = YouTube.player(
-            videoId = videoId,
-            client = YouTubeClient.WEB_REMIX,
-            signatureTimestamp = sigTs,
-        ).getOrThrow()
-
-        Log.d("PlaybackDebug", "resolveStreamUrl: PlayerResponse received")
-        Log.d("PlaybackDebug", "resolveStreamUrl: playabilityStatus.status=${playerResponse.playabilityStatus.status}")
-        Log.d("PlaybackDebug", "resolveStreamUrl: playabilityStatus.reason=${playerResponse.playabilityStatus.reason}")
-
-        val streamingData = playerResponse.streamingData
-        if (streamingData != null) {
-            Log.d("PlaybackDebug", "resolveStreamUrl: streamingData adaptiveFormats=${streamingData.adaptiveFormats.size} formats=${streamingData.formats?.size ?: 0}")
-        } else {
-            Log.e("PlaybackDebug", "resolveStreamUrl: streamingData is null — YouTube returned no playable streams")
-        }
-
-        val url = streamingData?.let { resolveAudioUrl(it, videoId) }
-            ?: throw Exception("Could not retrieve audio stream. Try a different song.")
-
-        val resolvedTitle = title ?: playerResponse.videoDetails?.title
-        val resolvedDuration = playerResponse.videoDetails?.lengthSeconds?.toIntOrNull()
-        Log.d("PlaybackDebug", "resolveStreamUrl: audioUrl extracted successfully")
-        return ResolvedStream(url, null, resolvedTitle, resolvedDuration)
-    }
-
-    /**
-     * Pick the best audio format from streamingData and resolve its URL.
-     * Uses the same selection criteria as ArchiveTune's production
-     * selectAudioFormatCandidates() + NewPipeUtils.getStreamUrl() for resolution.
-     */
-    private suspend fun resolveAudioUrl(
-        streamingData: PlayerResponse.StreamingData,
-        videoId: String,
-    ): String? {
-        // ── Match ArchiveTune's selectAudioFormatCandidates criteria ──
-        val candidates = streamingData.adaptiveFormats
-            .asSequence()
-            .filter { it.isAudio && it.bitrate > 0 }
-            .filter { it.url != null || it.signatureCipher != null || it.cipher != null }
-            .sortedWith(
-                compareByDescending<PlayerResponse.StreamingData.Format> { it.url != null }
-                    .thenByDescending { it.bitrate }
-            ).toList()
-
-        if (candidates.isEmpty()) {
-            Log.e("PlaybackDebug", "resolveAudioUrl: NO candidates after ArchiveTune-style filter (isAudio + bitrate>0 + hasUrlOrCipher)")
-            // Debug: dump all adaptiveFormats to understand why
-            streamingData.adaptiveFormats.forEachIndexed { i, f ->
-                Log.d("PlaybackDebug", "  candidate[$i]: itag=${f.itag} mimeType=${f.mimeType} bitrate=${f.bitrate} isAudio=${f.isAudio} url=${f.url != null} sc=${f.signatureCipher != null} cipher=${f.cipher != null} audioQuality=${f.audioQuality}")
-            }
-            return null
-        }
-
-        for ((i, candidate) in candidates.withIndex()) {
-            val urlResult = NewPipeUtils.getStreamUrl(
-                format = candidate,
-                videoId = videoId,
-                client = YouTubeClient.WEB_REMIX,
-                authState = YouTube.currentPlaybackAuthState(),
-            )
-            val url = urlResult.getOrNull()
-            Log.d("PlaybackDebug",
-                "resolveAudioUrl: candidate[$i] itag=${candidate.itag} bitrate=${candidate.bitrate} " +
-                "mimeType=${candidate.mimeType} url=${candidate.url != null} " +
-                "sc=${candidate.signatureCipher != null} cipher=${candidate.cipher != null} " +
-                "NewPipe_ok=${urlResult.isSuccess} url=${if (url != null && url.length > 80) url.substring(0, 80) else url}"
-            )
-            if (url != null) return url
-        }
-
-        Log.e("PlaybackDebug", "resolveAudioUrl: all ${candidates.size} candidates failed to resolve a URL")
-        return null
+        val resolvedTitle = title ?: resolved.title
+        val resolvedDuration = durationSeconds ?: resolved.durationSeconds
+        Log.d("PlaybackDebug", "resolveStreamUrl: audioUrl=${resolved.url.take(80)}")
+        return ResolvedStream(resolved.url, null, resolvedTitle, resolvedDuration)
     }
 
     suspend fun playOnline(videoId: String, title: String? = null) {
