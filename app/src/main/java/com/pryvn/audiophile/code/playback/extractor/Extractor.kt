@@ -24,10 +24,14 @@ class Extractor {
     }
 
     fun newPipePlayer(videoId: String): List<Pair<Int, String>> {
+        Log.d(TAG, "newPipePlayer: resolving videoId=$videoId")
         try {
             val streamInfo = PipeStreamInfo.getInfo(PipeServiceList.YouTube, "https://music.youtube.com/watch?v=$videoId")
             val pipeResult = streamInfo.audioStreams.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
-            if (pipeResult.isNotEmpty()) return pipeResult
+            if (pipeResult.isNotEmpty()) {
+                Log.d(TAG, "newPipePlayer: PipePipe success videoId=$videoId streams=${pipeResult.size}")
+                return pipeResult
+            }
             Log.d(TAG, "PipePipe no audio for $videoId, falling back to BravePipe")
         } catch (e: Throwable) {
             Log.w(TAG, "PipePipe extractor failed for $videoId: ${e.message}, falling back to BravePipe")
@@ -35,7 +39,9 @@ class Extractor {
 
         return runCatching {
             val streamInfo = BraveStreamInfo.getInfo(BraveServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId")
-            streamInfo.audioStreams.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
+            val result = streamInfo.audioStreams.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
+            Log.d(TAG, "newPipePlayer: BravePipe success videoId=$videoId streams=${result.size}")
+            result
         }.onFailure {
             Log.w(TAG, "BravePipe extractor failed for $videoId: ${it.message}")
         }.getOrElse { emptyList() }

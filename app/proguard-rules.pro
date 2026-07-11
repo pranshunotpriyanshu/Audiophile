@@ -87,3 +87,12 @@
 
 # Media3 ExoPlayer
 -keep class androidx.media3.** { *; }
+
+
+# Java Beans
+-dontwarn java.beans.BeanDescriptor
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+-dontwarn javax.script.ScriptEngineFactory

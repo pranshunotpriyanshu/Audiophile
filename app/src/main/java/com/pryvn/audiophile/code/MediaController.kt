@@ -281,8 +281,32 @@ object MediaController {
         return ResolvedStream(resolved.url, null, resolvedTitle, resolvedDuration)
     }
 
+    suspend fun playOnline(song: YTSongItem) {
+        val artistStr = song.artists.joinToString(", ") { it.name }
+        Log.d("PlaybackDebug", "playOnline: videoId=${song.videoId} title=${song.title} artist=$artistStr")
+
+        val resolved = resolveStreamUrl(
+            song.videoId,
+            song.title,
+            song.artists.map { it.name },
+            song.durationSeconds,
+        )
+
+        val mediaItem = YosMediaItem(
+            uri = Uri.parse(resolved.url),
+            mediaId = song.videoId,
+            title = resolved.title ?: song.title,
+            artists = artistStr,
+            thumb = song.thumbnailUrl?.let { Uri.parse(it) },
+            duration = (resolved.durationSeconds?.toLong() ?: (song.durationSeconds?.toLong() ?: 0L)) * 1000L,
+            mimeType = resolved.mimeType,
+        )
+        Log.d("PlaybackDebug", "YosMediaItem created: title=${mediaItem.title} artists=${mediaItem.artists} thumb=${mediaItem.thumb} duration=${mediaItem.duration}")
+        prepare(mediaItem, listOf(mediaItem))
+    }
+
     suspend fun playOnline(videoId: String, title: String? = null) {
-        Log.d("PlaybackDebug", "playOnline: videoId=$videoId title=$title")
+        Log.d("PlaybackDebug", "playOnline: videoId=$videoId title=$title (no YTSongItem metadata)")
         val resolved = resolveStreamUrl(videoId, title, emptyList(), null)
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
@@ -299,7 +323,7 @@ object MediaController {
         val startIndex = allSongs.indexOfFirst { it.videoId == startSong.videoId }
         if (startIndex < 0) {
             Log.e("PlaybackDebug", "playPlaylist: startSong not in allSongs list, falling back to playOnline")
-            playOnline(startSong.videoId, startSong.title)
+            playOnline(startSong)
             return
         }
         Log.d("PlaybackDebug", "playPlaylist: startSong=${startSong.videoId} index=$startIndex totalSongs=${allSongs.size}")
@@ -396,9 +420,8 @@ object MediaController {
         val scope = CoroutineScope(Dispatchers.IO + refreshJob!!)
 
         scope.launch {
-            println("prepare 刷新UI状态 $music")
+            Log.d("PlaybackDebug", "Current song: title=${music.title} artist=${music.artists} artwork=${music.thumb} album=${music.album} duration=${music.duration} mediaId=${music.mediaId}")
             musicPlaying.value = music
-            println(musicPlaying.value)
         }
 
         scope.launch {
@@ -686,6 +709,7 @@ class YosPlaybackService : MediaSessionService() {
                                     ) { lrcEntries.value = it }
                                     MediaViewModelObject.isLoadingLyrics.value = false
                                 } else {
+                                    Log.d("PlaybackDebug", "Lyrics lookup: title=${currentTrack.title} artist=${currentTrack.artists} album=${currentTrack.album} durationMs=${currentTrack.duration}")
                                     val onlineLyrics = ArchiveTuneApis.fetchLyrics(
                                         title = currentTrack.title,
                                         artist = currentTrack.artists,

@@ -31,6 +31,7 @@ object SimpMusicStreamResolver {
 
     suspend fun resolve(videoId: String): Result<ResolvedStream> = runCatching {
         Log.d(TAG, "Resolving stream for videoId=$videoId")
+        Log.d("PlaybackDebug", "Resolver: videoId=$videoId")
 
         urlCache[videoId]?.let { cached ->
             if (System.currentTimeMillis() < cached.expiresAt) {

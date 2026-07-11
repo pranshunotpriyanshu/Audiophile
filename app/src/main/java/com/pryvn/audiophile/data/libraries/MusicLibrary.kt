@@ -6,6 +6,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
+import android.util.Log
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.util.fastMap
 import androidx.media3.common.MediaItem
@@ -222,6 +223,7 @@ object MusicLibrary {
     }
 
     fun YosMediaItem.toMediaItem(): MediaItem {
+        Log.d("PlaybackDebug", "MediaMetadata: title=${this.title} artist=${this.artists} artwork=${this.thumb} album=${this.album} duration=${this.duration}")
         return MediaItem.Builder()
             .setUri(this.uri)
             .setMediaId(this.mediaId!!)

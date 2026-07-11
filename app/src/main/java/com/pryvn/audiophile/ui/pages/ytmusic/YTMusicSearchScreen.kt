@@ -2,6 +2,7 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -359,9 +360,10 @@ fun YTMusicSearchScreen(
                         SearchContentState.Results -> {
                             items(uiState.resultsSections) { section ->
                                 ResultsSection(section, onSongClick = { song ->
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.playOnline(song.videoId, song.title)
-                                    }
+                                        scope.launch(Dispatchers.IO) {
+                                            Log.d("PlaybackDebug", "Search tap: videoId=${song.videoId} title=${song.title} artist=${song.artists.joinToString(", ") { it.name }} thumbnail=${song.thumbnailUrl}")
+                                            MediaController.playOnline(song)
+                                        }
                                 })
                             }
                         }
