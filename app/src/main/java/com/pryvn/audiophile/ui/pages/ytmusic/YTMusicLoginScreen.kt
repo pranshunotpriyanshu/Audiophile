@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.api.YouTubeApi
+import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 
@@ -119,6 +120,7 @@ fun YTMusicLoginScreen(
                         if (!mergedCookie.isNullOrBlank()) {
                             SettingsLibrary.YtMusicCookie = mergedCookie
                             com.pryvn.audiophile.code.api.InnerTubeClient.cookie = mergedCookie
+                            YouTube.cookie = mergedCookie
                             if (mergedCookie.contains("SAPISID") && !hasNavigated) {
                                 onLoginSuccess()
                             }
@@ -138,6 +140,7 @@ fun YTMusicLoginScreen(
                             if (!newVisitorData.isNullOrBlank()) {
                                 SettingsLibrary.YtMusicVisitorData = newVisitorData
                                 com.pryvn.audiophile.code.api.InnerTubeClient.visitorData = newVisitorData
+                                YouTube.visitorData = newVisitorData
                             }
                         }
 
@@ -146,6 +149,7 @@ fun YTMusicLoginScreen(
                             if (!newDataSyncId.isNullOrBlank()) {
                                 SettingsLibrary.YtMusicDataSyncId = newDataSyncId
                                 com.pryvn.audiophile.code.api.InnerTubeClient.dataSyncId = newDataSyncId
+                                YouTube.dataSyncId = newDataSyncId
                             }
                         }
                     },

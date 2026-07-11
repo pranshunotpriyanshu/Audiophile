@@ -37,20 +37,23 @@ data class PlaylistPage(
 }
 
 private fun MusicResponsiveListItemRenderer.belongsToPlaylist(playlistId: String): Boolean {
-    val expectedPlaylistId = playlistId.removePrefix("VL")
+    if (playlistItemData?.playlistSetVideoId?.isNotBlank() == true) return true
+    if (playlistItemData?.videoId != null) return true
     val endpoint = watchEndpoint()
-    val endpointPlaylistId = endpoint?.playlistId?.removePrefix("VL")
-    if (playlistItemData?.playlistSetVideoId?.isNotBlank() == true) {
-        return endpointPlaylistId == null || endpointPlaylistId == expectedPlaylistId
-    }
-    if (endpointPlaylistId != expectedPlaylistId) return false
-    return endpoint?.playlistSetVideoId?.isNotBlank() == true || endpoint?.index != null
+    if (endpoint?.index != null) return true
+    if (endpoint?.playlistSetVideoId?.isNotBlank() == true) return true
+    if (endpoint?.videoId != null) return true
+    return false
 }
 
 internal fun MusicResponsiveListItemRenderer.toSongItem(albumColumnIndex: Int? = 2): SongItem? {
     val endpoint = watchEndpoint()
     val videoId = playlistItemData?.videoId ?: endpoint?.videoId ?: return null
     val metadataGroups = metadataGroups()
+    val thumb =
+        thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
+            ?: thumbnail?.musicAnimatedThumbnailRenderer?.backupRenderer?.getThumbnailUrl()
+            ?: return null
     return SongItem(
         id = videoId,
         title = titleText ?: return null,
@@ -59,7 +62,7 @@ internal fun MusicResponsiveListItemRenderer.toSongItem(albumColumnIndex: Int? =
             albumColumnIndex?.let(::albumFromColumn)
                 ?: metadataGroups.drop(1).firstNotNullOfOrNull { it.toAlbum() },
         duration = fixedDuration ?: metadataGroups.duration(),
-        thumbnail = thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+        thumbnail = thumb,
         explicit = isExplicit,
         endpoint = endpoint,
         setVideoId = playlistItemData?.playlistSetVideoId ?: endpoint?.playlistSetVideoId,

@@ -75,10 +75,14 @@ fun OnlinePlaylistScreen(navController: NavController) {
     val isLoading = remember { mutableStateOf(true) }
 
     LaunchedEffect(id) {
+        android.util.Log.d("PlaylistDebug", "OnlinePlaylistScreen: loading playlistId=$id")
         scope.launch(Dispatchers.IO) {
             val result = YouTubeApi.playlist(id)
             result.onSuccess { p ->
+                android.util.Log.d("PlaylistDebug", "OnlinePlaylistScreen: loaded ${p.songs.size} songs")
                 pageResult.value = p
+            }.onFailure { e ->
+                android.util.Log.e("PlaylistDebug", "OnlinePlaylistScreen: failed", e)
             }
             isLoading.value = false
         }
@@ -92,9 +96,12 @@ fun OnlinePlaylistScreen(navController: NavController) {
 
     val state = rememberLazyListState()
 
-    val totalMinutes = remember(songs) {
+    val durationText = remember(songs) {
         val totalSeconds = songs.sumOf { it.durationSeconds?.toLong() ?: 0L }
-        (totalSeconds / 60).toInt()
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600 / 60).toInt()
+        if (hours > 0) "${songs.size} songs • ${hours} hr ${minutes} min"
+        else "${songs.size} songs • ${minutes} min"
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -167,7 +174,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
                         ) {
                             if (songs.isNotEmpty()) {
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playOnline(songs.first().videoId, songs.first().title)
+                                    MediaController.playPlaylist(songs.first(), songs)
                                 }
                             }
                         }
@@ -180,7 +187,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
                             if (songs.isNotEmpty()) {
                                 val randomSong = songs.random()
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playOnline(randomSong.videoId, randomSong.title)
+                                    MediaController.playPlaylist(randomSong, songs)
                                 }
                             }
                         }
@@ -197,9 +204,9 @@ fun OnlinePlaylistScreen(navController: NavController) {
                 typedSongs,
                 key = { _: Int, song: com.pryvn.audiophile.code.api.YTSongItem -> song.videoId },
             ) { index, song ->
-                PlaylistSongRow(index = index, song = song) {
+                PlaylistSongRow(song = song) {
                     scope.launch(Dispatchers.IO) {
-                        MediaController.playOnline(song.videoId, song.title)
+                        MediaController.playPlaylist(song, songs)
                     }
                 }
 
@@ -208,7 +215,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
                     Spacer(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 50.dp, end = 18.dp)
+                            .padding(start = 58.dp, end = 18.dp)
                             .alpha(0.25f)
                             .height(0.5.dp)
                             .background(Color.Black withNight Color.White)
@@ -222,7 +229,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
 
             item("PlaylistInfo") {
                 Text(
-                    text = "${songs.size} songs • ${totalMinutes} min",
+                    text = durationText,
                     fontSize = 15.sp,
                     modifier = Modifier
                         .alpha(0.4f)
@@ -314,7 +321,6 @@ private fun PlaylistDivider() =
 
 @Composable
 private fun PlaylistSongRow(
-    index: Int,
     song: YTSongItem,
     onClick: () -> Unit,
 ) {
@@ -325,20 +331,12 @@ private fun PlaylistSongRow(
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            contentAlignment = Alignment.TopCenter,
-            modifier = Modifier
-                .width(24.dp)
-                .fillMaxHeight()
-        ) {
-            Text(
-                text = "${index + 1}",
-                fontSize = 16.sp,
-                modifier = Modifier.alpha(0.4f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        CachedArtworkImage(
+            url = song.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier.size(48.dp),
+        )
         Spacer(modifier = Modifier.width(10.dp))
 
         Column(Modifier.padding(vertical = 10.dp)) {
@@ -349,16 +347,14 @@ private fun PlaylistSongRow(
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 20.sp,
             )
-            if (song.artists.isNotEmpty()) {
-                Text(
-                    text = song.artists.joinToString(", ") { it.name },
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    lineHeight = 16.sp,
-                    modifier = Modifier.alpha(0.4f),
-                )
-            }
+            Text(
+                text = if (song.artists.isNotEmpty()) song.artists.joinToString(", ") { it.name } else "",
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 16.sp,
+                modifier = Modifier.alpha(if (song.artists.isNotEmpty()) 0.4f else 0f),
+            )
         }
     }
 }

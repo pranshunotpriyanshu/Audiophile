@@ -93,6 +93,7 @@ import com.pryvn.audiophile.code.api.innertube.pages.SearchSummaryPage
 import com.pryvn.audiophile.code.api.innertube.LibraryFilter
 import com.pryvn.audiophile.code.api.innertube.SearchFilter
 import com.pryvn.audiophile.code.api.innertube.proxy.RotatingProxyClient
+import com.pryvn.audiophile.code.api.InnerTubeClient
 import okhttp3.Dns
 
 import java.net.Proxy
@@ -854,7 +855,7 @@ object YouTube {
                 innerTube
                     .browse(
                         client = WEB_REMIX,
-                        browseId = "VL$playlistId",
+                        browseId = "VL${playlistId.removePrefix("VL")}",
                         setLogin = true,
                     ).body<BrowseResponse>()
             val primarySection =
@@ -933,6 +934,12 @@ object YouTube {
                     content.playlistSongContinuation()
                 }
 
+            val rawItems = songContents.getItems()
+            val parsedSongs = rawItems.mapNotNull {
+                PlaylistPage.fromMusicResponsiveListItemRenderer(it, playlistId)
+            }
+            android.util.Log.d("PlaylistDebug", "playlistId=$playlistId rawItems=${rawItems.size} parsedSongs=${parsedSongs.size}")
+
             PlaylistPage(
                 playlist =
                     PlaylistItem(
@@ -973,10 +980,7 @@ object YouTube {
                                 ?.watchPlaylistEndpoint,
                         isEditable = editable,
                     ),
-                songs =
-                    songContents.getItems().mapNotNull {
-                        PlaylistPage.fromMusicResponsiveListItemRenderer(it, playlistId)
-                    },
+                songs = parsedSongs,
                 songsContinuation = songsContinuation,
                 continuation =
                     secondarySection?.continuations?.getContinuation()
@@ -2475,11 +2479,61 @@ object YouTube {
         videoId: String,
         playlistId: String? = null,
     ): Result<JsonObject> = runCatching {
-        val response = innerTube.player(WEB_REMIX, videoId, playlistId, null, null, false)
+        val authState = currentPlaybackAuthState()
+        // Sync auth state to InnerTubeClient for multi-client fallback
+        InnerTubeClient.cookie = authState.cookie
+        InnerTubeClient.visitorData = authState.visitorData
+        InnerTubeClient.dataSyncId = authState.dataSyncId
+        InnerTubeClient.poToken = authState.poToken
+        InnerTubeClient.poTokenPlayer = authState.poTokenPlayer
+
+        // Try multi-client fallback first (tries WEB_REMIX, WEB, ANDROID, ANDROID_MUSIC, IOS)
+        val fallbackResult = InnerTubeClient.playerWithFallback(videoId, playlistId)
+        if (fallbackResult.isSuccess) {
+            return@runCatching fallbackResult.getOrThrow()
+        }
+
+        // Fall back to single-client approach
+        val resolvedPoToken = resolvePlayerPoToken(WEB_REMIX, null, authState)
+        val signatureTimestamp = fetchSignatureTimestamp()
+        val response = innerTube.player(WEB_REMIX, videoId, playlistId, signatureTimestamp, resolvedPoToken, true, authState)
         Json.parseToJsonElement(response.bodyAsText()).jsonObject
     }
 
-    suspend fun fetchSignatureTimestamp(): Int = 24007
+suspend fun fetchSignatureTimestamp(): Int {
+        // Try to fetch from home page like ArchiveTune, fallback to hardcoded
+        return runCatching {
+            val result = innerTube.browse(WEB_REMIX, browseId = "FEmusic_home", setLogin = true).body<BrowseResponse>()
+            // Try to extract signatureTimestamp from the response JSON directly
+            val jsonText = innerTube.browse(WEB_REMIX, browseId = "FEmusic_home", setLogin = true).bodyAsText()
+            val json = Json.parseToJsonElement(jsonText).jsonObject
+            // Try to extract signatureTimestamp from the JSON structure
+            val tabs = json["contents"]?.jsonObject
+                ?.get("singleColumnBrowseResultsRenderer")?.jsonObject
+                ?.get("tabs")?.jsonArray
+                ?: json["contents"]?.jsonObject
+                    ?.get("twoColumnBrowseResultsRenderer")?.jsonObject
+                    ?.get("tabs")?.jsonArray
+                ?: return@runCatching 24007
+            
+            val ts = tabs.firstOrNull()?.jsonObject
+                ?.get("tabRenderer")?.jsonObject
+                ?.get("content")?.jsonObject
+                ?.get("sectionListRenderer")?.jsonObject
+                ?.get("contents")?.jsonArray
+                ?.firstOrNull()?.jsonObject
+                ?.get("musicShelfRenderer")?.jsonObject
+                ?.get("bottomStatus")?.jsonObject
+                ?.get("runs")?.jsonArray
+                ?.firstOrNull()?.jsonObject
+                ?.get("navigationEndpoint")?.jsonObject
+                ?.get("browseEndpoint")?.jsonObject
+                ?.get("signatureTimestamp")?.jsonPrimitive?.contentOrNull
+                ?.toIntOrNull()
+            
+            if (ts != null) ts else 24007
+        }.getOrElse { 24007 }
+    }
 
     const val MAX_GET_QUEUE_SIZE = 1000
     private const val DEFAULT_PLAYLIST_EDIT_BATCH_SIZE = 50

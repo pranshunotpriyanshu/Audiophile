@@ -86,6 +86,14 @@ android {
 
 }
 
+configurations.configureEach {
+    resolutionStrategy {
+        force "com.squareup.okhttp3:okhttp:4.12.0"
+        force "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
+        force "com.squareup.okio:okio:3.6.0"
+    }
+}
+
 dependencies {
     implementation fileTree(include: ["*.*"], dir: "libs")
     implementation project(path: ':overscroll_core')
@@ -133,6 +141,15 @@ dependencies {
     implementation "io.ktor:ktor-client-logging:$ktor_version"
     implementation "io.ktor:ktor-client-cio:$ktor_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
+
+    // ArchiveTune stream resolution layer dependencies
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+    implementation "com.jakewharton.timber:timber:5.0.1"
+    implementation "androidx.datastore:datastore-preferences:1.1.1"
+    implementation "com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0"
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.2") {
+        exclude group: "com.google.code.findbugs", module: "jsr305"
+    }
 
     def media3_version = "1.4.0"
     implementation "androidx.media3:media3-session:$media3_version"

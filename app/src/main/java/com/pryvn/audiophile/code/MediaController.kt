@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -50,9 +51,16 @@ import com.pryvn.audiophile.code.MediaController.mediaSession
 import com.pryvn.audiophile.code.MediaController.musicPlaying
 import com.pryvn.audiophile.code.MediaController.onServiceRunning
 import com.pryvn.audiophile.code.MediaController.playingMusicList
+import android.util.Log
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.lyrics.AudiophileLyrics
-import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.code.api.YTSongItem
+import moe.rukamori.archivetune.playback.HiResLosslessPlaybackResolver
+import moe.rukamori.archivetune.innertube.YouTube
+import moe.rukamori.archivetune.innertube.models.YouTubeClient
+import moe.rukamori.archivetune.innertube.models.response.PlayerResponse
+import moe.rukamori.archivetune.innertube.NewPipeUtils
+import com.pryvn.audiophile.code.api.potoken.BotGuardTokenGenerator
 import com.pryvn.audiophile.code.api.parseSyncedLyrics
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
@@ -147,7 +155,7 @@ object MediaController {
         repeatMode: Int = REPEAT_MODE_ALL,
         play: Boolean = true
     ) {
-        println("prepare $music")
+        Log.d("PlaybackDebug", "prepare: music=${music.mediaId} listSize=${thisMusicList.size} play=$play")
         if (thisMusicList != playingMusicList.value) {
 
             var index = 0
@@ -160,16 +168,17 @@ object MediaController {
                 it.toMediaItem()
             }
 
+            Log.d("PlaybackDebug", "prepare: setMediaItems size=${itemList.size} startIndex=$index")
+            Log.d("PlaybackDebug", "MediaItem created mediaId=${music.mediaId} uri=${music.uri?.toString()?.take(80)}")
 
             withContext(Dispatchers.Main) {
                 mediaControl?.setMediaItems(itemList, index, position)
+                Log.d("PlaybackDebug", "Player.prepare()")
                 mediaControl?.prepare()
             }
 
-            println("prepare 调用切列表")
             if (!play && playingMusicList.value == null) {
                 playingMusicList.value = thisMusicList
-                //refresh(music)
                 withContext(Dispatchers.Main) {
                     mediaControl?.shuffleModeEnabled = shuffleModeEnabled
                     mediaControl?.repeatMode = repeatMode
@@ -180,20 +189,18 @@ object MediaController {
             }
 
             if (play) {
+                Log.d("PlaybackDebug", "prepare: calling fadePlay")
                 withContext(Dispatchers.Main) {
                     mediaControl?.fadePlay()
                 }
             }
 
-            // 播放列表切换事件
-            println("prepare 尝试保存播放列表")
             playingMusicList.value?.let { list ->
-                println("prepare 保存播放列表")
                 MusicLibrary.updatePlayList(PlayListV1(mainMusicList, list))
             }
 
         } else {
-            println("prepare 调用非切列表")
+            Log.d("PlaybackDebug", "prepare: same list, seeking to index")
             val index = thisMusicList.indexOf(music)
             withContext(Dispatchers.Main) {
                 mediaControl?.seekToDefaultPosition(index)
@@ -202,18 +209,271 @@ object MediaController {
         }
     }
 
+    private suspend fun resolveHiResLosslessStreamUrl(
+        title: String?,
+        artists: List<String>,
+        durationSeconds: Int?,
+    ): Pair<String?, String?> {
+        if (title.isNullOrBlank()) {
+            Log.d("HiResLossless", "resolve: SKIP title blank")
+            return null to null
+        }
+        Log.d("HiResLossless", "resolve: ATTEMPT title=$title artists=$artists duration=$durationSeconds")
+        return runCatching {
+            withContext(Dispatchers.IO) {
+                HiResLosslessPlaybackResolver
+                    .resolve(
+                        HiResLosslessPlaybackResolver.TrackIdentity(
+                            title = title,
+                            artists = artists,
+                            durationSeconds = durationSeconds,
+                        ),
+                    ).fold(
+                        onSuccess = { pd ->
+                            val url = pd.streamUrl
+                            val mime = pd.format?.mimeType?.takeIf { it.isNotBlank() }
+                            if (url.isNotBlank()) {
+                                Log.d("HiResLossless", "resolve: SUCCESS selected=hiResLossless url=${url.take(120)} mime=$mime")
+                                url to mime
+                            } else {
+                                Log.d("HiResLossless", "resolve: EMPTY selected=hiResLossless")
+                                null to null
+                            }
+                        },
+                        onFailure = { e ->
+                            Log.d("HiResLossless", "resolve: FAILED selected=hiResLossless reason=${e.message}")
+                            null to null
+                        },
+                    )
+            }
+        }.getOrElse { e ->
+            Log.d("HiResLossless", "resolve: EXCEPTION selected=hiResLossless reason=${e.message}")
+            null to null
+        }
+    }
+
+    data class ResolvedStream(
+        val url: String,
+        val mimeType: String?,
+        val title: String?,
+        val durationSeconds: Int?,
+    )
+
+    /**
+     * Single stream-resolution path for every playback entry point.
+     * Attempts the hi-res/lossless (Bandcamp/SoundCloud) resolver first, then
+     * falls back to the YouTube player. Returns the resolved URL + inferred MIME.
+     */
+    suspend fun resolveStreamUrl(
+        videoId: String,
+        title: String? = null,
+        artists: List<String> = emptyList(),
+        durationSeconds: Int? = null,
+    ): ResolvedStream {
+        val (hiResUrl, hiResMime) = resolveHiResLosslessStreamUrl(title, artists, durationSeconds)
+        if (!hiResUrl.isNullOrBlank()) {
+            Log.d("PlaybackDebug", "resolveStreamUrl: selected=hiResLossless url=${hiResUrl.take(120)}")
+            return ResolvedStream(hiResUrl, hiResMime, title, durationSeconds)
+        }
+        // ── Stage A: ArchiveTune production playback pipeline ──
+        Log.d("PlaybackDebug", "resolveStreamUrl: calling ArchiveTune YouTube.player() videoId=$videoId client=${YouTubeClient.WEB_REMIX.clientName}")
+
+        // 1) Fetch signature timestamp
+        val sigTs = NewPipeUtils.getSignatureTimestamp(videoId).getOrNull()
+        Log.d("PlaybackDebug", "resolveStreamUrl: signatureTimestamp=$sigTs")
+
+        // 2) Mint PoToken if visitorData is available
+        val sessionId = YouTube.visitorData
+        if (!sessionId.isNullOrBlank()) {
+            val tokenResult = runCatching { BotGuardTokenGenerator.mintToken(videoId, sessionId) }.getOrNull()
+            if (tokenResult != null) {
+                YouTube.authState = YouTube.authState.copy(
+                    poTokenPlayer = tokenResult.playerToken,
+                    poToken = tokenResult.sessionToken,
+                    webClientPoTokenEnabled = true,
+                )
+                Log.d("PlaybackDebug", "resolveStreamUrl: PoToken minted successfully")
+            } else {
+                Log.w("PlaybackDebug", "resolveStreamUrl: PoToken minting returned null, continuing without")
+            }
+        } else {
+            Log.w("PlaybackDebug", "resolveStreamUrl: no visitorData available, skipping PoToken")
+        }
+
+        // 3) Call ArchiveTune's production player endpoint
+        val playerResponse = YouTube.player(
+            videoId = videoId,
+            client = YouTubeClient.WEB_REMIX,
+            signatureTimestamp = sigTs,
+        ).getOrThrow()
+
+        Log.d("PlaybackDebug", "resolveStreamUrl: PlayerResponse received")
+        Log.d("PlaybackDebug", "resolveStreamUrl: playabilityStatus.status=${playerResponse.playabilityStatus.status}")
+        Log.d("PlaybackDebug", "resolveStreamUrl: playabilityStatus.reason=${playerResponse.playabilityStatus.reason}")
+
+        val streamingData = playerResponse.streamingData
+        if (streamingData != null) {
+            Log.d("PlaybackDebug", "resolveStreamUrl: streamingData adaptiveFormats=${streamingData.adaptiveFormats.size} formats=${streamingData.formats?.size ?: 0}")
+        } else {
+            Log.e("PlaybackDebug", "resolveStreamUrl: streamingData is null — YouTube returned no playable streams")
+        }
+
+        val url = streamingData?.let { resolveAudioUrl(it, videoId) }
+            ?: throw Exception("Could not retrieve audio stream. Try a different song.")
+
+        val resolvedTitle = title ?: playerResponse.videoDetails?.title
+        val resolvedDuration = playerResponse.videoDetails?.lengthSeconds?.toIntOrNull()
+        Log.d("PlaybackDebug", "resolveStreamUrl: audioUrl extracted successfully")
+        return ResolvedStream(url, null, resolvedTitle, resolvedDuration)
+    }
+
+    /**
+     * Pick the best audio format from streamingData and resolve its URL.
+     * Uses the same selection criteria as ArchiveTune's production
+     * selectAudioFormatCandidates() + NewPipeUtils.getStreamUrl() for resolution.
+     */
+    private suspend fun resolveAudioUrl(
+        streamingData: PlayerResponse.StreamingData,
+        videoId: String,
+    ): String? {
+        // ── Match ArchiveTune's selectAudioFormatCandidates criteria ──
+        val candidates = streamingData.adaptiveFormats
+            .asSequence()
+            .filter { it.isAudio && it.bitrate > 0 }
+            .filter { it.url != null || it.signatureCipher != null || it.cipher != null }
+            .sortedWith(
+                compareByDescending<PlayerResponse.StreamingData.Format> { it.url != null }
+                    .thenByDescending { it.bitrate }
+            ).toList()
+
+        if (candidates.isEmpty()) {
+            Log.e("PlaybackDebug", "resolveAudioUrl: NO candidates after ArchiveTune-style filter (isAudio + bitrate>0 + hasUrlOrCipher)")
+            // Debug: dump all adaptiveFormats to understand why
+            streamingData.adaptiveFormats.forEachIndexed { i, f ->
+                Log.d("PlaybackDebug", "  candidate[$i]: itag=${f.itag} mimeType=${f.mimeType} bitrate=${f.bitrate} isAudio=${f.isAudio} url=${f.url != null} sc=${f.signatureCipher != null} cipher=${f.cipher != null} audioQuality=${f.audioQuality}")
+            }
+            return null
+        }
+
+        for ((i, candidate) in candidates.withIndex()) {
+            val urlResult = NewPipeUtils.getStreamUrl(
+                format = candidate,
+                videoId = videoId,
+                client = YouTubeClient.WEB_REMIX,
+                authState = YouTube.currentPlaybackAuthState(),
+            )
+            val url = urlResult.getOrNull()
+            Log.d("PlaybackDebug",
+                "resolveAudioUrl: candidate[$i] itag=${candidate.itag} bitrate=${candidate.bitrate} " +
+                "mimeType=${candidate.mimeType} url=${candidate.url != null} " +
+                "sc=${candidate.signatureCipher != null} cipher=${candidate.cipher != null} " +
+                "NewPipe_ok=${urlResult.isSuccess} url=${if (url != null && url.length > 80) url.substring(0, 80) else url}"
+            )
+            if (url != null) return url
+        }
+
+        Log.e("PlaybackDebug", "resolveAudioUrl: all ${candidates.size} candidates failed to resolve a URL")
+        return null
+    }
+
     suspend fun playOnline(videoId: String, title: String? = null) {
-        val response = YouTubeApi.player(videoId).getOrThrow()
-        val streamUrl = response.streamUrl ?: throw Exception("Could not retrieve audio stream. Try a different song.")
-        if (streamUrl.isBlank()) throw Exception("Empty stream URL received.")
+        Log.d("PlaybackDebug", "playOnline: videoId=$videoId title=$title")
+        val resolved = resolveStreamUrl(videoId, title, emptyList(), null)
         val mediaItem = YosMediaItem(
-            uri = Uri.parse(streamUrl),
+            uri = Uri.parse(resolved.url),
             mediaId = videoId,
-            title = title ?: response.title,
-            artists = response.artist,
-            duration = (response.lengthSeconds?.toLong() ?: 0L) * 1000L
+            title = resolved.title ?: "Unknown",
+            artists = null,
+            duration = 0L,
+            mimeType = resolved.mimeType,
         )
         prepare(mediaItem, listOf(mediaItem))
+    }
+
+    suspend fun playPlaylist(startSong: YTSongItem, allSongs: List<YTSongItem>) {
+        val startIndex = allSongs.indexOfFirst { it.videoId == startSong.videoId }
+        if (startIndex < 0) {
+            Log.e("PlaybackDebug", "playPlaylist: startSong not in allSongs list, falling back to playOnline")
+            playOnline(startSong.videoId, startSong.title)
+            return
+        }
+        Log.d("PlaybackDebug", "playPlaylist: startSong=${startSong.videoId} index=$startIndex totalSongs=${allSongs.size}")
+
+        val resolved = resolveStreamUrl(
+            startSong.videoId,
+            startSong.title,
+            startSong.artists.map { it.name },
+            startSong.durationSeconds,
+        )
+        val startItem = YosMediaItem(
+            uri = Uri.parse(resolved.url),
+            mediaId = startSong.videoId,
+            title = resolved.title ?: startSong.title,
+            artists = startSong.artists.joinToString(", ") { it.name },
+            thumb = startSong.thumbnailUrl?.let { Uri.parse(it) },
+            duration = (resolved.durationSeconds?.toLong() ?: 0L) * 1000L,
+            mimeType = resolved.mimeType,
+        )
+
+        prepare(startItem, listOf(startItem))
+        Log.d("PlaybackDebug", "playPlaylist: immediate playback started with tapped track")
+
+        // Build queue order: start at tapped, then playlist order with wrap-around
+        val queueOrder = allSongs.indices.map { (it + startIndex) % allSongs.size }
+
+        val fullList = mutableListOf<YosMediaItem>()
+        fullList.addAll(queueOrder.map { idx ->
+            val song = allSongs[idx]
+            if (idx == startIndex) startItem
+            else YosMediaItem(
+                uri = null,
+                mediaId = song.videoId,
+                title = song.title,
+                artists = song.artists.joinToString(", ") { it.name },
+                thumb = song.thumbnailUrl?.let { Uri.parse(it) },
+                duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
+            )
+        })
+        playingMusicList.value = fullList
+        Log.d("PlaybackDebug", "playPlaylist: playingMusicList set, queue size=${fullList.size}")
+
+        // Resolve remaining tracks in background, in queue order
+        CoroutineScope(Dispatchers.IO + Job()).launch {
+            for (orderedIdx in queueOrder.indices) {
+                if (orderedIdx == 0) continue // Already resolved (tapped track)
+                val playlistIdx = queueOrder[orderedIdx]
+                val song = allSongs[playlistIdx]
+                try {
+                    Log.d("PlaybackDebug", "playPlaylist: resolving track ordered=$orderedIdx playlist=$playlistIdx ${song.videoId}")
+                    val resolved = resolveStreamUrl(
+                        song.videoId,
+                        song.title,
+                        song.artists.map { it.name },
+                        song.durationSeconds,
+                    )
+                    if (!resolved.url.isNullOrBlank()) {
+                        val resolvedItem = YosMediaItem(
+                            uri = Uri.parse(resolved.url),
+                            mediaId = song.videoId,
+                            title = resolved.title ?: song.title,
+                            artists = song.artists.joinToString(", ") { it.name },
+                            thumb = song.thumbnailUrl?.let { Uri.parse(it) },
+                            duration = (resolved.durationSeconds?.toLong() ?: 0L) * 1000L,
+                            mimeType = resolved.mimeType,
+                        )
+                        fullList[orderedIdx] = resolvedItem
+                        playingMusicList.value = fullList.toList()
+                        withContext(Dispatchers.Main) {
+                            mediaControl?.addMediaItem(resolvedItem.toMediaItem())
+                        }
+                        Log.d("PlaybackDebug", "playPlaylist: resolved track $orderedIdx ${song.videoId}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("PlaybackDebug", "playPlaylist: failed to resolve ${song.videoId}", e)
+                }
+            }
+            Log.d("PlaybackDebug", "playPlaylist: all remaining tracks resolved, final queue size=${fullList.size}")
+        }
     }
 
     fun onCase(mediaItem: YosMediaItem) {
@@ -570,6 +830,7 @@ class YosPlaybackService : MediaSessionService() {
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    Log.d("PlaybackDebug", "onMediaItemTransition: mediaItem=${mediaItem?.mediaId} reason=$reason")
                     // Flush in-flight lyrics query immediately on song change
                     lyricsFetchJob?.cancel()
                     lyricsFetchJob = null
@@ -588,7 +849,6 @@ class YosPlaybackService : MediaSessionService() {
                         }
                     }
 
-                    println("更新 $mediaItem")
                     super.onMediaItemTransition(mediaItem, reason)
                 }
 
@@ -615,8 +875,26 @@ class YosPlaybackService : MediaSessionService() {
                 }*/
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    Log.d("PlaybackDebug", "onIsPlayingChanged: isPlaying=$isPlaying")
                     super.onIsPlayingChanged(isPlaying)
                     MediaViewModelObject.isPlaying.value = isPlaying
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    val stateName = when (playbackState) {
+                        Player.STATE_IDLE -> "IDLE"
+                        Player.STATE_BUFFERING -> "BUFFERING"
+                        Player.STATE_READY -> "READY"
+                        Player.STATE_ENDED -> "ENDED"
+                        else -> "UNKNOWN($playbackState)"
+                    }
+                    Log.d("PlaybackDebug", "onPlaybackStateChanged: $stateName")
+                    super.onPlaybackStateChanged(playbackState)
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e("PlaybackDebug", "onPlayerError: ${error.message}", error)
+                    super.onPlayerError(error)
                 }
 
                 override fun onEvents(player: Player, events: Player.Events) {

@@ -226,6 +226,9 @@ fun Browse(
                         if (first.playlistId != null) {
                             LibraryObject.setTargetPlaylistId(first.playlistId)
                             navController.toUI(UI.OnlinePlaylist)
+                        } else if (first.browseId?.startsWith("VL") == true || first.browseId?.startsWith("PL") == true) {
+                            LibraryObject.setTargetPlaylistId(first.browseId)
+                            navController.toUI(UI.OnlinePlaylist)
                         } else if (first.browseId != null) {
                             LibraryObject.setTargetBrowseId(first.browseId)
                             navController.toUI(UI.OnlineAlbumInfo)
@@ -261,6 +264,9 @@ fun Browse(
                             BrowseCard(item = item, onClick = {
                                 if (item.playlistId != null) {
                                     LibraryObject.setTargetPlaylistId(item.playlistId)
+                                    navController.toUI(UI.OnlinePlaylist)
+                                } else if (item.browseId?.startsWith("VL") == true || item.browseId?.startsWith("PL") == true) {
+                                    LibraryObject.setTargetPlaylistId(item.browseId)
                                     navController.toUI(UI.OnlinePlaylist)
                                 } else if (item.browseId != null) {
                                     LibraryObject.setTargetBrowseId(item.browseId)

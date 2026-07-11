@@ -1,6 +1,8 @@
 package com.pryvn.audiophile.code.api
 
 import kotlinx.serialization.json.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.code.api.innertube.SearchFilter
 import com.pryvn.audiophile.code.api.innertube.models.*
@@ -161,6 +163,7 @@ object YouTubeApi {
 
     suspend fun playlist(playlistId: String): Result<YTPlaylistPage> = runCatching {
         val page = YouTube.playlist(playlistId).getOrThrow()
+        android.util.Log.d("PlaylistDebug", "YouTubeApi.playlist: playlistId=$playlistId songs=${page.songs.size} continuation=${page.songsContinuation}")
         YTPlaylistPage(
             playlist = YTPlaylist(
                 id = page.playlist.id,
@@ -204,37 +207,16 @@ object YouTubeApi {
 
     private var cachedSignatureTimestamp: Int? = null
 
-    suspend fun fetchSignatureTimestamp(): Int = cachedSignatureTimestamp ?: runCatching {
-        YouTube.fetchSignatureTimestamp()
-    }.getOrElse { 24007 }.also { cachedSignatureTimestamp = it }
+    suspend fun fetchSignatureTimestamp(): Int {
+        if (cachedSignatureTimestamp != null) return cachedSignatureTimestamp!!
+        return runCatching {
+            YouTube.fetchSignatureTimestamp()
+        }.getOrElse { 24007 }.also { cachedSignatureTimestamp = it }
+    }
 
-    suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
-        val innerTubeResult = runCatching {
-            val raw = YouTube.playerJson(videoId, playlistId).getOrThrow()
-            parsePlayerResponse(raw)
-        }
-        if (innerTubeResult.isSuccess && innerTubeResult.getOrNull()?.streamUrl != null) {
-            return innerTubeResult
-        }
-        val pipedResult = PipedClient.streamsWithFallback(videoId)
-        if (pipedResult.isSuccess) {
-            val piped = pipedResult.getOrNull()!!
-            val bestAudio = piped.audioStreams
-                .filter { !it.videoOnly }
-                .maxByOrNull { it.bitrate ?: 0 }
-            if (bestAudio != null) {
-                return Result.success(YTPlayerResponse(
-                    videoId = videoId,
-                    title = piped.title,
-                    artist = piped.uploader,
-                    thumbnailUrl = piped.thumbnailUrl,
-                    lengthSeconds = piped.duration,
-                    streamUrl = bestAudio.url,
-                    expiresInSeconds = null,
-                ))
-            }
-        }
-        return innerTubeResult
+suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
+        // Use YTPlayerUtils for PoToken-aware playback resolution
+        return YTPlayerUtils.resolvePlayable(videoId, playlistId) as Result<YTPlayerResponse>
     }
 
     suspend fun playerWithPiped(videoId: String): Result<YTPlayerResponse> = runCatching {
@@ -242,7 +224,7 @@ object YouTubeApi {
         val bestAudio = piped.audioStreams
             .filter { !it.videoOnly }
             .maxByOrNull { it.bitrate ?: 0 }
-            ?: error("No audio streams available from Piped")
+            ?: throw Exception("No audio streams available from Piped")
         YTPlayerResponse(
             videoId = videoId,
             title = piped.title,
@@ -456,7 +438,7 @@ object YouTubeApi {
         return url
     }
 
-    private fun parsePlayerResponse(root: JsonObject): YTPlayerResponse {
+    fun parsePlayerResponse(root: JsonObject): YTPlayerResponse {
         val videoDetails = root["videoDetails"]?.jsonObject
             ?: error("Missing videoDetails")
 
@@ -492,5 +474,4 @@ object YouTubeApi {
             expiresInSeconds = expiresInSeconds,
         )
     }
-
 }

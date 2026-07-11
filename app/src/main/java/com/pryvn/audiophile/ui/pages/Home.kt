@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
+import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.data.models.ImageViewModel
@@ -228,9 +229,20 @@ fun Home(
                     ) {
                         items(section.items, key = { it.title + (it.videoId ?: it.browseId ?: "") }) { item ->
                             HomeCard(item = item, onClick = {
-                                item.videoId?.let { vid ->
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.playOnline(vid, item.title)
+                                if (item.playlistId != null) {
+                                    LibraryObject.setTargetPlaylistId(item.playlistId)
+                                    navController.toUI(UI.OnlinePlaylist)
+                                } else if (item.browseId?.startsWith("VL") == true || item.browseId?.startsWith("PL") == true) {
+                                    LibraryObject.setTargetPlaylistId(item.browseId)
+                                    navController.toUI(UI.OnlinePlaylist)
+                                } else if (item.browseId != null) {
+                                    LibraryObject.setTargetBrowseId(item.browseId)
+                                    navController.toUI(UI.OnlineAlbumInfo)
+                                } else {
+                                    item.videoId?.let { vid ->
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.playOnline(vid, item.title)
+                                        }
                                     }
                                 }
                             })

@@ -120,6 +120,7 @@ import kotlinx.coroutines.launch
 import uk.akane.libphonograph.hasScopedStorageWithMediaTypes
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.InnerTubeClient
+import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.code.utils.player.FadeExo.fadePause
 import com.pryvn.audiophile.code.utils.player.FadeExo.fadePlay
@@ -153,6 +154,8 @@ import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicLoginScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicExploreScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicPlaylistsScreen
+import com.pryvn.audiophile.ui.pages.ytmusic.OnlinePlaylistScreen
+import com.pryvn.audiophile.ui.pages.ytmusic.onlinealbuminfo.OnlineAlbumInfo
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInterfaceSetting
 import com.pryvn.audiophile.ui.pages.settings.integration.ShazamRecognitionScreen
@@ -210,11 +213,17 @@ class MainActivity : BaseActivity() {
                                 InnerTubeClient.cookie = cookie
                                 InnerTubeClient.visitorData = SettingsLibrary.YtMusicVisitorData
                                 InnerTubeClient.dataSyncId = SettingsLibrary.YtMusicDataSyncId
+                                YouTube.cookie = cookie
+                                YouTube.visitorData = SettingsLibrary.YtMusicVisitorData
+                                YouTube.dataSyncId = SettingsLibrary.YtMusicDataSyncId
                             }
                             InnerTubeClient.ensureVisitorData()
                             val visitorData = InnerTubeClient.visitorData
                             if (!visitorData.isNullOrBlank() && SettingsLibrary.YtMusicVisitorData.isNullOrBlank()) {
                                 SettingsLibrary.YtMusicVisitorData = visitorData
+                            }
+                            if (YouTube.visitorData.isNullOrBlank()) {
+                                YouTube.visitorData = visitorData
                             }
                         }
                     }
@@ -565,6 +574,12 @@ class MainActivity : BaseActivity() {
                                             }
                                             composable(UI.YTMusicPlaylists) {
                                                 YTMusicPlaylistsScreen(navController)
+                                            }
+                                            composable(UI.OnlinePlaylist) {
+                                                OnlinePlaylistScreen(navController)
+                                            }
+                                            composable(UI.OnlineAlbumInfo) {
+                                                OnlineAlbumInfo(navController)
                                             }
                                         }
 

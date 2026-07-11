@@ -33,6 +33,7 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.code.api.InnerTubeClient
+import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.UI
@@ -134,6 +135,9 @@ fun Settings(navController: NavController) =
                                             InnerTubeClient.cookie = null
                                             InnerTubeClient.visitorData = null
                                             InnerTubeClient.dataSyncId = null
+                                            YouTube.cookie = null
+                                            YouTube.visitorData = null
+                                            YouTube.dataSyncId = null
                                             showLogoutDialog = false
                                         },
                                         onDismiss = { showLogoutDialog = false },

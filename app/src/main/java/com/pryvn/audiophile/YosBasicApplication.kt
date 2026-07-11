@@ -24,6 +24,7 @@ import com.pryvn.audiophile.data.libraries.PlayList
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.YosStringWrapper
 import kotlin.system.exitProcess
+import moe.rukamori.archivetune.utils.PreferenceStore
 
 class YosBasicApplication : Application() {
     override fun onCreate() {
@@ -37,6 +38,9 @@ class YosBasicApplication : Application() {
 
         // 初始化 MMKV
         MMKV.initialize(this)
+
+        // 初始化 ArchiveTune DataStore 内存缓存 (幂等，仅启动一次)
+        PreferenceStore.start(applicationContext)
 
         val gson =
             GsonBuilder()

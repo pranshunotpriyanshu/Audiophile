@@ -59,7 +59,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
-import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.code.api.innertube.models.SongItem
 import com.pryvn.audiophile.code.api.innertube.pages.AlbumPage
@@ -124,9 +123,27 @@ fun OnlineAlbumInfo(navController: NavController) {
             val page = albumState.value
             val songs = playableSongs.value
 
-            if (isLoading.value || page == null || songs == null) {
+            if (isLoading.value) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
+                }
+                return@Box
+            }
+            if (page == null || songs == null) {
+                Title(
+                    title = stringResource(id = R.string.page_library_album_info_title), onBack = {
+                        navController.popBackStack()
+                    }
+                ) {
+                    item("load_failed") {
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 20.dp),
+                        ) {
+                            Text(text = "Unable to load album info", fontSize = 18.sp, modifier = Modifier.alpha(0.6f))
+                        }
+                    }
                 }
                 return@Box
             }
@@ -444,16 +461,22 @@ private suspend fun resolveStreamUrls(songs: List<SongItem>): List<YosMediaItem>
     songs.mapIndexed { index, song ->
         async(Dispatchers.IO) {
             runCatching {
-                val player = YouTubeApi.player(song.id).getOrThrow()
-                val streamUrl = player.streamUrl ?: return@runCatching null
-                YosMediaItem(
-                    uri = Uri.parse(streamUrl),
-                    mediaId = song.id,
+                val resolved = MediaController.resolveStreamUrl(
+                    videoId = song.id,
                     title = song.title,
+                    artists = song.artists.map { it.name },
+                    durationSeconds = song.duration,
+                )
+                if (resolved.url.isBlank()) return@runCatching null
+                YosMediaItem(
+                    uri = Uri.parse(resolved.url),
+                    mediaId = song.id,
+                    title = resolved.title ?: song.title,
                     artists = song.artists.joinToString(", ") { it.name },
                     trackNumber = index + 1,
-                    duration = (song.duration ?: 0).toLong() * 1000L,
+                    duration = (resolved.durationSeconds ?: song.duration ?: 0).toLong() * 1000L,
                     thumb = Uri.parse(song.thumbnail),
+                    mimeType = resolved.mimeType,
                 )
             }.getOrNull()
         }
