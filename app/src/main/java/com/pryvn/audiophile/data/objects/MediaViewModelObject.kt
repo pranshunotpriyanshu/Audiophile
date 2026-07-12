@@ -23,12 +23,18 @@ data class WordSyncedLine(
     val words: List<WordSyncedWord> = emptyList()
 )
 
+enum class PlaybackLoadingState {
+    Idle,
+    ResolvingStream,
+    PreparingPlayer,
+    Buffering,
+    Playing
+}
+
 @Stable
 object MediaViewModelObject {
     val lrcEntries: MutableState<List<List<Pair<Float, String>>>> = mutableStateOf(listOf())
     val otherSideForLines = mutableStateListOf<Boolean>()
-
-    // var mainLyricLines = mutableStateListOf<AnnotatedString>()
 
     val bitmap: MutableState<Uri?> = mutableStateOf(null)
 
@@ -53,4 +59,6 @@ object MediaViewModelObject {
 
     val wordSyncedLines: MutableState<List<WordSyncedLine>> = mutableStateOf(emptyList())
     val hasWordSyncedLyrics: MutableState<Boolean> = mutableStateOf(false)
+
+    val playbackLoadingState: MutableState<PlaybackLoadingState> = mutableStateOf(PlaybackLoadingState.Idle)
 }

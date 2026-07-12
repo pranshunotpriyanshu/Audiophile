@@ -156,6 +156,7 @@ import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicPlaylistsScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.OnlinePlaylistScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.onlinealbuminfo.OnlineAlbumInfo
+import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistInfo
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInterfaceSetting
 import com.pryvn.audiophile.ui.pages.settings.integration.ShazamRecognitionScreen
@@ -590,6 +591,9 @@ class MainActivity : BaseActivity() {
                                             }
                                             composable(UI.OnlineAlbumInfo) {
                                                 OnlineAlbumInfo(navController)
+                                            }
+                                            composable(UI.OnlineArtistInfo) {
+                                                OnlineArtistInfo(navController)
                                             }
                                         }
 

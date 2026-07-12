@@ -6,7 +6,8 @@ import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.code.api.innertube.SearchFilter
 import com.pryvn.audiophile.code.api.innertube.models.*
-import com.pryvn.audiophile.code.api.innertube.pages.*
+import com.pryvn.audiophile.code.api.innertube.pages.ArtistPageModels.ArtistPageData
+import com.pryvn.audiophile.code.api.innertube.pages.ArtistPageModels.ArtistHeader
 
 data class YTSongItem(
     val videoId: String,
@@ -27,14 +28,6 @@ data class YTAlbum(
     val name: String?,
     val id: String? = null,
     val thumbnailUrl: String? = null,
-)
-
-data class YTPlaylist(
-    val id: String,
-    val title: String,
-    val thumbnailUrl: String? = null,
-    val songCount: Int? = null,
-    val author: String? = null,
 )
 
 data class YTAlbumSearchItem(
@@ -158,6 +151,49 @@ object YouTubeApi {
     suspend fun artist(browseId: String): Result<JsonObject> =
         YouTube.browseJson(browseId = browseId)
 
+    suspend fun artistPage(browseId: String): Result<ArtistPageData> = runCatching {
+        val page = YouTube.artist(browseId).getOrThrow()
+        val header = ArtistHeader.fromArtistItem(page.artist)
+
+        // Parse sections
+        val topSongs = page.sections
+            .firstOrNull { it.title.contains("Top songs", ignoreCase = true) || it.title.contains("Popular", ignoreCase = true) }
+            ?.items
+            ?.filterIsInstance<SongItem>() ?: emptyList()
+
+        val latestRelease = page.sections
+            .firstOrNull { it.title.contains("Latest release", ignoreCase = true) || it.title.contains("New release", ignoreCase = true) }
+            ?.items
+            ?.firstOrNull()
+            ?.let { (it as? AlbumItem) }
+
+        val essentialAlbums = page.sections
+            .firstOrNull { it.title.contains("Essential", ignoreCase = true) || it.title.contains("Albums", ignoreCase = true) }
+            ?.items
+            ?.filterIsInstance<AlbumItem>() ?: emptyList()
+
+        val singlesEPs = page.sections
+            .firstOrNull { it.title.contains("Single", ignoreCase = true) || it.title.contains("EP", ignoreCase = true) }
+            ?.items
+            ?.filterIsInstance<AlbumItem>() ?: emptyList()
+
+        val relatedArtists = page.sections
+            .firstOrNull { it.title.contains("Similar", ignoreCase = true) || it.title.contains("Related", ignoreCase = true) }
+            ?.items
+            ?.filterIsInstance<ArtistItem>() ?: emptyList()
+
+        ArtistPageData(
+            artist = page.artist,
+            header = header,
+            topSongs = topSongs,
+            essentialAlbums = essentialAlbums,
+            singlesEPs = singlesEPs,
+            description = page.description,
+            relatedArtists = relatedArtists,
+            latestRelease = latestRelease,
+        )
+    }
+
     suspend fun album(browseId: String): Result<JsonObject> =
         YouTube.browseJson(browseId = browseId)
 
@@ -214,7 +250,7 @@ object YouTubeApi {
         }.getOrElse { 24007 }.also { cachedSignatureTimestamp = it }
     }
 
-suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
+    suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
         // Use YTPlayerUtils for PoToken-aware playback resolution
         return YTPlayerUtils.resolvePlayable(videoId, playlistId) as Result<YTPlayerResponse>
     }
@@ -273,11 +309,11 @@ suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayer
                 val playlistId = navEp?.get("watchEndpoint")?.jsonObject
                     ?.get("playlistId")?.jsonPrimitive?.contentOrNull
                 val thumbnail = twoRow["thumbnailRenderer"]?.jsonObject
-                    ?.get("musicThumbnailRenderer")?.jsonObject
-                    ?.get("thumbnail")?.jsonObject
-                    ?.get("thumbnails")?.jsonArray
-                    ?.lastOrNull()?.jsonObject
-                    ?.get("url")?.jsonPrimitive?.contentOrNull
+                    ??.get("musicThumbnailRenderer")?.jsonObject
+                    ??.get("thumbnail")?.jsonObject
+                    ??.get("thumbnails")?.jsonArray
+                    ??.lastOrNull()?.jsonObject
+                    ??.get("url")?.jsonPrimitive?.contentOrNull
                 val subtitleRuns = twoRow["subtitle"]?.jsonObject?.get("runs")?.jsonArray
                 val artists = mutableListOf<YTArtist>()
                 subtitleRuns?.forEach { run ->

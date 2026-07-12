@@ -73,6 +73,7 @@ import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.uri
 import com.pryvn.audiophile.data.objects.MainViewModelObject
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
+import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 
 
 @Stable
@@ -151,7 +152,25 @@ object MediaController {
         play: Boolean = true
     ) {
         Log.d("PlaybackDebug", "prepare: music=${music.mediaId} listSize=${thisMusicList.size} play=$play")
-        if (thisMusicList != playingMusicList.value) {
+
+        // Capture the previous queue BEFORE mutating state so we can distinguish a new
+        // queue (rebuild + play) from a jump within the current queue (seek only).
+        val previousList = playingMusicList.value
+        val isNewList = thisMusicList != previousList
+
+        // Immediate Now Playing UI update. MUST run on the main thread so the Compose
+        // snapshot notifies observers (Queue screen, mini-player, Now Playing) and they
+        // recompose. Writing snapshot state off the main thread updates the raw value
+        // (so direct .value reads in click handlers see the change) but fails to trigger
+        // recomposition, which desyncs the Queue UI from the actual queue.
+        withContext(Dispatchers.Main) {
+            musicPlaying.value = music
+            MediaViewModelObject.bitmap.value = music.thumb
+            MainViewModelObject.syncLyricIndex.intValue = -1
+            MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.PreparingPlayer
+        }
+
+        if (isNewList) {
 
             var index = 0
 
@@ -167,40 +186,35 @@ object MediaController {
             Log.d("PlaybackDebug", "MediaItem created mediaId=${music.mediaId} uri=${music.uri?.toString()?.take(80)}")
 
             withContext(Dispatchers.Main) {
+                playingMusicList.value = thisMusicList
+
                 mediaControl?.setMediaItems(itemList, index, position)
                 Log.d("PlaybackDebug", "Player.prepare()")
                 mediaControl?.prepare()
-            }
 
-            if (!play && playingMusicList.value == null) {
-                playingMusicList.value = thisMusicList
-                withContext(Dispatchers.Main) {
+                if (!play) {
                     mediaControl?.shuffleModeEnabled = shuffleModeEnabled
                     mediaControl?.repeatMode = repeatMode
                     mediaControl?.let { YosPlaybackService().setCustomButtons(it) }
                 }
-            } else {
-                playingMusicList.value = thisMusicList
-            }
 
-            // Assertion 3: queue entry at index matches the mediaId
-            playingMusicList.value?.let { list ->
-                if (index < list.size) {
-                    val queueItem = list[index]
+                // Assertion 3: queue entry at index matches the mediaId
+                if (index < thisMusicList.size) {
+                    val queueItem = thisMusicList[index]
                     Log.d("VideoIdChain", "prepare: queue[$index] videoId=${queueItem.mediaId} title=${queueItem.title} url=${queueItem.uri?.toString()?.take(80)}")
                 }
-            }
-            Log.d("VideoIdChain", "prepare: full queue videoIds=${listOfNotNull(music.mediaId)}")
+                Log.d("VideoIdChain", "prepare: full queue videoIds=${listOfNotNull(music.mediaId)}")
 
-            if (play) {
-                Log.d("PlaybackDebug", "prepare: calling fadePlay")
-                withContext(Dispatchers.Main) {
+                if (play) {
+                    // Selecting a song is an explicit playback action. Always start
+                    // playback and never inherit the previous (possibly paused) state.
+                    Log.d("PlaybackDebug", "prepare: calling fadePlay")
+                    MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Buffering
+                    mediaControl?.playWhenReady = true
                     mediaControl?.fadePlay()
                 }
-            }
 
-            playingMusicList.value?.let { list ->
-                MusicLibrary.updatePlayList(PlayListV1(mainMusicList, list))
+                MusicLibrary.updatePlayList(PlayListV1(mainMusicList, thisMusicList))
             }
 
         } else {
@@ -208,7 +222,11 @@ object MediaController {
             val index = thisMusicList.indexOf(music)
             withContext(Dispatchers.Main) {
                 mediaControl?.seekToDefaultPosition(index)
-                mediaControl?.fadePlay()
+                if (play) {
+                    // Jumping within the current queue must also (re)start playback.
+                    mediaControl?.playWhenReady = true
+                    mediaControl?.fadePlay()
+                }
             }
         }
     }
@@ -293,6 +311,20 @@ object MediaController {
         // Assertion 1: videoId passed to resolver matches the song
         require(song.videoId.isNotBlank()) { "playOnline: song.videoId is blank" }
 
+        // IMMEDIATELY update UI state so user sees feedback instantly.
+        // Must run on main thread for snapshot notification (see prepare()).
+        withContext(Dispatchers.Main) {
+            MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
+            musicPlaying.value = YosMediaItem(
+                uri = null,
+                mediaId = song.videoId,
+                title = song.title,
+                artists = artistStr,
+                thumb = song.thumbnailUrl?.let { Uri.parse(it) },
+                duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
+            )
+        }
+
         val resolved = resolveStreamUrl(
             song.videoId,
             song.title,
@@ -302,6 +334,10 @@ object MediaController {
 
         require(song.videoId == song.videoId) { "playOnline: videoId mismatch at resolver input" }
         Log.d("VideoIdChain", "playOnline: requested=$song.videoId resolvedUrl=${resolved.url.take(80)}")
+
+        withContext(Dispatchers.Main) {
+            MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.PreparingPlayer
+        }
 
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
@@ -319,7 +355,24 @@ object MediaController {
 
     suspend fun playOnline(videoId: String, title: String? = null) {
         Log.d("PlaybackDebug", "playOnline: videoId=$videoId title=$title (no YTSongItem metadata)")
+        
+        withContext(Dispatchers.Main) {
+            MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
+            musicPlaying.value = YosMediaItem(
+                uri = null,
+                mediaId = videoId,
+                title = title ?: "Unknown",
+                artists = null,
+                duration = 0L,
+            )
+        }
+
         val resolved = resolveStreamUrl(videoId, title, emptyList(), null)
+
+        withContext(Dispatchers.Main) {
+            MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.PreparingPlayer
+        }
+
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
             mediaId = videoId,
@@ -375,7 +428,9 @@ object MediaController {
                 duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
             )
         })
-        playingMusicList.value = fullList
+        withContext(Dispatchers.Main) {
+            playingMusicList.value = fullList
+        }
         Log.d("PlaybackDebug", "playPlaylist: playingMusicList set, queue size=${fullList.size}")
 
         // Resolve remaining tracks in background, in queue order
@@ -403,8 +458,8 @@ object MediaController {
                             mimeType = resolved.mimeType,
                         )
                         fullList[orderedIdx] = resolvedItem
-                        playingMusicList.value = fullList.toList()
                         withContext(Dispatchers.Main) {
+                            playingMusicList.value = fullList.toList()
                             mediaControl?.addMediaItem(resolvedItem.toMediaItem())
                         }
                         Log.d("PlaybackDebug", "playPlaylist: resolved track $orderedIdx ${song.videoId}")
@@ -636,10 +691,114 @@ class YosPlaybackService : MediaSessionService() {
             override fun isPlaying(): Boolean {
                 return FadeExo.targetStatus != 0
             }
+
+            override fun seekToPrevious() {
+                // Apple Music / Spotify behavior: if position > 2s, seek to start; else go to previous track
+                if (currentPosition > 2000) {
+                    seekTo(0)
+                } else if (hasPreviousMediaItem()) {
+                    seekToPreviousMediaItem()
+                } else {
+                    seekTo(0)
+                }
+            }
         }
 
         var lyricsFetchJob: kotlinx.coroutines.Job? = null
         var prefetchJob: kotlinx.coroutines.Job? = null
+        // Track the mediaId for the current lyrics request to prevent stale results
+        var currentLyricsRequestMediaId: String? = null
+
+        // Centralized "current song changed" lyrics workflow. Called from onMediaItemTransition
+        // for EVERY song transition (Search, Playlist, Album, Queue, Offline, Home, Browse,
+        // Favorites, auto-advance) so behavior is identical regardless of playback source.
+        // Flow: cancel previous request -> clear lyrics/loading -> fetch (with stale guard) -> prefetch.
+        fun triggerLyricsFetch() {
+            // Cancel any in-flight lyrics query before starting a new one
+            lyricsFetchJob?.cancel()
+            lyricsFetchJob = null
+
+            // Immediately clear old lyrics when song changes (before new fetch)
+            val newTrack = musicPlaying.value
+            val newMediaId = newTrack?.mediaId
+            if (newMediaId != null) {
+                currentLyricsRequestMediaId = newMediaId
+            }
+            MediaViewModelObject.isLoadingLyrics.value = true
+            LyricsProcessor.resetLyricsState()
+            MediaViewModelObject.lrcEntries.value = emptyList()
+            MediaViewModelObject.otherSideForLines.clear()
+
+            lyricsFetchJob = CoroutineScope(Dispatchers.IO).launch {
+                val currentTrack = musicPlaying.value
+                // Capture the mediaId this request is for
+                val requestMediaId = currentTrack?.mediaId
+                if (currentTrack != null && requestMediaId != null) {
+                    val cacheKey = requestMediaId ?: (currentTrack.title ?: "unknown")
+                    val inMemory = MediaViewModelObject.lyricsCache[cacheKey]
+                    val lyricsText = inMemory ?: MusicLibrary.loadPersistedLyrics(cacheKey)
+                    if (lyricsText != null) {
+                        MediaViewModelObject.lyricsCache[cacheKey] = lyricsText
+                        val lrcFactory = YosLrcFactory()
+                        LyricsProcessor.applyLyrics(
+                            AudiophileLyrics("Cache", lyricsText, isWordSynced = TTMLParser.isTtml(lyricsText)),
+                        ) { MediaViewModelObject.lrcEntries.value = it }
+                        MediaViewModelObject.isLoadingLyrics.value = false
+                    } else {
+                        Log.d("PlaybackDebug", "Lyrics lookup: title=${currentTrack.title} artist=${currentTrack.artists} album=${currentTrack.album} durationMs=${currentTrack.duration}")
+                        val onlineLyrics = ArchiveTuneApis.fetchLyrics(
+                            title = currentTrack.title,
+                            artist = currentTrack.artists,
+                            album = currentTrack.album,
+                            durationMs = currentTrack.duration,
+                            videoId = currentTrack.mediaId,
+                        )
+                        // STALE-RESULT GUARD: verify the song hasn't changed since we started
+                        if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
+                            // Check if the current song still matches the one we fetched for
+                            val currentPlayingMediaId = musicPlaying.value?.mediaId
+                            if (currentPlayingMediaId == requestMediaId) {
+                                MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
+                                MusicLibrary.saveLyrics(cacheKey, onlineLyrics.text)
+                                LyricsProcessor.applyLyrics(onlineLyrics) { MediaViewModelObject.lrcEntries.value = it }
+                            } else {
+                                Log.d("PlaybackDebug", "Lyrics stale: requested for $requestMediaId but now playing $currentPlayingMediaId")
+                            }
+                        }
+                        MediaViewModelObject.isLoadingLyrics.value = false
+                    }
+                }
+            }
+            // Prefetch lyrics for ALL remaining songs in the queue
+            prefetchJob?.cancel()
+            prefetchJob = CoroutineScope(Dispatchers.IO).launch {
+                val list = playingMusicList?.value ?: return@launch
+                val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
+                if (currentIndex >= 0) {
+                    val upcoming = list.subList(currentIndex + 1, list.size)
+                    for (track in upcoming) {
+                        val key = track.mediaId ?: (track.title ?: "unknown")
+                        if (!MediaViewModelObject.lyricsCache.containsKey(key)) {
+                            val persisted = MusicLibrary.loadPersistedLyrics(key)
+                            if (persisted != null) {
+                                MediaViewModelObject.lyricsCache[key] = persisted
+                            } else {
+                                val lyrics = ArchiveTuneApis.fetchLyrics(
+                                    title = track.title,
+                                    artist = track.artists,
+                                    album = track.album,
+                                    durationMs = track.duration
+                                )
+                                if (lyrics != null && lyrics.text.isNotBlank()) {
+                                    MediaViewModelObject.lyricsCache[key] = lyrics.text
+                                    MusicLibrary.saveLyrics(key, lyrics.text)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         forwardingPlayer.addListener(
             object : Player.Listener {
@@ -703,72 +862,11 @@ class YosPlaybackService : MediaSessionService() {
 
                         println("质量分析 采样率：${MediaViewModelObject.samplingRate.intValue}，比特率：${MediaViewModelObject.bitrate.intValue}")
 
-                        // Cancel any in-flight lyrics query before starting a new one
-                        lyricsFetchJob?.cancel()
-                        lyricsFetchJob = null
+                        // First-song reliability: onTracksChanged reliably fires when a track's
+                        // audio is loaded for any source (Search/Playlist/Album/Queue/...). The
+                        // same centralized lyrics workflow is used here and in onMediaItemTransition.
+                        triggerLyricsFetch()
 
-                        MediaViewModelObject.isLoadingLyrics.value = true
-                        LyricsProcessor.resetLyricsState()
-                        lyricsFetchJob = CoroutineScope(Dispatchers.IO).launch {
-                            val currentTrack = musicPlaying.value
-                            if (currentTrack != null) {
-                                val cacheKey = currentTrack.mediaId ?: (currentTrack.title ?: "unknown")
-                                val inMemory = MediaViewModelObject.lyricsCache[cacheKey]
-                                val lyricsText = inMemory ?: MusicLibrary.loadPersistedLyrics(cacheKey)
-                                if (lyricsText != null) {
-                                    MediaViewModelObject.lyricsCache[cacheKey] = lyricsText
-                                    val lrcFactory = YosLrcFactory()
-                                    LyricsProcessor.applyLyrics(
-                                        AudiophileLyrics("Cache", lyricsText, isWordSynced = TTMLParser.isTtml(lyricsText)),
-                                    ) { lrcEntries.value = it }
-                                    MediaViewModelObject.isLoadingLyrics.value = false
-                                } else {
-                                    Log.d("PlaybackDebug", "Lyrics lookup: title=${currentTrack.title} artist=${currentTrack.artists} album=${currentTrack.album} durationMs=${currentTrack.duration}")
-                                    val onlineLyrics = ArchiveTuneApis.fetchLyrics(
-                                        title = currentTrack.title,
-                                        artist = currentTrack.artists,
-                                        album = currentTrack.album,
-                                        durationMs = currentTrack.duration,
-                                        videoId = currentTrack.mediaId,
-                                    )
-                                    if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
-                                        MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
-                                        MusicLibrary.saveLyrics(cacheKey, onlineLyrics.text)
-                                        LyricsProcessor.applyLyrics(onlineLyrics) { lrcEntries.value = it }
-                                    }
-                                    MediaViewModelObject.isLoadingLyrics.value = false
-                                }
-                            }
-                        }
-                        // Prefetch lyrics for ALL remaining songs in the queue
-                        prefetchJob?.cancel()
-                        prefetchJob = CoroutineScope(Dispatchers.IO).launch {
-                            val list = playingMusicList?.value ?: return@launch
-                            val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
-                            if (currentIndex >= 0) {
-                                val upcoming = list.subList(currentIndex + 1, list.size)
-                                for (track in upcoming) {
-                                    val key = track.mediaId ?: (track.title ?: "unknown")
-                                    if (!MediaViewModelObject.lyricsCache.containsKey(key)) {
-                                        val persisted = MusicLibrary.loadPersistedLyrics(key)
-                                        if (persisted != null) {
-                                            MediaViewModelObject.lyricsCache[key] = persisted
-                                        } else {
-                                            val lyrics = ArchiveTuneApis.fetchLyrics(
-                                                title = track.title,
-                                                artist = track.artists,
-                                                album = track.album,
-                                                durationMs = track.duration
-                                            )
-                                            if (lyrics != null && lyrics.text.isNotBlank()) {
-                                                MediaViewModelObject.lyricsCache[key] = lyrics.text
-                                                MusicLibrary.saveLyrics(key, lyrics.text)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -791,6 +889,10 @@ class YosPlaybackService : MediaSessionService() {
                         if (videoId != null && videoId.length == 11) {
                             SponsorBlockManager.onNewVideo(videoId, forwardingPlayer)
                         }
+
+                        // Single centralized lyrics refresh for every song transition,
+                        // regardless of where playback originated.
+                        triggerLyricsFetch()
                     }
 
                     super.onMediaItemTransition(mediaItem, reason)
@@ -828,7 +930,12 @@ class YosPlaybackService : MediaSessionService() {
                     val stateName = when (playbackState) {
                         Player.STATE_IDLE -> "IDLE"
                         Player.STATE_BUFFERING -> "BUFFERING"
-                        Player.STATE_READY -> "READY"
+                        Player.STATE_READY -> {
+                            if (MediaViewModelObject.playbackLoadingState.value != PlaybackLoadingState.Playing) {
+                                MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Playing
+                            }
+                            "READY"
+                        }
                         Player.STATE_ENDED -> "ENDED"
                         else -> "UNKNOWN($playbackState)"
                     }
@@ -909,33 +1016,6 @@ class YosPlaybackService : MediaSessionService() {
                     SessionResult(SessionResult.RESULT_SUCCESS)
                 )
             }
-            /*override fun onMediaButtonEvent(
-                session: MediaSession,
-                controllerInfo: MediaSession.ControllerInfo,
-                intent: Intent
-            ): Boolean {
-                val keyEvent = intent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
-                if (keyEvent != null) {
-                    when (keyEvent.keyCode) {
-                        KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                            player.fadePlay()
-                        }
-
-                        KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                            player.fadePause()
-                        }
-
-                        KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                            player.seekToNextMediaItem()
-                        }
-
-                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                            player.seekToPreviousMediaItem()
-                        }
-                    }
-                }
-                return super.onMediaButtonEvent(session, controllerInfo, intent)
-            }*/
         }
 
         mediaSession =

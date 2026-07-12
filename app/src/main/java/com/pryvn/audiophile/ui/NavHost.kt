@@ -25,7 +25,9 @@ interface UI {
         const val YTMusicPlaylists = "YTMusicPlaylists"
         const val OnlinePlaylist = "OnlinePlaylist"
         const val OnlineAlbumInfo = "OnlineAlbumInfo"
+        const val OnlineArtistInfo = "OnlineArtistInfo"
         const val YTMusicMainSearch = "YTMusicMainSearch"
+        const val YTMusicCategory = "YTMusicCategory"
     }
 
     @Stable

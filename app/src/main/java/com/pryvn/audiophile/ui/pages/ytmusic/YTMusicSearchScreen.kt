@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -201,7 +202,9 @@ class SearchViewModel(private val context: Context) : ViewModel() {
                 suggestions = emptyList(),
                 resultsSections = emptyList(),
                 showSuggestions = false,
+                showRecent = false,
                 isSearching = false,
+                isFocused = false,
                 isLoading = false
             )
         }
@@ -284,27 +287,7 @@ fun YTMusicSearchScreen(
     val focusRequester = remember { FocusRequester() }
     val density = LocalDensity.current
     val isSearching = uiState.isFocused || uiState.isSearching
-
-    val imeInsets = WindowInsets.ime
-    val imeBottom by remember { derivedStateOf { imeInsets.getBottom(density) } }
-    val keyboardHeight by animateDpAsState(
-        targetValue = if (uiState.isFocused && imeBottom > 0) imeBottom.dp else 0.dp,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
-        label = "keyboardHeight"
-    )
-
-    val searchBarAnimOffset by animateDpAsState(
-        targetValue = if (uiState.isFocused && keyboardHeight > 0.dp) keyboardHeight else 0.dp,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
-        label = "searchBarOffset"
-    )
-
-    LaunchedEffect(initialQuery) {
-        if (!initialQuery.isNullOrBlank()) {
-            viewModel.onQueryChange(initialQuery)
-            viewModel.performSearch(initialQuery)
-        }
-    }
+    val showTitle = !isSearching
 
     val contentState = remember(uiState) {
         when {
@@ -317,11 +300,24 @@ fun YTMusicSearchScreen(
         }
     }
 
+    LaunchedEffect(initialQuery) {
+        if (!initialQuery.isNullOrBlank()) {
+            viewModel.onQueryChange(initialQuery)
+            viewModel.performSearch(initialQuery)
+        }
+    }
+
     BackHandler(
         enabled = !showBackButton && contentState != SearchContentState.Idle
     ) {
+        focusManager.clearFocus()
+        keyboardController?.hide()
         viewModel.clearQuery()
     }
+
+    // Window insets for proper bottom spacing
+    val systemBarsBottom = with(density) { WindowInsets.systemBars.getBottom(this).toDp() }
+    val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
 
     Box(
         modifier = Modifier
@@ -329,124 +325,144 @@ fun YTMusicSearchScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
-        // ── Main scrollable content ──
-        Box(modifier = Modifier.fillMaxSize()) {
-            // When idle: show full page with categories
-            // When searching: show scrollable results
-            if (uiState.isFocused || uiState.isSearching) {
-                // Results area
+        // ── Content area (crossfade between idle and search) ──
+        // Each state handles its own layout independently — no shared Box padding.
+        // Idle: IdlePage uses its own padding(top = 120.dp) (original behavior).
+        // Active: results get a top padding matching the collapsed search bar (~68dp).
+        AnimatedContent(
+            targetState = isSearching,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(250))
+            },
+            label = "searchContent"
+        ) { searching ->
+            if (searching) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = if (uiState.isFocused && keyboardHeight > 0.dp) (keyboardHeight + 60.dp) else 220.dp),
+                        .padding(top = 68.dp)
+                        .padding(
+                            bottom = if (uiState.isFocused) {
+                                imeBottom + 8.dp
+                            } else {
+                                systemBarsBottom + 64.dp
+                            }
+                        ),
                     contentPadding = PaddingValues(top = 8.dp)
                 ) {
-                    when (contentState) {
-                        SearchContentState.Loading -> {
-                            item { LoadingView(Modifier.fillMaxWidth().padding(vertical = 60.dp)) }
-                        }
-                        SearchContentState.Suggestions -> {
-                            item { SuggestionsList(uiState.suggestions, viewModel::onSuggestionClick) }
-                        }
-                        SearchContentState.Recent -> {
-                            item {
-                                RecentSearchesContent(
-                                    uiState.recentSearches,
-                                    viewModel::onRecentSearchClick,
-                                    viewModel::clearRecentSearches
-                                )
+                        when (contentState) {
+                            SearchContentState.Loading -> {
+                                item { LoadingView(Modifier.fillMaxWidth().padding(vertical = 60.dp)) }
                             }
-                        }
-                        SearchContentState.Results -> {
-                            items(uiState.resultsSections) { section ->
-                                ResultsSection(section, onSongClick = { song ->
+                            SearchContentState.Suggestions -> {
+                                item { SuggestionsList(uiState.suggestions, viewModel::onSuggestionClick) }
+                            }
+                            SearchContentState.Recent -> {
+                                item {
+                                    RecentSearchesContent(
+                                        uiState.recentSearches,
+                                        viewModel::onRecentSearchClick,
+                                        viewModel::clearRecentSearches
+                                    )
+                                }
+                            }
+                            SearchContentState.Results -> {
+                                items(uiState.resultsSections) { section ->
+                                    ResultsSection(section, onSongClick = { song ->
                                         scope.launch(Dispatchers.IO) {
                                             Log.d("PlaybackDebug", "Search tap: videoId=${song.videoId} title=${song.title} artist=${song.artists.joinToString(", ") { it.name }} thumbnail=${song.thumbnailUrl}")
                                             MediaController.playOnline(song)
                                         }
-                                })
+                                    })
+                                }
                             }
+                            SearchContentState.Empty -> {
+                                item { EmptyView(Modifier.fillMaxWidth()) }
+                            }
+                            else -> {}
                         }
-                        SearchContentState.Empty -> {
-                            item { EmptyView(Modifier.fillMaxWidth()) }
-                        }
-                        else -> {}
                     }
-                }
-            } else {
-                // Idle page with categories
-                IdlePage(
-                    onCategoryClick = viewModel::performSearch,
-                    modifier = Modifier.fillMaxSize()
-                )
+                } else {
+                    IdlePage(
+                        onCategoryClick = { label ->
+                            navController?.toUI(UI.YTMusicCategory, label)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
             }
         }
 
-        // ── Search bar overlay ──
+        // ── Search bar overlay (animated height) ──
         Column(
             modifier = Modifier
-                .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 20.dp)
-                .padding(top = 40.dp)
         ) {
-            // Title row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Spacer(Modifier.height(if (showTitle) 40.dp else 12.dp))
+
+            AnimatedVisibility(
+                visible = showTitle,
+                enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
-                if (showBackButton || isMoodGenreBrowse) {
-                    Box(
+                Column {
+                    Row(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { onBackClick?.invoke() }
-                            ),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painterResource(R.drawable.ic_back),
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(20.dp)
+                        if (showBackButton || isMoodGenreBrowse) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { onBackClick?.invoke() }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_back),
+                                    contentDescription = "Back",
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = "Search",
+                            fontSize = 35.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 40.sp,
+                            fontFamily = SfProFontFamily,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
                         )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { navController?.toUI(UI.Settings.Main) }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = CupertinoIcons.Default.PersonCropCircle,
+                                contentDescription = "Account",
+                                modifier = Modifier.size(24.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(4.dp))
-                }
-                Text(
-                    text = "Search",
-                    fontSize = 35.sp,
-                    fontWeight = FontWeight.Bold,
-                    lineHeight = 40.sp,
-                    fontFamily = SfProFontFamily,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { navController?.toUI(UI.Settings.Main) }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = CupertinoIcons.Default.PersonCropCircle,
-                        contentDescription = "Account",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
 
-            // Search bar
             AppleSearchBar(
                 query = uiState.query,
                 onQueryChange = viewModel::onQueryChange,
@@ -1214,7 +1230,7 @@ private fun EmptyView(modifier: Modifier = Modifier) {
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 
-private fun AudiophileOnlineTrack.toYTSongItem() = YTSongItem(
+internal fun AudiophileOnlineTrack.toYTSongItem() = YTSongItem(
     videoId = id,
     title = title,
     artists = if (artist != null) listOf(YTArtist(name = artist, id = "")) else emptyList(),
