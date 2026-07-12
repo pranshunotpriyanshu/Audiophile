@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -55,14 +53,6 @@ private fun YosBottomSheetDialog(
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val edgeToEdgeEnabled by remember("YosBottomSheetDialog_edgeToEdgeEnabled") {
-        mutableStateOf(
-            true
-        )
-    }
-    val windowInsets = if (edgeToEdgeEnabled)
-        WindowInsets(0) else BottomSheetDefaults.windowInsets
-
     val context = LocalContext.current
 
     YosWrapper {
@@ -76,7 +66,6 @@ private fun YosBottomSheetDialog(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = bottomSheetState,
-        windowInsets = windowInsets,
         properties = properties,
         shape = RectangleShape,
         content = {

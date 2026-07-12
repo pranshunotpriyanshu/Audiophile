@@ -28,7 +28,9 @@ enum class PlaybackLoadingState {
     ResolvingStream,
     PreparingPlayer,
     Buffering,
-    Playing
+    Playing,
+    Paused,
+    Error
 }
 
 @Stable

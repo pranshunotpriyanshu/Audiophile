@@ -106,7 +106,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -181,6 +180,7 @@ import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.models.MainViewModel
 import com.pryvn.audiophile.data.models.MediaViewModel
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
+import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.Album
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.Lyric
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.PlayingList
@@ -199,7 +199,6 @@ import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.onGloballyPositioned
 
 
 @Stable
@@ -208,10 +207,6 @@ object NowPlayingPage {
     const val PlayingList = "PlayingList"
     const val Lyric = "Lyric"
 }
-
-val LocalSeekbarRect = staticCompositionLocalOf { mutableStateOf(Rect.Zero) }
-
-
 
 private const val ShareAlbumKey = "album"
 private const val AnimDurationMillis = 300
@@ -765,7 +760,7 @@ fun NowPlaying(
                                         isPlayingLambda = isPlayingStatusLambda,
                                         isPlayingOnChanged = isPlayingOnChanged,
                                         onPrevious = {
-                                            mediaControl?.seekToPreviousMediaItem()
+                                            mediaControl?.seekToPrevious()
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
@@ -901,7 +896,7 @@ fun NowPlaying(
                             isPlayingLambda = isPlayingStatusLambda,
                             isPlayingOnChanged = isPlayingOnChanged,
                             onPrevious = {
-                                mediaControl?.seekToPreviousMediaItem()
+                                mediaControl?.seekToPrevious()
                             },
                             onStatus = { status ->
                                 if (status) {
@@ -2349,6 +2344,14 @@ private fun PlayerControl(
     }
     val isPressed = remember("PlayerControl_isPressed") { mutableStateOf(false) }
     val isDragging = remember("PlayerControl_isDragging") { mutableStateOf(false) }
+    val isLoading = remember("PlayerControl_isLoading") {
+        derivedStateOf {
+            val state = MediaViewModelObject.playbackLoadingState.value
+            state == PlaybackLoadingState.ResolvingStream ||
+            state == PlaybackLoadingState.PreparingPlayer ||
+            (state == PlaybackLoadingState.Buffering && playingDuration.longValue == 0L)
+        }
+    }
     val timestampFontSize by animateFloatAsState(
         targetValue = if (isPressed.value || isDragging.value) 16f else 12f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
@@ -2415,7 +2418,6 @@ private fun PlayerControl(
                         targetValue = if (isPressed.value || isDragging.value) 12.dp else 7.dp,
                         animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
                     )
-                    val seekbarRectState = LocalSeekbarRect.current
 
                     Box(
                         modifier = Modifier
@@ -2423,15 +2425,8 @@ private fun PlayerControl(
                             .height(48.dp)
                             .overlayEffect()
                             .graphicsLayer(alpha = seekbarAlpha)
-                            .onGloballyPositioned {
-                                val pos = it.localToRoot(Offset.Zero)
-                                seekbarRectState.value = Rect(
-                                    pos.x, pos.y,
-                                    pos.x + it.size.width.toFloat(),
-                                    pos.y + it.size.height.toFloat()
-                                )
-                            }
                             .pointerInput(Unit) {
+                                if (isLoading.value) return@pointerInput
                                 detectTapGestures(
                                     onPress = {
                                         isPressed.value = true
@@ -2443,6 +2438,7 @@ private fun PlayerControl(
                                 )
                             }
                             .pointerInput(Unit) {
+                                if (isLoading.value) return@pointerInput
                                 detectDragGestures(
                                     onDragStart = {
                                         isPressed.value = true
@@ -2511,30 +2507,39 @@ private fun PlayerControl(
                             .heightIn(min = 22.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                        if (isLoading.value) {
                             Text(
-                                text = playedTime.value,
-                                fontSize = timestampFontSize.sp,
+                                text = "Loading...",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.3.sp,
                                 color = Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier
-                                    .overlayEffect()
-                                    .graphicsLayer(alpha = seekbarAlpha)
                             )
-                            Text(
-                                text = remainingTime.value,
-                                fontSize = timestampFontSize.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.3.sp,
-                                color = Color.White.copy(alpha = 0.3f),
-                                modifier = Modifier
-                                    .overlayEffect()
-                                    .graphicsLayer(alpha = seekbarAlpha)
-                            )
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = playedTime.value,
+                                    fontSize = timestampFontSize.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 0.3.sp,
+                                    color = Color.White.copy(alpha = 0.3f),
+                                    modifier = Modifier
+                                        .overlayEffect()
+                                        .graphicsLayer(alpha = seekbarAlpha)
+                                )
+                                Text(
+                                    text = remainingTime.value,
+                                    fontSize = timestampFontSize.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 0.3.sp,
+                                    color = Color.White.copy(alpha = 0.3f),
+                                    modifier = Modifier
+                                        .overlayEffect()
+                                        .graphicsLayer(alpha = seekbarAlpha)
+                                )
+                            }
                         }
 
                         MusicQualityIndicator()
@@ -2588,7 +2593,9 @@ private fun PlayerControl(
                                 contentAlignment = Alignment.Center
                             ) {
                                 val buttonState = when {
-                                    MediaViewModelObject.isBuffering.value -> "spinner"
+                                    MediaViewModelObject.isBuffering.value ||
+                                    MediaViewModelObject.playbackLoadingState.value == PlaybackLoadingState.ResolvingStream ||
+                                    MediaViewModelObject.playbackLoadingState.value == PlaybackLoadingState.PreparingPlayer -> "spinner"
                                     isPlayingLambda() -> "pause"
                                     else -> "play"
                                 }

@@ -101,10 +101,12 @@ dependencies {
 
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation platform('org.jetbrains.kotlin:kotlin-bom:2.0.21')
+    implementation platform('androidx.compose:compose-bom:2024.10.00')
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'
     implementation 'androidx.activity:activity-compose:1.9.1'
 
-    implementation "androidx.compose.foundation:foundation:1.7.0-beta07"
+    implementation "androidx.compose.foundation:foundation"
+    implementation "androidx.compose.animation:animation"
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.compose.runtime:runtime-livedata:1.0.0-beta01'
     testImplementation 'junit:junit:4.13.2'

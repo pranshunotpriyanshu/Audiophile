@@ -924,6 +924,11 @@ class YosPlaybackService : MediaSessionService() {
                     Log.d("PlaybackDebug", "onIsPlayingChanged: isPlaying=$isPlaying")
                     super.onIsPlayingChanged(isPlaying)
                     MediaViewModelObject.isPlaying.value = isPlaying
+                    if (isPlaying) {
+                        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Playing
+                    } else if (forwardingPlayer.playbackState == Player.STATE_READY) {
+                        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Paused
+                    }
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -931,8 +936,10 @@ class YosPlaybackService : MediaSessionService() {
                         Player.STATE_IDLE -> "IDLE"
                         Player.STATE_BUFFERING -> "BUFFERING"
                         Player.STATE_READY -> {
-                            if (MediaViewModelObject.playbackLoadingState.value != PlaybackLoadingState.Playing) {
+                            if (forwardingPlayer.isPlaying) {
                                 MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Playing
+                            } else {
+                                MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Paused
                             }
                             "READY"
                         }
@@ -945,6 +952,7 @@ class YosPlaybackService : MediaSessionService() {
 
                 override fun onPlayerError(error: PlaybackException) {
                     Log.e("PlaybackDebug", "onPlayerError: ${error.message}", error)
+                    MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Error
                     super.onPlayerError(error)
                 }
 

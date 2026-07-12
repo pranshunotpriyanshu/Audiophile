@@ -62,6 +62,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.ripple
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -75,9 +76,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
-import com.pryvn.audiophile.ui.pages.LocalSeekbarRect
+
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithCache
@@ -131,6 +133,7 @@ import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.models.MainViewModel
 import com.pryvn.audiophile.data.models.MediaViewModel
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
+import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.UI.Settings.Companion.ExoplayerSetting
 import com.pryvn.audiophile.ui.pages.HomeNav
@@ -167,6 +170,7 @@ import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.basic.BottomNavigator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.NavItem
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import java.io.File
@@ -593,6 +597,7 @@ class MainActivity : BaseActivity() {
                                                 OnlineAlbumInfo(navController)
                                             }
                                             composable(UI.OnlineArtistInfo) {
+                                                @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
                                                 OnlineArtistInfo(navController)
                                             }
                                         }
@@ -761,10 +766,12 @@ class MainActivity : BaseActivity() {
                                     }
                                 } else {
                                     CheckAndRequestPermission()
-                                }
-                                 }
+                                                }
+                                        }
+
                             }
                             }
+
 
                             // 播放条&播放界面
                         YosWrapper {
@@ -929,9 +936,8 @@ class MainActivity : BaseActivity() {
                                             }
 
                                         // NowPlaying
-                                        CompositionLocalProvider(LocalSeekbarRect provides seekbarRect) {
-                                            YosWrapper {
-                                                NowPlaying(
+                                        YosWrapper {
+                                            NowPlaying(
                                                     mainViewModel = mainViewModel,
                                                     mediaViewModel = mediaViewModel,
                                                     navController = navController,
@@ -944,7 +950,6 @@ class MainActivity : BaseActivity() {
                                                 ) {
                                                     nowPageNowPlaying.value = it
                                                 }
-                                            }
                                         }
 
                                         // 迷你播放状态
@@ -1091,6 +1096,8 @@ class MainActivity : BaseActivity() {
                                                                                     bounded = false
                                                                                 ),
                                                                                 onClick = {
+                                                                                    val loadingState = MediaViewModelObject.playbackLoadingState.value
+                                                                                    if (loadingState == PlaybackLoadingState.ResolvingStream || loadingState == PlaybackLoadingState.PreparingPlayer) return@clickable
                                                                                     Vibrator.click(
                                                                                         context
                                                                                     )
@@ -1104,8 +1111,15 @@ class MainActivity : BaseActivity() {
                                                                                 }),
                                                                         contentAlignment = Alignment.Center
                                                                     ) {
+                                                                        val miniLoadingState = MediaViewModelObject.playbackLoadingState.value
+                                                                        val miniButtonState = when {
+                                                                            miniLoadingState == PlaybackLoadingState.ResolvingStream ||
+                                                                            miniLoadingState == PlaybackLoadingState.PreparingPlayer -> "loading"
+                                                                            isPlaying.value -> "pause"
+                                                                            else -> "play"
+                                                                        }
                                                                         AnimatedContent(
-                                                                            targetState = isPlaying.value,
+                                                                            targetState = miniButtonState,
                                                                             transitionSpec = {
                                                                                 (scaleIn(
                                                                                     initialScale = 0.3f
@@ -1115,8 +1129,14 @@ class MainActivity : BaseActivity() {
                                                                                     ) + fadeOut()
                                                                                 )
                                                                             }) {
-                                                                            if (it) {
-                                                                                Icon(
+                                                                            when (it) {
+                                                                                "loading" -> AppleLoadingSpinner(
+                                                                                    modifier = Modifier
+                                                                                        .fillMaxSize()
+                                                                                        .padding(6.dp),
+                                                                                    size = 22.dp
+                                                                                )
+                                                                                "pause" -> Icon(
                                                                                     painterResource(
                                                                                         id = R.drawable.ic_nowplaying_mp_pause
                                                                                     ),
@@ -1125,8 +1145,7 @@ class MainActivity : BaseActivity() {
                                                                                         .fillMaxSize(),
                                                                                     tint = Color.Black withNight Color.White
                                                                                 )
-                                                                            } else {
-                                                                                Icon(
+                                                                                else -> Icon(
                                                                                     painterResource(
                                                                                         id = R.drawable.ic_nowplaying_mp_play
                                                                                     ),
@@ -1138,7 +1157,7 @@ class MainActivity : BaseActivity() {
                                                                             }
                                                                         }
                                                                     }
-                                                                    Spacer(
+                                                                        Spacer(
                                                                         modifier = Modifier.width(
                                                                             18.dp
                                                                         )
@@ -1340,6 +1359,7 @@ class MainActivity : BaseActivity() {
     }
 
 }
+
 
 fun readFile(path: String): String? {
     return try {

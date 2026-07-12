@@ -6,8 +6,8 @@ import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.code.api.innertube.SearchFilter
 import com.pryvn.audiophile.code.api.innertube.models.*
-import com.pryvn.audiophile.code.api.innertube.pages.ArtistPageModels.ArtistPageData
-import com.pryvn.audiophile.code.api.innertube.pages.ArtistPageModels.ArtistHeader
+import com.pryvn.audiophile.code.api.innertube.pages.ArtistPageData
+import com.pryvn.audiophile.code.api.innertube.pages.ArtistHeader
 
 data class YTSongItem(
     val videoId: String,
@@ -61,6 +61,14 @@ data class YTPlaylistPage(
     val playlist: YTPlaylist,
     val songs: List<YTSongItem>,
     val continuation: String? = null,
+)
+
+data class YTPlaylist(
+    val id: String,
+    val title: String,
+    val thumbnailUrl: String? = null,
+    val songCount: Int? = null,
+    val author: String? = null,
 )
 
 data class YTPlayerResponse(
@@ -309,11 +317,11 @@ object YouTubeApi {
                 val playlistId = navEp?.get("watchEndpoint")?.jsonObject
                     ?.get("playlistId")?.jsonPrimitive?.contentOrNull
                 val thumbnail = twoRow["thumbnailRenderer"]?.jsonObject
-                    ??.get("musicThumbnailRenderer")?.jsonObject
-                    ??.get("thumbnail")?.jsonObject
-                    ??.get("thumbnails")?.jsonArray
-                    ??.lastOrNull()?.jsonObject
-                    ??.get("url")?.jsonPrimitive?.contentOrNull
+                    ?.get("musicThumbnailRenderer")?.jsonObject
+                    ?.get("thumbnail")?.jsonObject
+                    ?.get("thumbnails")?.jsonArray
+                    ?.lastOrNull()?.jsonObject
+                    ?.get("url")?.jsonPrimitive?.contentOrNull
                 val subtitleRuns = twoRow["subtitle"]?.jsonObject?.get("runs")?.jsonArray
                 val artists = mutableListOf<YTArtist>()
                 subtitleRuns?.forEach { run ->
