@@ -44,10 +44,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalDensity
 import com.cormor.overscroll.core.overScrollVertical
 import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
-import com.google.accompanist.insets.navigationBarsHeight
-import com.google.accompanist.insets.statusBarsHeight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.pryvn.audiophile.R
@@ -95,6 +97,9 @@ fun OnlinePlaylistScreen(navController: NavController) {
     val playlist = page.playlist
 
     val state = rememberLazyListState()
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val navBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
     val durationText = remember(songs) {
         val totalSeconds = songs.sumOf { it.durationSeconds?.toLong() ?: 0L }
@@ -239,14 +244,14 @@ fun OnlinePlaylistScreen(navController: NavController) {
             }
 
             item("navbar") {
-                Spacer(modifier = Modifier.navigationBarsHeight(134.dp))
+                Spacer(modifier = Modifier.height(navBarHeight + 134.dp))
             }
         }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsHeight(54.dp)
+                .height(statusBarHeight + 54.dp)
         ) {
             Column(
                 Modifier
@@ -254,7 +259,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
                     .padding(top = 5.dp)
             ) {
                 Box(
-                    Modifier.statusBarsHeight(48.dp),
+                    Modifier.height(statusBarHeight + 48.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Icon(

@@ -54,10 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalDensity
 import com.cormor.overscroll.core.overScrollVertical
 import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
-import com.google.accompanist.insets.navigationBarsHeight
-import com.google.accompanist.insets.statusBarsHeight
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
@@ -249,6 +251,9 @@ private fun BaseTitleGrid(
     val state = rememberLazyGridState()
     val alpha = rememberAlpha(state)
     val showSmallTitle = rememberShowSmallTitle(alpha, state)
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val navBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
     Box(Modifier.fillMaxSize()) {
         val hazeState = remember(title) { HazeState() }
@@ -271,7 +276,7 @@ private fun BaseTitleGrid(
         ) {
             item(key = "title", span = { GridItemSpan(columns()) }) {
                 Column {
-                    Spacer(modifier = Modifier.statusBarsHeight())
+                    Spacer(modifier = Modifier.height(statusBarHeight))
                     TitleItem(
                         title,
                         subTitle,
@@ -284,7 +289,7 @@ private fun BaseTitleGrid(
             }
             content()
             item("navbar", span = { GridItemSpan(columns()) }) {
-                Spacer(modifier = Modifier.navigationBarsHeight(134.dp))
+                Spacer(modifier = Modifier.height(navBarHeight + 134.dp))
             }
         }
 
@@ -312,6 +317,9 @@ private fun BaseTitleList(
     val state = rememberLazyListState()
     val alpha = rememberAlpha(state)
     val showSmallTitle = rememberShowSmallTitle(alpha, state)
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val navBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
     Box(Modifier.fillMaxSize()) {
         val hazeState = remember(title) { HazeState() }
@@ -327,7 +335,7 @@ private fun BaseTitleList(
         ) {
             item("title") {
                 Column {
-                    Spacer(modifier = Modifier.statusBarsHeight())
+                    Spacer(modifier = Modifier.height(statusBarHeight))
                     TitleItem(
                         title,
                         subTitle,
@@ -340,7 +348,7 @@ private fun BaseTitleList(
             }
             content()
             item("navbar") {
-                Spacer(modifier = Modifier.navigationBarsHeight(bottomPadding))
+                Spacer(modifier = Modifier.height(navBarHeight + bottomPadding))
             }
         }
 
@@ -443,10 +451,12 @@ private fun TitleBar(
     showSmallTitle: State<Boolean>,
     hazeState: HazeState
 ) {
+    val density = LocalDensity.current
+    val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsHeight(54.dp)
+            .height(statusBarHeight + 54.dp)
             .clickable(enabled = false, onClick = {})
     ) {
         AnimatedVisibility(
@@ -481,7 +491,7 @@ private fun TitleBar(
                 .fillMaxWidth()
                 .padding(top = 5.dp)
         ) {
-            Box(Modifier.statusBarsHeight(48.dp), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.height(statusBarHeight + 48.dp), contentAlignment = Alignment.CenterStart) {
                 if (onBack != null) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_back),

@@ -27,8 +27,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.ui.unit.sp
-import com.google.accompanist.insets.navigationBarsHeight
 
 @Stable
 data class NavItem(val label: String, val iconResId: Int)
@@ -39,11 +41,12 @@ fun BottomNavigator(
     onLabelChange: (String) -> Unit,
     items: List<NavItem>,
     modifier: Modifier
-) =
+) {
+    val navBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() + 64.dp }
     Box(
         modifier
             .fillMaxWidth()
-            .navigationBarsHeight(64.dp)
+            .height(navBarHeight)
         //.background(Color.White withNight Color.Black)
     ) {
         /*Spacer(
@@ -64,6 +67,7 @@ fun BottomNavigator(
             }
         }
     }
+}
 
 @Composable
 fun RowScope.NavigatorItem(

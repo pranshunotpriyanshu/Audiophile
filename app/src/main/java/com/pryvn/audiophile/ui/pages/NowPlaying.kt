@@ -67,7 +67,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ripple
+import androidx.compose.material3.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -146,9 +146,11 @@ import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.blankj.utilcode.util.TimeUtils
-import com.google.accompanist.insets.navigationBarsHeight
-import com.google.accompanist.insets.statusBarsHeight
-import com.google.accompanist.insets.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -251,6 +253,9 @@ fun NowPlaying(
         val context = LocalContext.current
         val configuration = LocalConfiguration.current
         val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val density = LocalDensity.current
+        val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+        val navBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
         var showMenu by remember { mutableStateOf(false) }
         var showPlaylistSheet by remember { mutableStateOf(false) }
@@ -1514,6 +1519,8 @@ private fun Lyric(
 ) = YosWrapper {
 
     val context = LocalContext.current
+    val lyDensity = LocalDensity.current
+    val statusBarHeight = with(lyDensity) { WindowInsets.statusBars.getTop(this).toDp() }
 
     println("重组：YosLyricView 外层 2")
 
@@ -1524,7 +1531,7 @@ private fun Lyric(
         YosWrapper {
             println("重组：YosLyricView 外层 1")
 
-            Spacer(modifier = Modifier.statusBarsHeight(110.dp))
+            Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
             val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
             val lyricTextColor =
@@ -2242,6 +2249,9 @@ fun RowScope.AirPlay() {
         }
     }
 
+    val pbDensity = LocalDensity.current
+    val navBarHeight = with(pbDensity) { WindowInsets.navigationBars.getBottom(this).toDp() }
+
     YosWrapper {
         val context = LocalContext.current
 
@@ -2250,7 +2260,7 @@ fun RowScope.AirPlay() {
         Column(
             modifier = Modifier
                 .heightIn(min = 53.dp)
-                .navigationBarsHeight(48.dp)
+                .height(navBarHeight + 48.dp)
                 .weight(1f)
                 .clickable(
                     onClick = {

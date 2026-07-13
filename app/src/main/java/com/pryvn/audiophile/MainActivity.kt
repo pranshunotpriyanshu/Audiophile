@@ -40,8 +40,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -61,7 +60,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.ripple
+import androidx.compose.material3.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -108,8 +107,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.google.accompanist.insets.ProvideWindowInsets
-import com.google.accompanist.insets.navigationBarsHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import dev.chrisbanes.haze.HazeState
@@ -156,6 +155,7 @@ import com.pryvn.audiophile.ui.pages.settings.performance.NotificationSetting
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicLoginScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicExploreScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
+import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicCategoryScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicPlaylistsScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.OnlinePlaylistScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.onlinealbuminfo.OnlineAlbumInfo
@@ -197,7 +197,6 @@ class MainActivity : BaseActivity() {
         enableEdgeToEdge()
         setContent {
             YosMusicTheme {
-                ProvideWindowInsets {
                     val context = LocalContext.current
                     val density = LocalDensity.current
 
@@ -587,6 +586,12 @@ class MainActivity : BaseActivity() {
                                                     navController = navController
                                                 )
                                             }
+                                            composable("${UI.YTMusicCategory}/{category}") { backStackEntry ->
+                                                YTMusicCategoryScreen(
+                                                    category = backStackEntry.arguments?.getString("category") ?: "",
+                                                    navController = navController
+                                                )
+                                            }
                                             composable(UI.YTMusicPlaylists) {
                                                 YTMusicPlaylistsScreen(navController)
                                             }
@@ -619,12 +624,13 @@ class MainActivity : BaseActivity() {
                                                 .fillMaxSize(),
                                             contentAlignment = Alignment.BottomCenter
                                         ) {
+                                            val navBarHeight128 = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() + 128.dp }
                                             // 背景
                                             if (!showNowPlaying.value && SettingsLibrary.BarBlurEffect) {
                                                 Spacer(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .navigationBarsHeight(128.dp)
+                                                        .height(navBarHeight128)
                                                         .graphicsLayer {
                                                             compositingStrategy =
                                                                 CompositingStrategy.Offscreen
@@ -668,7 +674,7 @@ class MainActivity : BaseActivity() {
                                                 Spacer(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .navigationBarsHeight(128.dp)
+                                                        .height(navBarHeight128)
                                                         .background(
                                                             brush = Brush.verticalGradient(
                                                                 colors = listOf(
@@ -860,57 +866,57 @@ class MainActivity : BaseActivity() {
                                             }
                                             .onGloballyPositioned { surfaceInRoot.value = it.localToRoot(Offset.Zero) }
                                             .pointerInput(Unit) {
-                                                awaitEachGesture {
-                                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                                    if (nowPageNowPlaying.value != Album) return@awaitEachGesture
-                                                    val touchInRoot = surfaceInRoot.value + down.position
-                                                    if (touchInRoot.x >= seekbarRect.value.left &&
-                                                        touchInRoot.x <= seekbarRect.value.right &&
-                                                        touchInRoot.y >= seekbarRect.value.top &&
-                                                        touchInRoot.y <= seekbarRect.value.bottom) {
-                                                        return@awaitEachGesture
-                                                    }
-                                                    down.consume()
-
-                                                    var lastY = down.position.y
-                                                    val velocityTracker = VelocityTracker()
-                                                    velocityTracker.addPosition(down.uptimeMillis, down.position)
-                                                    var totalDisplacement = 0f
-
-                                                    do {
-                                                        val event = awaitPointerEvent()
-                                                        val change = event.changes.firstOrNull() ?: break
-                                                        if (!change.pressed) break
-                                                        val delta = -(change.position.y - lastY)
-                                                        totalDisplacement += abs(delta)
-                                                        lastY = change.position.y
+                                                val velocityTracker = VelocityTracker()
+                                                var ignoreDrag = false
+                                                var totalDisplacement = 0f
+                                                detectVerticalDragGestures(
+                                                    onDragStart = { start ->
+                                                        totalDisplacement = 0f
+                                                        velocityTracker.resetTracking()
+                                                        val touchInRoot = surfaceInRoot.value + start
+                                                        ignoreDrag = touchInRoot.x in seekbarRect.value.left..seekbarRect.value.right &&
+                                                            touchInRoot.y in seekbarRect.value.top..seekbarRect.value.bottom
+                                                    },
+                                                    onVerticalDrag = { change, dragAmount ->
+                                                        if (ignoreDrag) return@detectVerticalDragGestures
+                                                        totalDisplacement += abs(dragAmount)
                                                         velocityTracker.addPosition(change.uptimeMillis, change.position)
-
                                                         scope.launch {
-                                                            offsetY.snapTo((offsetY.value + delta).coerceIn(0f, parentHeight.intValue.toFloat()))
+                                                            offsetY.snapTo(
+                                                                (offsetY.value - dragAmount).coerceIn(
+                                                                    0f,
+                                                                    parentHeight.intValue.toFloat()
+                                                                )
+                                                            )
                                                         }
-
-                                                        change.consume()
-                                                    } while (true)
-
-                                                    if (totalDisplacement < 20f && offsetY.value < parentHeight.intValue * 0.5f) {
-                                                        scope.launch {
-                                                            offsetY.animateTo(parentHeight.intValue.toFloat())
+                                                    },
+                                                    onDragEnd = {
+                                                        if (ignoreDrag) {
+                                                            velocityTracker.resetTracking()
+                                                            return@detectVerticalDragGestures
                                                         }
-                                                    } else if (totalDisplacement >= 20f) {
                                                         val velocity = -velocityTracker.calculateVelocity().y
-                                                        val midPoint = parentHeight.intValue * 0.5f
-                                                        offsetY.updateBounds(0f, parentHeight.intValue.toFloat())
+                                                        velocityTracker.resetTracking()
+                                                        val max = parentHeight.intValue.toFloat()
+                                                        val midPoint = max * 0.5f
+                                                        offsetY.updateBounds(0f, max)
                                                         scope.launch {
-                                                            val shouldExpand = if (abs(velocity) > 0.5f) velocity > 0f else offsetY.value > midPoint
-                                                            if (shouldExpand) {
-                                                                offsetY.animateTo(parentHeight.intValue.toFloat(), initialVelocity = velocity.coerceAtLeast(0f))
-                                                            } else {
-                                                                offsetY.animateTo(0f, initialVelocity = velocity.coerceAtMost(0f))
+                                                            if (totalDisplacement < 20f && offsetY.value < midPoint) {
+                                                                offsetY.animateTo(max)
+                                                            } else if (totalDisplacement >= 20f) {
+                                                                val shouldExpand = if (abs(velocity) > 0.5f) velocity > 0f else offsetY.value > midPoint
+                                                                if (shouldExpand) {
+                                                                    offsetY.animateTo(max, initialVelocity = velocity.coerceAtLeast(0f))
+                                                                } else {
+                                                                    offsetY.animateTo(0f, initialVelocity = velocity.coerceAtMost(0f))
+                                                                }
                                                             }
                                                         }
+                                                    },
+                                                    onDragCancel = {
+                                                        velocityTracker.resetTracking()
                                                     }
-                                                }
+                                                )
                                             }
                                             .layout { measurable, constraints ->
                                                 val placeable = measurable.measure(
@@ -1200,7 +1206,6 @@ class MainActivity : BaseActivity() {
                             }
                         }
                     /*}*/
-                }
             }
         }
     }

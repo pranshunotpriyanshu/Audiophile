@@ -1,0 +1,862 @@
+--------- beginning of main
+07-12 21:57:51.989  1299  8047 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:51.989  1299  8047 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:51.989  1299  8047 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:51.995  9505  9505 D nativeloader: Configuring clns-4 for other apk /data/app/~~4wzBJ5uNKTsh2Qm4Jrkfng==/com.wmods.wppenhacer-So-LWC5EeflH4CzxW7g7Yg==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~4wzBJ5uNKTsh2Qm4Jrkfng==/com.wmods.wppenhacer-So-LWC5EeflH4CzxW7g7Yg==/lib/arm64:/data/app/~~4wzBJ5uNKTsh2Qm4Jrkfng==/com.wmods.wppenhacer-So-LWC5EeflH4CzxW7g7Yg==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.wmods.wppenhacer
+07-12 21:57:51.998  3949  4019 D NetworkController.MobileSignalController(1): onMobileStatusChanged= updateTelephony=true mobileStatus=[activityIn=false,activityOut=false,dataSim=true,carrierNetworkChangeMode=false,dataState=0,serviceState=mVoiceRegState=0(IN_SERVICE), mDataRegState=0(IN_SERVICE),signalStrength=3,telephonyDisplayInfo=TelephonyDisplayInfo {network=IWLAN, override=NONE}]
+07-12 21:57:51.999  9481  9481 I MMKV    : Enable checkProcessMode()
+07-12 21:57:52.000 16673 16876 D HeadsetPhoneState: Updating the signal strength change to the apps
+07-12 21:57:52.001  9481  9481 D nativeloader: Load /data/app/~~op4B2NgZdQeOiWfBy-A8QA==/com.pryvn.audiophile-iyTMv5-NdndVq-PPEex55g==/lib/arm64/libmmkv.so using class loader ns clns-4 (caller=/data/app/~~op4B2NgZdQeOiWfBy-A8QA==/com.pryvn.audiophile-iyTMv5-NdndVq-PPEex55g==/base.apk!classes20.dex): ok
+07-12 21:57:52.001  9481  9481 I MMKV    : current API level = 31, libc++_shared=0
+07-12 21:57:52.001  9481  9481 I MMKV    : <MMKV.cpp:166::initialize> version v1.3.5, page size 4096, arch arm64-v8a
+07-12 21:57:52.001  9481  9481 I MMKV    : <MMKV.cpp:177::initialize> armv8 AES instructions is supported
+07-12 21:57:52.001  9481  9481 I MMKV    : <MMKV.cpp:185::initialize> armv8 CRC32 instructions is supported
+07-12 21:57:52.001  9481  9481 I MMKV    : <MMKV.cpp:225::initializeMMKV> root dir: /data/user/0/com.pryvn.audiophile/files/mmkv
+07-12 21:57:52.001 16673 16876 D HeadsetPhoneState: sendDeviceStateChanged. mService=1 mIsSimStateLoaded=true mSignal=4 mRoam=0 mBatteryCharge=5
+07-12 21:57:52.012 16673 16876 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.018 16673 16876 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.039 16673 16876 D bt_btif : send_indicator_update: btif_trans_status:0 doing it in btif thread
+07-12 21:57:52.043 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc529a8 
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.049 16673 16695 D bt_btif : btif_ag_result: switched to btif context
+07-12 21:57:52.050 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.050 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc529a8 
+07-12 21:57:52.050 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.050 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc529a8 
+07-12 21:57:52.050 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.051 16673 16834 W bt_btif : get_active_profile: APM is not enabled, returning HFP as active profile 2 
+07-12 21:57:52.059 16673 16834 D bt_btif : bta_ag_send_ind: p_scb->call_ind 0, p_scb->callsetup_ind 0, p_scb->callheld_ind 0
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc529a8 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc525c8 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc525c8 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc525c8 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.060 16673 16834 W bt_btif : get_active_profile: APM is not enabled, returning HFP as active profile 2 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_send_ind: p_scb->call_ind 0, p_scb->callsetup_ind 0, p_scb->callheld_ind 0
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_api_result: p_scb 0x4dc525c8 
+07-12 21:57:52.060 16673 16834 D bt_btif : bta_ag_hfp_result : res = 5
+07-12 21:57:52.065  9481  9481 I MediaController: Init 178383c [AndroidXMedia3/1.4.0] [RMX2170L1, RMX2170, realme, 31]
+07-12 21:57:52.086  1299  8046 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.086  1299  8046 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.086  1299  8046 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.088  1521  6512 I OplusHansManager : uid=10467, pkg=me.eternal.purrfect can transition from M to F
+07-12 21:57:52.089  1521  6512 I OplusHansManager : uid=10467, pkg=me.eternal.purrfect F enter()
+07-12 21:57:52.091  1521  6512 I OplusHansManager : freeze uid: 10467 me.eternal.purrfect pids: [7750] scene: LcdOn
+07-12 21:57:52.092 11876 11887 D IHansComunication: HansComunication::addUid-- 10467
+07-12 21:57:52.092 11876 11887 D IHansComunication: HANS sendMessageToKernel: threadId = 533636209840, netLinkSetup = 1, type = PKG, targetUid = 10467, pkgCmd = ADD_ONE_UID
+--------- beginning of system
+07-12 21:57:52.099  9481  9481 I Quality : ActivityThread: bindApplication delay 1055 com.pryvn.audiophile 9481
+07-12 21:57:52.099  1279  1279 D vendor.qti.bluetooth@1.0-ibs_handler: SerialClockVote: vote for UART CLK ON
+07-12 21:57:52.099  1279  1279 D vendor.qti.bluetooth@1.0-wake_lock: Acquire wakelock is acquired 
+07-12 21:57:52.099  1279  1279 I vendor.qti.bluetooth@1.0-ibs_handler: DeviceWakeUp: Writing IBS_WAKE_IND
+07-12 21:57:52.099  9481  9532 I Quality : Blocked msg = Package name: com.pryvn.audiophile [ schedGroup: 5 schedPolicy: 0 ] process the message: { when=-1s66ms what=110 target=android.app.ActivityThread$H obj=AppBindData{appInfo=ApplicationInfo{f9bfa4b com.pryvn.audiophile}} } took 1055 ms
+07-12 21:57:52.102  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_ACK: 0xFC
+07-12 21:57:52.103  1323  1323 E ORMS_HAL: open /sys/devices/platform/soc/soc:oplus-omrg/oplus-omrg0/ruler_enable failed(No such file or directory)
+07-12 21:57:52.107  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/io_percent not supported
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 2]
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/sample_ms not supported
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 8]
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource SPECIAL_NODE - cpubw_hwmon_hyst_opt not supported
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 3]
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/min_freq not supported
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 0]
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/max_freq not supported
+07-12 21:57:52.108  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 6]
+07-12 21:57:52.110  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+07-12 21:57:52.110  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+07-12 21:57:52.118  1521 10731 W ActivityManager: setGlThreads detect 9481 9534
+07-12 21:57:52.142  3949  4019 D SystemUi--: getDebugState, e = android.provider.Settings$SettingNotFoundException: systemui_internal_debug
+07-12 21:57:52.144  9481  9481 I oplus.android.OplusFrameworkFactoryImpl: Unknow feature:IOplusTextViewRTLUtilForUG
+07-12 21:57:52.152  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+07-12 21:57:52.154  6235 14299 D Quality-PerformanceUtils: cpuAllInfo[0] = cur_cpuloading: 75
+07-12 21:57:52.154  6235 14299 D Quality-PerformanceUtils: cpuAllInfo[1] = cur_cpu_ctrl: true
+07-12 21:57:52.154  6235 14299 D Quality-PerformanceUtils: cpuAllInfo[2] = cur_cpu_logon: false
+07-12 21:57:52.154  6235 14299 D Quality-PerformanceUtils: cpuAllInfo[3] = cur_cpu_trig: false
+07-12 21:57:52.155  6235 14299 W System.err: java.lang.NoSuchMethodException: android.os.PerformanceManager.getHISchedMiniTask []
+07-12 21:57:52.155  6235 14299 W System.err: 	at java.lang.Class.getMethod(Class.java:2942)
+07-12 21:57:52.155  6235 14299 W System.err: 	at java.lang.Class.getMethod(Class.java:2442)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.e.d.d(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:28)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.e.d.k(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:2)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.b.p.a(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:322)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.b.h.c(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:346)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.b.a.a(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:2)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.a.a(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:19)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.a.a(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:0)
+07-12 21:57:52.155  6235 14299 W System.err: 	at com.oplus.qualityprotect.b.run(dex-id-83ac6f6adc3d0dd98517d9b365499677885db4ab:109)
+07-12 21:57:52.155  6235 14299 W System.err: 	at java.lang.Thread.run(Thread.java:1572)
+07-12 21:57:52.162  7945  5968 I NearbyMediums: Found Fast Ble Advertisements :
+07-12 21:57:52.162  7945  5968 I NearbyMediums: BleAdvertisement { version=2, socketVersion=2, isFast=true, serviceIdHash=null, data=[ 0x23 0x36 0x39 0x42 0x5a 0x11 0x16 0x63 0x8d 0x07 0xe1 0xa3 0xae 0x79 0xbe 0x16 0x5b 0xd7 0x0d 0xc6 0xe1 0xb1 0x9c ], deviceToken=[ 0x0d 0xfc ], rxAdvertisement=null } : 9 times.
+07-12 21:57:52.162  7945  5968 I NearbyMediums: Total 9 fast advertisements from 1 unique advertisers.
+07-12 21:57:52.162  7945  5968 I NearbyMediums: Current Tracked Scanning Clients are : {NearbyConnections.EnvironmentMonitor, NearbySharing}
+07-12 21:57:52.173  6235 14299 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1190 android.content.ContextWrapper.sendBroadcast:494 com.oplus.qualityprotect.p.a:92 com.oplus.qualityprotect.b.h.c:597 com.oplus.qualityprotect.b.a.a:2 
+07-12 21:57:52.174  6235 14299 I QualityProtectUtils: OneTraceJankInfoEnd
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: saveSystraceIfNeeded 0, type: block, paramDes: j_id = ede55e38dee7
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: jank_info_version = 3.4
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: boot_time = 176760615
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: boot_type = -999
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: ota_version = RMX2170_11.F.24_3240_202212131616
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: beta_version = false
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: jank_type = block
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: freeMemory = 1447244
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: totalMemory = 5682560
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: freeStorage = 38
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: totalStorage = 109
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: packageName = com.pryvn.audiophile
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: pid = 9481
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: versionName = 1.1.0
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: versionCode = 1
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cost = 1055
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: hasInstalledDamageApp = false
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: isEnableZoomGesture = false
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: activityTop = .CrashActivity
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: selfTime = 66
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: isTooManyThirdApp = 94
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: blockStackInfo = null
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: odexReason = unknown
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: odexStatus = run-from-apk
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: refreshRate = 61.000004
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: longLatencyRecord = #######
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: network_type = wifi
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: network_signal = 3
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_super_big_cluster_max_freq = null
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_big_cluster_max_freq = 2323200
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_little_cluster_max_freq = 1804800
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_orignal_super_big_cluster_max_freq = null
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_orignal_big_cluster_max_freq = 2323200
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_orignal_little_cluster_max_freq = 804800
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: orms_limit_record = [[[4535, 3447], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [1], [5]], [[3447, 3080], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [2], [5]], [[3080, 2771], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [2], [5]], [[2771, 1735], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [1], [5]], [[1735, 1131], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [2], [5]], [[1131, 1129], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [2], [5]], [[1129, 63], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [1], [5]], [[63, 0], [-1, -1], [5, 5], [-1, -1], [5, 5], [-1], [5], [-1], [5], [2], [5]]]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: core_ctl_isolated = 
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: 
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: priority = -10
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_loading_info = 75
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: cpu_jank_info = 
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: ui_cpu_info = null
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: sched_min_task = null
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: jank_scene = [07/12 21:57:47.043] [FZ] [10282|in.amazon.mShop.android.shopping]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:47.645] [U_FZ] [10282|in.amazon.mShop.android.shopping]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:49.228] [U_FZ] [10383|in.swiggy.android.instamart]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:49.461] [FZ] [10381|com.microsoft.appmanager]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:49.465] [FZ] [10437|pl.lambada.songsync]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:49.470] [FZ] [10447|com.instagram.barcelona]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:49.496] [U_FZ] [10381|com.microsoft.appmanager]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:52.091] [FZ] [10467|me.eternal.purrfect]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:36.291] [U_FZ] [10437|pl.lambada.songsync]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:36.323] [U_FZ] [10282|in.amazon.mShop.android.shopping]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.250] [FZ] [10381|com.microsoft.appmanager]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.255] [FZ] [10437|pl.lambada.songsync]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.259] [FZ] [10447|com.instagram.barcelona]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.455] [U_FZ] [10381|com.microsoft.appmanager]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.457] [force freeze] [10381|com.microsoft.appmanager]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.459] [U_FZ] [10437|pl.lambada.songsync]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:39.461] [U_FZ] [10447|com.instagram.barcelona]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:41.074] [FZ] [10467|me.eternal.purrfect]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:42.086] [U_FZ] [10467|me.eternal.purrfect]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: [07/12 21:57:44.932] [FZ] [10383|in.swiggy.android.instamart]
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: 
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: sensorTemp = 41.865
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: batteryTemp = 380
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: 
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: batteryLevel = 100
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: batteryStatus = 5
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: batteryMode = false
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: jank_content =  Package name: com.pryvn.audiophile [ schedGroup: 5 schedPolicy: 0 ] process the message: { when=-1s66ms what=110 target=android.app.ActivityThread$H obj=AppBindData{appInfo=ApplicationInfo{f9bfa4b com.pryvn.audiophile}} } took 1055 ms
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: , fid: ede55e38dee7
+07-12 21:57:52.175  6235 14285 I Quality-SaveLog: does NOT dump systrace, abort saving logs
+07-12 21:57:52.213  9505  9505 I Vector  : New modules detected, hook preferences
+07-12 21:57:52.235  9481  9481 I Quality : ActivityThread: activityStart delay 135 com.pryvn.audiophile 9481
+07-12 21:57:52.241  9481  9481 D OplusInputMethodUtil: init DEBUG to false, update DEBUG_IME to false
+07-12 21:57:52.241  9481  9481 D OplusInputMethodUtil: init DEBUG to false, update DEBUG_IME to false
+07-12 21:57:52.246  9481  9481 D OplusSlideAnimOptHelper: com.pryvn.audiophile scrollEffectOpt enable = false
+07-12 21:57:52.252  9481  9481 D WindowManager: Add to mViews: DecorView@47a6a0b[CrashActivity],pkg= com.pryvn.audiophile
+07-12 21:57:52.256  9481  9534 D ExtensionsLoader: createInstance(64bit) : createExtendedFactory
+07-12 21:57:52.257  9505  9505 V GraphicsEnvironment: ANGLE Developer option for 'com.wmods.wppenhacer' set to: 'default'
+07-12 21:57:52.258  9505  9505 V GraphicsEnvironment: Neither updatable production driver nor prerelease driver is supported.
+07-12 21:57:52.260  9481  9534 D ExtensionsLoader: Opened libhwuiextimpl.so
+07-12 21:57:52.261  9481  9481 D ExtensionsLoader: createInstance(64bit) : createExtendedFactory
+07-12 21:57:52.262  9481  9481 D ExtensionsLoader: Opened libSchedAssistExtImpl.so
+07-12 21:57:52.262  9481  9481 E ryvn.audiophil: ofbOpen failed with error=No such file or directory
+07-12 21:57:52.262  9481  9481 E ryvn.audiophil: sysOpen failed with error=No such file or directory
+07-12 21:57:52.264  9505  9505 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+07-12 21:57:52.267  9505  9505 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+07-12 21:57:52.268  1521 11017 D OplusDisplayPolicy: com.pryvn.audiophile, no change cutoutMode: 3
+07-12 21:57:52.274  9481  9481 I Quality : Skipped: false 19 cost 313.07385 refreshRate 0 processName com.pryvn.audiophile
+07-12 21:57:52.276  9481  9481 D nativeloader: Load libSchedAssistJni.so using system ns (caller=/system/framework/oplus-framework.jar): ok
+07-12 21:57:52.276  9481  9481 D ExtensionsLoader: createInstance(64bit) : createExtendedFactory
+07-12 21:57:52.276  9481  9481 D ExtensionsLoader: Opened libSchedAssistExtImpl.so
+07-12 21:57:52.277  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.277  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.290  1299  8047 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.290  1299  8047 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.290  1299  8047 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.293  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.293  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.327  1313  1313 D vendor.oplus.hardware.charger@1.0-service: wireless adapter power -1
+07-12 21:57:52.335  6235 11762 E Battery : ChargeProtectionUtils: First Alarm is Sat Jul 11 15:50:00 GMT+05:30 2026, nowRtc  = Sun Jul 12 21:57:52 GMT+05:30 2026, too close , ignore it.
+07-12 21:57:52.337  1521  2726 I OplusHansManager : unfreeze uid: 10447 com.instagram.barcelona pids: [4251] reason: Broadcast scene: LcdOn
+07-12 21:57:52.341  1521  6512 I OplusHansManager : uid=10447, pkg=com.instagram.barcelona, transition from Frozen to Middle, reason=Broadcast
+07-12 21:57:52.341  1521  6512 I OplusHansManager : uid=10447, pkg=com.instagram.barcelona F exit(), reason=Broadcast
+07-12 21:57:52.342  1521  6946 D OplusProxyWakeLock: remove uid: 10447 wiht all pids from wakelockUidInfo list
+07-12 21:57:52.376  9505  9505 W System.err: java.lang.NoClassDefFoundError: Failed resolution of: Lde/robv/android/xposed/XposedHelpers;
+07-12 21:57:52.377  9505  9505 W System.err: 	at com.wmods.wppenhacer.App.onCreate(App.kt:44)
+07-12 21:57:52.377  9505  9505 W System.err: 	at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1226)
+07-12 21:57:52.377  9505  9505 W System.err: 	at android.app.ActivityThread.handleBindApplication(ActivityThread.java:7046)
+07-12 21:57:52.378  9505  9505 W System.err: 	at android.app.ActivityThread.access$1800(ActivityThread.java:254)
+07-12 21:57:52.378  9505  9505 W System.err: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2184)
+07-12 21:57:52.378  9505  9505 W System.err: 	at android.os.Handler.dispatchMessage(Handler.java:106)
+07-12 21:57:52.378  9505  9505 W System.err: 	at android.os.Looper.loopOnce(Looper.java:233)
+07-12 21:57:52.378  9505  9505 W System.err: 	at android.os.Looper.loop(Looper.java:344)
+07-12 21:57:52.379  9505  9505 W System.err: 	at android.app.ActivityThread.main(ActivityThread.java:8212)
+07-12 21:57:52.379  9505  9505 W System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+07-12 21:57:52.379  9505  9505 W System.err: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:584)
+07-12 21:57:52.379  9505  9505 W System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1034)
+07-12 21:57:52.381  9505  9505 W System.err: Caused by: java.lang.ClassNotFoundException: de.robv.android.xposed.XposedHelpers
+07-12 21:57:52.381  9505  9505 W System.err: 	... 12 more
+07-12 21:57:52.386  1299  8046 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.386  1299  8046 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.386  1299  8046 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.471  9481  9481 D AndroidRuntime: Shutting down VM
+--------- beginning of crash
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: FATAL EXCEPTION: main
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: Process: com.pryvn.audiophile, PID: 9481
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: java.lang.AbstractMethodError: abstract method "boolean androidx.compose.ui.Modifier$Element.all(kotlin.jvm.functions.Function1)" on receiver java.lang.Class<androidx.compose.foundation.layout.InsetsPaddingModifier>
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt.materializeImpl(ComposedModifier.kt:264)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt.access$materializeImpl(ComposedModifier.kt:1)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt$materializeImpl$result$1.invoke(ComposedModifier.kt:282)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt$materializeImpl$result$1.invoke(ComposedModifier.kt:276)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.Modifier$Element$-CC.$default$foldIn(Modifier.kt:124)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifier.foldIn(ComposedModifier.kt:0)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.CombinedModifier.foldIn(Modifier.kt:394)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt.materializeImpl(ComposedModifier.kt:276)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.ComposedModifierKt.materializeModifier(ComposedModifier.kt:257)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at com.pryvn.audiophile.CrashActivity.CrashUI(CrashActivity.kt:306)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at com.pryvn.audiophile.CrashActivity$onCreate$1$1.invoke(CrashActivity.kt:78)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at com.pryvn.audiophile.CrashActivity$onCreate$1$1.invoke(CrashActivity.kt:77)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.material3.SurfaceKt$Surface$1.invoke(Surface.kt:126)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.material3.SurfaceKt$Surface$1.invoke(Surface.kt:108)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.material3.SurfaceKt.Surface-T9BRK9s(Surface.kt:105)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at com.pryvn.audiophile.CrashActivity$onCreate$1.invoke(CrashActivity.kt:73)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at com.pryvn.audiophile.CrashActivity$onCreate$1.invoke(CrashActivity.kt:71)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.ComposeView.Content(ComposeView.android.kt:441)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AbstractComposeView$ensureCompositionCreated$1.invoke(ComposeView.android.kt:259)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AbstractComposeView$ensureCompositionCreated$1.invoke(ComposeView.android.kt:258)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.CompositionLocalsKt.ProvideCommonCompositionLocals(CompositionLocals.kt:216)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt$ProvideAndroidCompositionLocals$3.invoke(AndroidCompositionLocals.android.kt:132)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt$ProvideAndroidCompositionLocals$3.invoke(AndroidCompositionLocals.android.kt:131)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt.ProvideAndroidCompositionLocals(AndroidCompositionLocals.android.kt:121)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1$3.invoke(Wrapper.android.kt:155)
+07-12 21:57:52.474  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1$3.invoke(Wrapper.android.kt:154)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:401)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1.invoke(Wrapper.android.kt:154)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1.invoke(Wrapper.android.kt:133)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.ActualJvm_jvmKt.invokeComposable(ActualJvm.jvm.kt:97)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.ComposerImpl.doCompose(Composer.kt:3595)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.ComposerImpl.composeContent$runtime_release(Composer.kt:3522)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionImpl.composeContent(Composition.kt:743)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.Recomposer.composeInitial$runtime_release(Recomposer.kt:1122)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionImpl.composeInitial(Composition.kt:649)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.runtime.CompositionImpl.setContent(Composition.kt:635)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:133)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:124)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeView.setOnViewTreeOwnersAvailable(AndroidComposeView.android.kt:1626)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition.setContent(Wrapper.android.kt:124)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:180)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:320)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.lifecycle.LifecycleRegistry.addObserver(LifecycleRegistry.jvm.kt:198)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:131)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:124)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at androidx.compose.ui.platform.AndroidComposeView.onAttachedToWindow(AndroidComposeView.android.kt:1707)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.View.dispatchAttachedToWindow(View.java:20900)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3539)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:2799)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:2305)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:9133)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1232)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.Choreographer.doCallbacks(Choreographer.java:1029)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.Choreographer.doFrame(Choreographer.java:934)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1217)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:938)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:233)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:344)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:8212)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:584)
+07-12 21:57:52.476  9481  9481 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1034)
+07-12 21:57:52.476  9481  9481 W System.err: java.lang.AbstractMethodError: abstract method "boolean androidx.compose.ui.Modifier$Element.all(kotlin.jvm.functions.Function1)" on receiver java.lang.Class<androidx.compose.foundation.layout.InsetsPaddingModifier>
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt.materializeImpl(ComposedModifier.kt:264)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt.access$materializeImpl(ComposedModifier.kt:1)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt$materializeImpl$result$1.invoke(ComposedModifier.kt:282)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt$materializeImpl$result$1.invoke(ComposedModifier.kt:276)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.Modifier$Element$-CC.$default$foldIn(Modifier.kt:124)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifier.foldIn(ComposedModifier.kt:0)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.CombinedModifier.foldIn(Modifier.kt:394)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt.materializeImpl(ComposedModifier.kt:276)
+07-12 21:57:52.476  9481  9481 W System.err: 	at androidx.compose.ui.ComposedModifierKt.materializeModifier(ComposedModifier.kt:257)
+07-12 21:57:52.476  9481  9481 W System.err: 	at com.pryvn.audiophile.CrashActivity.CrashUI(CrashActivity.kt:306)
+07-12 21:57:52.476  9481  9481 W System.err: 	at com.pryvn.audiophile.CrashActivity$onCreate$1$1.invoke(CrashActivity.kt:78)
+07-12 21:57:52.476  9481  9481 W System.err: 	at com.pryvn.audiophile.CrashActivity$onCreate$1$1.invoke(CrashActivity.kt:77)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.material3.SurfaceKt$Surface$1.invoke(Surface.kt:126)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.material3.SurfaceKt$Surface$1.invoke(Surface.kt:108)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.material3.SurfaceKt.Surface-T9BRK9s(Surface.kt:105)
+07-12 21:57:52.477  9481  9481 W System.err: 	at com.pryvn.audiophile.CrashActivity$onCreate$1.invoke(CrashActivity.kt:73)
+07-12 21:57:52.477  9481  9481 W System.err: 	at com.pryvn.audiophile.CrashActivity$onCreate$1.invoke(CrashActivity.kt:71)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.ui.platform.ComposeView.Content(ComposeView.android.kt:441)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.ui.platform.AbstractComposeView$ensureCompositionCreated$1.invoke(ComposeView.android.kt:259)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.ui.platform.AbstractComposeView$ensureCompositionCreated$1.invoke(ComposeView.android.kt:258)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.477  9481  9481 W System.err: 	at androidx.compose.ui.platform.CompositionLocalsKt.ProvideCommonCompositionLocals(CompositionLocals.kt:216)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt$ProvideAndroidCompositionLocals$3.invoke(AndroidCompositionLocals.android.kt:132)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt$ProvideAndroidCompositionLocals$3.invoke(AndroidCompositionLocals.android.kt:131)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:380)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.AndroidCompositionLocals_androidKt.ProvideAndroidCompositionLocals(AndroidCompositionLocals.android.kt:121)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1$3.invoke(Wrapper.android.kt:155)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1$3.invoke(Wrapper.android.kt:154)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionLocalKt.CompositionLocalProvider(CompositionLocal.kt:401)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1.invoke(Wrapper.android.kt:154)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1$1.invoke(Wrapper.android.kt:133)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:109)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.internal.ComposableLambdaImpl.invoke(ComposableLambda.jvm.kt:35)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.ActualJvm_jvmKt.invokeComposable(ActualJvm.jvm.kt:97)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.ComposerImpl.doCompose(Composer.kt:3595)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.ComposerImpl.composeContent$runtime_release(Composer.kt:3522)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionImpl.composeContent(Composition.kt:743)
+07-12 21:57:52.478  9481  9481 W System.err: 	at androidx.compose.runtime.Recomposer.composeInitial$runtime_release(Recomposer.kt:1122)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionImpl.composeInitial(Composition.kt:649)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.runtime.CompositionImpl.setContent(Composition.kt:635)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:133)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:124)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.AndroidComposeView.setOnViewTreeOwnersAvailable(AndroidComposeView.android.kt:1626)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition.setContent(Wrapper.android.kt:124)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition.onStateChanged(Wrapper.android.kt:180)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.lifecycle.LifecycleRegistry$ObserverWithState.dispatchEvent(LifecycleRegistry.jvm.kt:320)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.lifecycle.LifecycleRegistry.addObserver(LifecycleRegistry.jvm.kt:198)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:131)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.WrappedComposition$setContent$1.invoke(Wrapper.android.kt:124)
+07-12 21:57:52.479  9481  9481 W System.err: 	at androidx.compose.ui.platform.AndroidComposeView.onAttachedToWindow(AndroidComposeView.android.kt:1707)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.View.dispatchAttachedToWindow(View.java:20900)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3539)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewGroup.dispatchAttachedToWindow(ViewGroup.java:3546)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewRootImpl.performTraversals(ViewRootImpl.java:2799)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewRootImpl.doTraversal(ViewRootImpl.java:2305)
+07-12 21:57:52.479  9481  9481 W System.err: 	at android.view.ViewRootImpl$TraversalRunnable.run(ViewRootImpl.java:9133)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1232)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.view.Choreographer.doCallbacks(Choreographer.java:1029)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.view.Choreographer.doFrame(Choreographer.java:934)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1217)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.os.Handler.handleCallback(Handler.java:938)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.os.Looper.loopOnce(Looper.java:233)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.os.Looper.loop(Looper.java:344)
+07-12 21:57:52.480  9481  9481 W System.err: 	at android.app.ActivityThread.main(ActivityThread.java:8212)
+07-12 21:57:52.480  9481  9481 W System.err: 	at java.lang.reflect.Method.invoke(Native Method)
+07-12 21:57:52.480  9481  9481 W System.err: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:584)
+07-12 21:57:52.480  9481  9481 W System.err: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:1034)
+07-12 21:57:52.487  1521 11017 I ActivityTaskManager: START u0 {flg=0x10008000 cmp=com.pryvn.audiophile/.CrashActivity (has extras) mCallingUid=10526} from uid 10526
+07-12 21:57:52.488  1323  1323 E ORMS_HAL: open /sys/devices/platform/soc/soc:oplus-omrg/oplus-omrg0/ruler_enable failed(No such file or directory)
+07-12 21:57:52.489  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.489  1323  1323 E ORMS_HAL: open /sys/devices/platform/soc/soc:oplus-omrg/oplus-omrg0/ruler_enable failed(No such file or directory)
+07-12 21:57:52.490  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.490  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.491  1299  1380 E ANDR-PERF-LM: MetaMeter: handleAsync() 164: AdaptLaunch Invalid Async
+07-12 21:57:52.491  1299  1380 E ANDR-PERF-LM: MetaMeter: handleAsync() 164: AdaptLaunch Invalid Async
+07-12 21:57:52.491  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.491  1299  8050 E ANDR-PERF-LM: ThreadHelper: thread_callback() 145: More than one pending updates!!! This should not happen. MeterMgr should avoid this case.
+07-12 21:57:52.492  1299  1380 E ANDR-PERF-LM: MetaMeter: handleAsync() 164: AdaptLaunch Invalid Async
+07-12 21:57:52.492   606   606 I hwservicemanager: getTransport: Cannot find entry vendor.qti.hardware.iop@2.0::IIop/default in either framework or device VINTF manifest.
+07-12 21:57:52.493  1521 11017 D OplusZoomWindowRUSConfigManager: isSupportZoomModeWithPolicyLocked: target = com.pryvn.audiophile/.CrashActivity
+07-12 21:57:52.493  1521 11017 D OplusZoomWindowRUSConfigManager: targetPkg = com.pryvn.audiophile
+07-12 21:57:52.493  1521 11017 V OplusZoomWindowManagerService: unSupportZoom: false ,callingPid: 9481 ,sourceStack: null
+07-12 21:57:52.495  1521 11017 D ActivityTrigger: ActivityTrigger activityPauseTrigger 
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/io_percent not supported
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 2]
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/sample_ms not supported
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 8]
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource SPECIAL_NODE - cpubw_hwmon_hyst_opt not supported
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 3]
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/min_freq not supported
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 0]
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/max_freq not supported
+07-12 21:57:52.496  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 6]
+07-12 21:57:52.497  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.500  1521 11017 D CompactWindowManagerService: onOriginListAdded child: ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}; parent: Task{ca2bfcb #1666 type=standard A=10526:com.pryvn.audiophile U=0 visible=true mode=fullscreen translucent=true sz=2}
+07-12 21:57:52.500  1521 11017 D TaskExtImpl: add ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666} to mActivityRecordSum = Counter{ com.pryvn.audiophile/.CrashActivity(2) }
+07-12 21:57:52.501  1521 11017 D ActivityTaskManager: getStartingWindowType: newTask=true, taskSwitch=false, processRunning=true, allowTaskSnapshot=true, activityCreated=false, snapshot=null, record:ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}
+07-12 21:57:52.502  6262  6304 I Finsky  : [436] Stats for Executor: GrpcBackgroundExecutor wkg@2b27025[Running, pool size = 1, active threads = 0, queued tasks = 0, completed tasks = 1]
+07-12 21:57:52.502  1521 11017 D OplusStartingWindowManager: window attributes color: 0 icon null duration 0 brandImage null
+07-12 21:57:52.502  1521 11017 D OplusZoomWindowRUSConfigManager: isSupportZoomModeWithPolicyLocked: target = com.pryvn.audiophile/.CrashActivity
+07-12 21:57:52.502  1521 11017 D OplusZoomWindowRUSConfigManager: targetPkg = com.pryvn.audiophile
+07-12 21:57:52.502  1521 11017 V OplusZoomWindowManagerService: unSupportZoom: false ,callingPid: 9481 ,sourceStack: null
+07-12 21:57:52.506  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.506  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.510  1521  6496 D OplusAppStartupMonitor: notifyUnstableAppInfo: Bundle[{unstableTime=1783873672510, reason=crash, userId=0, safecenter=unstable, exceptionMsg=abstract method "boolean androidx.compose.ui.Modifier$Element.all(kotlin.jvm.functions.Function1)" on receiver java.lang.Class<androidx.compose.foundation.layout.InsetsPaddingModifier>, exceptionClass=java.lang.AbstractMethodError, packageName=com.pryvn.audiophile, unstable_restrict_switch=true}]
+07-12 21:57:52.511 10905 20370 I Athena  : StartupManager: onUpdateUnstableRecord: unstable crash!
+07-12 21:57:52.511  1521 11017 D OplusAmsUtilsFeatrue: detectExceptionsForOIDT type:0
+07-12 21:57:52.514  1521  9549 I DropBoxManagerService: add tag=data_app_crash isTagEnabled=true flags=0x2
+07-12 21:57:52.515  9481  9481 I Process : Sending signal. PID: 9481 SIG: 9
+07-12 21:57:52.523  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.523  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.523  1521  2726 W BroadcastQueue: Background execution not allowed: receiving Intent { act=android.intent.action.DROPBOX_ENTRY_ADDED flg=0x10 (has extras) } to com.google.android.gms/.stats.service.DropBoxEntryAddedReceiver
+07-12 21:57:52.529  1521  9549 D DropBoxManagerService: file :: /data/system/dropbox/data_app_crash@1783873672519.txt
+07-12 21:57:52.535  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.542  8894  9287 D CCodecBufferChannel: [c2.android.opus.decoder#205] DEBUG: elapsed: n=4 [in=0 pipeline=0 out=0]
+07-12 21:57:52.542  8894  9287 D PipelineWatcher: DEBUG: elapsed 0 / 4
+07-12 21:57:52.551  7945  9550 I DropBoxUtil: (REDACTED) Reading dropbox entry with tag %s and timestamp %d
+07-12 21:57:52.558  7945  9550 I DropBoxUtil: (REDACTED) Reading dropbox entry with tag %s and timestamp %d
+07-12 21:57:52.575  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+07-12 21:57:52.575  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+07-12 21:57:52.590  1299  8047 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.590  1299  8047 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.591  1299  8047 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.607  1521 11017 D DisplayManagerService: Display listener for pid 9481 died.
+07-12 21:57:52.608  1521 10729 I WindowManager: WIN DEATH: Window{e21b6e1 u0 com.pryvn.audiophile/com.pryvn.audiophile.CrashActivity}
+07-12 21:57:52.608  3779  3779 I adbd    : Remote process closed the socket (on MSG_PEEK)
+07-12 21:57:52.608  1521 10729 W InputManager-JNI: Input channel object 'e21b6e1 com.pryvn.audiophile/com.pryvn.audiophile.CrashActivity (client)' was disposed without first being removed with the input manager!
+07-12 21:57:52.609  1521  2720 I libprocessgroup: Successfully killed process cgroup uid 10526 pid 9481 in 0ms
+07-12 21:57:52.610  1143  1143 I Zygote  : Process 9481 exited due to signal 9 (Killed)
+07-12 21:57:52.614  1521 10731 D TheiaManager: com.android.server.wm.OplusWindowManagerService@521e951 getDeclaredField : com.android.server.wm.WindowManagerService.mRoot
+07-12 21:57:52.615  1521 10731 D TheiaManager: com.android.server.wm.RootWindowContainer@e820e60 callDeclaredMethod : com.android.server.wm.RootWindowContainer.getTopFocusedDisplayContent param[] null args[]null
+07-12 21:57:52.615  1521 10731 D TheiaManager: Display 0 info=DisplayInfo{"Built-in screen", displayId 0", displayGroupId 0, FLAG_SECURE, FLAG_SUPPORTS_PROTECTED_BUFFERS, FLAG_TRUSTED, real 1080 x 2400, largest app 2290 x 2242, smallest app 1080 x 924, appVsyncOff 1000000, presDeadline 16393442, mode 1, defaultMode 1, modes [{id=1, width=1080, height=2400, fps=61.000004, alternativeRefreshRates=[]}], hdrCapabilities HdrCapabilities{mSupportedHdrTypes=[2, 3, 4], mMaxLuminance=500.0, mMaxAverageLuminance=500.0, mMinLuminance=0.0}, userDisabledHdrTypes [], minimalPostProcessingSupported false, rotation 0, state ON, type INTERNAL, uniqueId "local:4630946962717273473", app 1080 x 2242, density 480 (409.432 x 409.127) dpi, layerStack 0, colorMode 0, supportedColorModes [0, 7, 9], address {port=129, model=0x40446dba0e6fed}, deviceProductInfo DeviceProductInfo{name=, manufacturerPnpId=QCM, productId=1, modelYear=null, manufactureDate=ManufactureDate{week=27, year=2006}, connectionToSinkType=0}, removeMode 0, refreshRateOverride 0.0, brightnessMinimum 0.0, brightnessMaximum 1.0, brightnessDefault 1600.0} rootTasks=[WindowedMagnification:0:31@238532939, HideDisplayCutout:32:55@144431886, Leaf:56:57@86568201, HideDisplayCutout:58:99@26778422, Leaf:100:100@36533457] getDeclaredField : com.android.server.wm.DisplayContent.mFocusedApp
+07-12 21:57:52.615  1521 10731 D TheiaManager: ActivityRecord{c7bdbbd u0 com.pryvn.audiophile/.CrashActivity t1666 f}} callDeclaredMethod : com.android.server.wm.ActivityRecord.getPid param[] null args[]null
+07-12 21:57:52.615  1521 10731 E TheiaManager: [tagL]: calling catchLog()..., focusedPid:9481 pids:[9481]
+07-12 21:57:52.615  1521 10731 D TheiaManager: No stackTrace found in args
+07-12 21:57:52.615  1521 10731 D TheiaManager: KEY:logTypeVALUE:ApplicationFGCrash
+07-12 21:57:52.615  1521 10731 D TheiaManager: KEY:deadMomentVALUE:1783873672614
+07-12 21:57:52.615  1521 10731 D TheiaManager: KEY:appNameVALUE:Audiophile
+07-12 21:57:52.615  1521 10731 D TheiaManager: KEY:packageVersionVALUE:1.1.0
+07-12 21:57:52.615  1521 10731 D TheiaManager: KEY:packageNameVALUE:com.pryvn.audiophile
+07-12 21:57:52.615  1521 10731 D TheiaCrashMonitor: com.pryvn.audiophilecrash
+07-12 21:57:52.615  1521 10731 I ActivityManager: Process com.pryvn.audiophile (pid 9481) has died: fg  TOP 
+07-12 21:57:52.615  1521 11862 D TheiaSocketClient: TheiaSend receive content : 4298113028:ApplicationFGCrash:1783873672615
+07-12 21:57:52.615  1521 10731 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1175 com.android.server.am.OplusExtraActivityManagerService.setKeyLockModeNormal:51 com.android.server.am.ActivityManagerServiceExtImpl.setKeyLockModeNormal:851 com.android.server.am.ActivityManagerService.appDiedLocked:3389 com.android.server.am.ActivityManagerService$AppDeathRecipient.binderDied:1531 
+07-12 21:57:52.615  1521 11862 D TheiaSocketClient: send message success
+07-12 21:57:52.616  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+07-12 21:57:52.616  1892 11981 I theia_socket: recv 4298113028:ApplicationFGCrash:1783873672615
+07-12 21:57:52.616  1892 11981 I theia_socket: nowEvent is not KeyEvent
+07-12 21:57:52.618  1383  1383 D OplusLayer: ~Layer() sequence=40882, name=e21b6e1 com.pryvn.audiophile/com.pryvn.audiophile.CrashActivity#0 0xb4000076b9032980
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.android.settings is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.gallery3d is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.video is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.heytap.browser is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.heytap.themestore is com.google.android.packageinstaller
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.oplus.camera is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.sec.android.app.music is com.android.chrome
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.shamim.cam is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.snapchat.android is me.eternal.purrfect
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package com.wmods.wppenhacer is com.android.chrome
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package idm.internet.download.manager.plus is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package io.github.a13e300.ksuwebui is 
+07-12 21:57:52.621  6262  6328 I Finsky  : [454] Installer package name of package me.eternal.purrfect is org.telegram.messenger
+07-12 21:57:52.621  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.622  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.622  1521  6946 I OplusHansManager : onUidGone(), 10526 com.pryvn.audiophile exit SM
+07-12 21:57:52.623 11133 11221 V DeepThinker: ProcessManager: onProcessDied pid:9481, uid:10526
+07-12 21:57:52.625  1521 10731 V OplusZoomWindowManagerService: onAnimationFinished:  r = ActivityRecord{c7bdbbd u0 com.pryvn.audiophile/.CrashActivity t1666 f}}
+07-12 21:57:52.629  1521 10731 D TaskExtImpl: remove ActivityRecord{c7bdbbd u0 com.pryvn.audiophile/.CrashActivity t-1 f}} to mActivityRecordSum = Counter{ com.pryvn.audiophile/.CrashActivity(1) }
+07-12 21:57:52.630  1521 10731 I OplusAccessController: enter isIgnoreAppSwitchActivity
+07-12 21:57:52.630  1521 10731 I OplusAccessController: enter isIgnoreAppSwitchActivity and intent != null
+07-12 21:57:52.630  1521 10731 I OplusAccessController: enter isIgnoreAppSwitchActivity and componentName != null
+07-12 21:57:52.630  1521 10731 I OplusAccessController: enter isIgnoreAppSwitchActivity and packageName&activity is not Empty
+07-12 21:57:52.631  1521 10731 V SensorManager: call sensorServiceCommonInterface name: setScreenShotDisable
+07-12 21:57:52.631  1521 10731 D SensorService: SensorService sensorServiceCommonInterface = setScreenShotDisable
+07-12 21:57:52.631  1521 10731 D SensorServiceImpl: SensorServiceExtImpl sensorServiceCommonInterface funcName= setScreenShotDisable , flag =0, status =0
+07-12 21:57:52.636  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.636  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.639 11876 11885 E IHansComunication: HANS printMessageBody: RCVed message body: type = 0, port = 86870, caller_pid = 1521, caller_uid = 1000, target_pid = 2567, target_uid = 10437, pkg_cmd = -1
+07-12 21:57:52.640 10857 10857 I yAF.TPLog.FrameworkService: onTrimMemory(10): clearing caches...
+07-12 21:57:52.640 10857 10857 V e       : ClearCache[10] : Cache Size BEFORE = 0
+07-12 21:57:52.640 10857 10857 W e       : ClearCache : Current cache size is lesser than the threshold of 2097152
+07-12 21:57:52.640 16334 16334 I ONet:Application: (ActivityThread.java:6620)onTrimMemory
+07-12 21:57:52.641  4882  4882 I GoogleTTSServiceImpl: Cache enabled: true
+07-12 21:57:52.641  4882  4882 I LocalSynthesizer: #onTrimMemory
+07-12 21:57:52.641  1521  6513 I OplusHansManager : unfreeze uid: 10437 pl.lambada.songsync pids: [2567] reason: AsyncBinder scene: LcdOn
+07-12 21:57:52.644  6769  6769 I Finsky:background: [2] Memory trim requested to level 10
+07-12 21:57:52.644  6262  6262 I Finsky  : [2] Memory trim requested to level 10
+07-12 21:57:52.645  1521  6512 I OplusHansManager : uid=10437, pkg=pl.lambada.songsync, transition from Frozen to Middle, reason=AsyncBinder
+07-12 21:57:52.645  1521  6512 I OplusHansManager : uid=10437, pkg=pl.lambada.songsync F exit(), reason=AsyncBinder
+07-12 21:57:52.646  1521  6946 D OplusProxyWakeLock: remove uid: 10437 wiht all pids from wakelockUidInfo list
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package moe.rukamori.archivetune is moe.rukamori.archivetune
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.android.stk is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.alarmclock is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.calculator is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.compass2 is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.soundrecorder is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.weather2 is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.heytap.cloud is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.oplus.games is 
+07-12 21:57:52.646  6262  6328 I Finsky  : [454] Installer package name of package com.redteamobile.roaming is 
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package air.com.hypah.io.slither is 
+07-12 21:57:52.647  1521  2705 W ActivityManager: setHasOverlayUi called on unknown pid: 9481
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package app.morphe.manager is app.morphe.manager
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.audiophile.wave is com.coloros.filemanager
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.coloros.note is 
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.deniscerri.ytdl is 
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.ecycle is com.android.chrome
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.google.android.apps.podcasts is 
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.google.android.apps.wallpaper is 
+07-12 21:57:52.647  6262  6328 I Finsky  : [454] Installer package name of package com.oneplus.brickmode is 
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.pryvn.audiophile is 
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.reddit.frontpage is 
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.slash.clipboard is 
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.topjohnwu.magisk is com.topjohnwu.magisk
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.tsng.hidemyapplist is 
+07-12 21:57:52.648  6262  6328 I Finsky  : [454] Installer package name of package com.updateme is 
+07-12 21:57:52.649  6262  6328 I Finsky  : [454] Installer package name of package io.github.chsbuffer.revancedxposed is com.android.chrome
+07-12 21:57:52.649  6262  6328 I Finsky  : [454] Installer package name of package moe.shizuku.privileged.api is 
+07-12 21:57:52.649  6262  6328 I Finsky  : [454] Installer package name of package org.adaway is pl.solidexplorer2
+07-12 21:57:52.649  6262  6328 I Finsky  : [454] Installer package name of package pl.lambada.songsync is com.android.chrome
+07-12 21:57:52.649  6262  6328 I Finsky  : [454] Installer package name of package yos.music.player is org.telegram.messenger
+07-12 21:57:52.650 10517 10517 I AppBase : AppBase.onTrimMemory():280 onTrimMemory(): 10
+07-12 21:57:52.651  1383  1383 D OplusLayer: ~Layer() sequence=40881, name=ActivityRecord{c7bdbbd u0 com.pryvn.audiophile/.CrashActivity#0 0xb4000076b4a406c0
+07-12 21:57:52.651 10517 10517 I KeyboardDefCache: MemoryFileCache$1.onTrimMemory():124 clearMemory() for trim memory: 10
+07-12 21:57:52.651 10517 10517 I KeyboardDefCache: MemoryFileCache.clearMemory():408 evictAll()
+07-12 21:57:52.651 10517 10517 I GoogleInputMethodService: GoogleInputMethodService.onTrimMemory():3021 onTrimMemory(): 10
+07-12 21:57:52.652  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.652  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.653  1521  2705 D CompatibilityChangeReporter: Compat change id reported: 135634846; UID 10526; state: DISABLED
+07-12 21:57:52.654  1521  2705 D CompatibilityChangeReporter: Compat change id reported: 177438394; UID 10526; state: DISABLED
+07-12 21:57:52.654  1521  2705 D CompatibilityChangeReporter: Compat change id reported: 135772972; UID 10526; state: DISABLED
+07-12 21:57:52.654  1521  2705 D CompatibilityChangeReporter: Compat change id reported: 135754954; UID 10526; state: ENABLED
+07-12 21:57:52.655  1521  2719 D CompatibilityChangeReporter: Compat change id reported: 143937733; UID 10526; state: ENABLED
+07-12 21:57:52.660 16673 16900 V Avrcp_ext: onQueueChanged: NowPlaying list changed, Queue Size = 62
+07-12 21:57:52.662 16673 16900 D Avrcp_ext: Exit onQueueChanged
+07-12 21:57:52.663 16673 16900 V Avrcp_ext: updateCurrentMediaState: mMediaController: MediaController (moe.rukamori.archivetune@7ac589b) I Wanna Be Yours, Arctic Monkeys, AM
+07-12 21:57:52.664 16673 16900 W Avrcp_ext: isMusicActive: true getBluetoothPlayState: 1 A2dp State: 10 mAudioPlaybackIsActive: true
+07-12 21:57:52.664 16673 16900 D Avrcp_ext: isMusicActive = true mAudioPlaybackIsActive = true player state = PlaybackState {state=3, position=110335, buffered position=130121, speed=1.0, updated=176761160, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null}
+07-12 21:57:52.665 16673 16900 D AvrcpBipRsp:  getImgHandle device :2C:BE:EB:C3:51:76 data :android.media.MediaMetadata@a298628f
+07-12 21:57:52.665 16673 16900 W AvrcpBipRsp: getImgHandle bipSm null
+07-12 21:57:52.665 16673 16900 I Avrcp_ext: device found at index 0
+07-12 21:57:52.666 16673 16900 V Avrcp_ext: updateCurrentMediaState: addr: [B@40d2a63
+07-12 21:57:52.666 16673 16900 V Avrcp_ext: Media update: id 7➡7? [MediaAttributes: I⋯s - AM by A⋯s (183981 0/0) - ] : [MediaAttributes: I⋯s - AM by A⋯s (183981 0/0) - ]
+07-12 21:57:52.666 16673 16900 V Avrcp_ext: updatePlaybackState, state: PlaybackState {state=3, position=110335, buffered position=130121, speed=1.0, updated=176761160, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null} device: null
+07-12 21:57:52.667 16673 16900 V Avrcp_ext: Device: CMF Neckband Pro : old state: PlaybackState {state=3, position=108624, buffered position=130121, speed=1.0, updated=176759449, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null}
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Device: DESKTOP-OVTSEPH : old state: PlaybackState {state=6, position=24432, buffered position=24432, speed=0.0, updated=176207497, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=5, error=null}
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.668 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.668 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.668 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.668 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.668 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.668 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.668 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: 2C:BE:EB:C3:51:76
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.668 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: sBluetoothAvrcpInterface: 0x734dc3f2c8
+07-12 21:57:52.668 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: status: 0
+07-12 21:57:52.668 16673 16900 V Avrcp_ext: Device Active in handoff scenario
+07-12 21:57:52.668 16673 16900 I Avrcp_ext: updatePlayStatusForDevice: device: 2C:BE:EB:C3:51:76
+07-12 21:57:52.669 16673 16900 I Avrcp_ext: Exit updatePlayStatusForDevice
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: A0:A8:CD:CA:18:D0
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.669 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: sBluetoothAvrcpInterface: 0x734dc3f2c8
+07-12 21:57:52.669 16673 16900 E bt_btif : is_device_active_in_handoff: AV is not connected for the device
+07-12 21:57:52.669 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: status: 1
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.669 16673 16900 I Avrcp_ext: A2dpSupported true AvrcpSupported true
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.669 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.669 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.669 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.669 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.669 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.669 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Exit updatePlayerStateAndPosition
+07-12 21:57:52.669 16673 16900 V Avrcp_ext: Exit handleMessage
+07-12 21:57:52.672  1143  1143 D Zygote  : Forked child process 9552
+07-12 21:57:52.675  1521  2719 E PerformanceManager: addTaskTrackPid failed.
+07-12 21:57:52.675  1521  2719 E PerformanceManager: android.os.RemoteException: HwBinder Error: (-74)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.HwRemoteBinder.transact(Native Method)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at vendor.oplus.hardware.performance.V1_0.IPerformance$Proxy.addTaskTrackPid(IPerformance.java:2623)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.PerformanceManager.addTaskTrackPid(PerformanceManager.java:859)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at com.android.server.am.ProcessList.startProcess(ProcessList.java:2542)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at com.android.server.am.ProcessList.handleProcessStart(ProcessList.java:2269)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at com.android.server.am.ProcessList.lambda$startProcessLocked$0$ProcessList(ProcessList.java:2188)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at com.android.server.am.ProcessList$$ExternalSyntheticLambda1.run(dex-id-9f94b5d14f8ba49c388a6efb5e01394711ca3df5:22)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.Handler.handleCallback(Handler.java:938)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.Looper.loopOnce(Looper.java:233)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.Looper.loop(Looper.java:344)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at android.os.HandlerThread.run(HandlerThread.java:67)
+07-12 21:57:52.675  1521  2719 E PerformanceManager: 	at com.android.server.ServiceThread.run(ServiceThread.java:44)
+07-12 21:57:52.676  1521  2719 I ActivityManager: Start proc 9552:com.pryvn.audiophile/u0a526 for top-activity {com.pryvn.audiophile/com.pryvn.audiophile.CrashActivity}
+07-12 21:57:52.687  1299  8046 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.687  1299  8046 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.687  1299  8046 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.699  1294  4415 I WifiHAL : event received NL80211_CMD_VENDOR, vendor_id = 0x1374, subcmd = 0xd
+07-12 21:57:52.711  9552  9552 I ryvn.audiophil: Late-enabling -Xcheck:jni
+07-12 21:57:52.720  8894  9551 D AudioNormalization: Audio normalization enabled: true
+07-12 21:57:52.720  8894  5935 D DiscordSync: sync epoch=378 reason=timeline_or_position_discontinuity force=true effectiveForce=true songId=nyuo9-OjNNg playWhenReady=true playbackState=3 isPlaying=true semantic=PlayingReady raw=Hidden(reason=NoToken) decision=Hidden(reason=NoToken) holdState=null lastAppliedVisible=null refreshWaiters=0
+07-12 21:57:52.721  8894  5935 D DiscordSync: apply decision epoch=378 decision=Hidden(reason=NoToken) tokenPresent=false songId=nyuo9-OjNNg
+07-12 21:57:52.721  8894  5935 D DiscordSync: hold state transition previous=null next=null
+07-12 21:57:52.721  8894  5935 V DiscordSync: hold timeout job unchanged for holdState=null
+07-12 21:57:52.721  8894  5935 V DiscordSync: no token available for terminal clear; stopping manager only
+07-12 21:57:52.722  8894  9551 D AudioNormalization: Format loudnessDb: -1.9703083, perceptualLoudnessDb: -8.970308
+07-12 21:57:52.723  8894  9551 D AudioNormalization: Normalization factor clamped from 2.8087652 to 1.414
+07-12 21:57:52.723  8894  9551 I AudioNormalization: Applying normalization factor: 1.414
+07-12 21:57:52.741 16673 16900 V Avrcp_ext: onQueueChanged: NowPlaying list changed, Queue Size = 62
+07-12 21:57:52.741 16673 16900 D Avrcp_ext: Exit onQueueChanged
+07-12 21:57:52.742 16673 16900 V Avrcp_ext: updateCurrentMediaState: mMediaController: MediaController (moe.rukamori.archivetune@7ac589b) I Wanna Be Yours, Arctic Monkeys, AM
+07-12 21:57:52.743 16673 16900 W Avrcp_ext: isMusicActive: true getBluetoothPlayState: 1 A2dp State: 10 mAudioPlaybackIsActive: true
+07-12 21:57:52.743 16673 16900 D Avrcp_ext: isMusicActive = true mAudioPlaybackIsActive = true player state = PlaybackState {state=3, position=110414, buffered position=130121, speed=1.0, updated=176761239, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null}
+07-12 21:57:52.744 16673 16900 D AvrcpBipRsp:  getImgHandle device :2C:BE:EB:C3:51:76 data :android.media.MediaMetadata@a298628f
+07-12 21:57:52.744 16673 16900 W AvrcpBipRsp: getImgHandle bipSm null
+07-12 21:57:52.744 16673 16900 I Avrcp_ext: device found at index 0
+07-12 21:57:52.744 16673 16900 V Avrcp_ext: updateCurrentMediaState: addr: [B@f2c4fea
+07-12 21:57:52.744 16673 16900 V Avrcp_ext: Media update: id 7➡7? [MediaAttributes: I⋯s - AM by A⋯s (183981 0/0) - ] : [MediaAttributes: I⋯s - AM by A⋯s (183981 0/0) - ]
+07-12 21:57:52.744 16673 16900 V Avrcp_ext: updatePlaybackState, state: PlaybackState {state=3, position=110414, buffered position=130121, speed=1.0, updated=176761239, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null} device: null
+07-12 21:57:52.745 16673 16900 V Avrcp_ext: Device: CMF Neckband Pro : old state: PlaybackState {state=3, position=110335, buffered position=130121, speed=1.0, updated=176761160, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=7, error=null}
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Device: DESKTOP-OVTSEPH : old state: PlaybackState {state=6, position=24432, buffered position=24432, speed=0.0, updated=176207497, actions=7340027, custom actions=[Action:mName='Like, mIcon=2131231030, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Repeat mode off, mIcon=2131231505, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Shuffle on, mIcon=2131231523, mExtras=Bundle[EMPTY_PARCEL], Action:mName='Start radio, mIcon=2131231501, mExtras=Bundle[EMPTY_PARCEL]], active item id=5, error=null}
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Device: no name: 
+07-12 21:57:52.748 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.748 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.748 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.748 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.748 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.748 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.748 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: 2C:BE:EB:C3:51:76
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.748 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: sBluetoothAvrcpInterface: 0x734dc3f2c8
+07-12 21:57:52.748 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: status: 0
+07-12 21:57:52.748 16673 16900 V Avrcp_ext: Device Active in handoff scenario
+07-12 21:57:52.748 16673 16900 I Avrcp_ext: updatePlayStatusForDevice: device: 2C:BE:EB:C3:51:76
+07-12 21:57:52.748 16673 16900 I Avrcp_ext: Exit updatePlayStatusForDevice
+07-12 21:57:52.748 31145  8687 I LSPosed-Bridge: Service Connected: com.wmods.wppenhacer.xposed.bridge.WaeIIFace$Stub$Proxy@9e8169f
+07-12 21:57:52.748 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.749 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.749 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.749 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: A0:A8:CD:CA:18:D0
+07-12 21:57:52.749 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.749 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: sBluetoothAvrcpInterface: 0x734dc3f2c8
+07-12 21:57:52.749 16673 16900 E bt_btif : is_device_active_in_handoff: AV is not connected for the device
+07-12 21:57:52.749 16673 16900 I BluetoothAvrcpServiceJni: isDeviceActiveInHandOffNative: status: 1
+07-12 21:57:52.749 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.749 16673 16900 I Avrcp_ext: A2dpSupported true AvrcpSupported true
+07-12 21:57:52.749 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.749 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.749 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.750 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.750 16673 16900 D HeadsetService: isScoOrCallActive(): Call Active:falseCall is Ringing:falseSCO is Active:false
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 E HeadsetStateMachine: returning mCurrentState as Connected
+07-12 21:57:52.750 16673 16900 D HeadsetService:  isAudioOn: The number of audio connected devices 0
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: isPlayStateTobeUpdated: device: null
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Multiple connection exists in handoff
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Device Not Active in handoff scenario
+07-12 21:57:52.750 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.750 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.750 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.750 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.750 16673 16900 D Avrcp_ext: Enter sendPlayPosNotificationRsp
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Exit updatePlayerStateAndPosition
+07-12 21:57:52.750 16673 16900 V Avrcp_ext: Exit handleMessage
+07-12 21:57:52.753  8894  5939 D DiscordSync: sync epoch=379 reason=timeline_or_position_discontinuity force=true effectiveForce=true songId=nyuo9-OjNNg playWhenReady=true playbackState=3 isPlaying=true semantic=PlayingReady raw=Hidden(reason=NoToken) decision=Hidden(reason=NoToken) holdState=null lastAppliedVisible=null refreshWaiters=0
+07-12 21:57:52.754  8894  5939 D DiscordSync: apply decision epoch=379 decision=Hidden(reason=NoToken) tokenPresent=false songId=nyuo9-OjNNg
+07-12 21:57:52.754  8894  5939 D DiscordSync: hold state transition previous=null next=null
+07-12 21:57:52.754  8894  5939 V DiscordSync: hold timeout job unchanged for holdState=null
+07-12 21:57:52.754  8894  5939 V DiscordSync: no token available for terminal clear; stopping manager only
+07-12 21:57:52.760  3779  3779 I adbd    : adbd service requested 'shell,v2:export ANDROID_LOG_TAGS=''; exec logcat'
+07-12 21:57:52.763  9552  9552 E ryvn.audiophil: Unknown bits set in runtime_flags: 0x40000000
+07-12 21:57:52.763  9552  9552 I ryvn.audiophil: Using generational CollectorTypeCC GC.
+07-12 21:57:52.768  3779  3794 I adbd    : jdwp connection from 9552
+07-12 21:57:52.770  9552  9552 D ProcessState: Binder ioctl to enable oneway spam detection failed: Invalid argument
+07-12 21:57:52.780  1276 21605 D DlbDap2Process: process() called [8129500] times
+07-12 21:57:52.808  9552  9552 I OneTrace: Mark active for pid=9552? true
+07-12 21:57:52.808  9552  9552 D cutils-dev: otrace_set_tracing_enabled? true
+07-12 21:57:52.812  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.813  1299  1380 E ANDR-PERF-LM: MetaMeter: handleAsync() 164: AdaptLaunch Invalid Async
+07-12 21:57:52.813  9552  9560 D cutils-dev: properties changed in otrace_seq_number_changed!
+07-12 21:57:52.817  1521  6326 I ActivityTaskManager: The Process com.pryvn.audiophile Already Exists in BG. So sending its PID: 9552
+07-12 21:57:52.817  1299  1299 E vendor.qti.hardware.perf@2.2-service: Unknown params
+07-12 21:57:52.818  1299  1380 E ANDR-PERF-LM: MetaMeter: handleAsync() 164: AdaptLaunch Invalid Async
+07-12 21:57:52.818  1299  1380 W ANDR-PERF-LM: MetaMeter: handlePrimaryAsync() 116: PreKill MetaMeter. No MeterMgr Available to handle this Primary Async. !!!!
+07-12 21:57:52.819  1521  6326 D OplusDexOptimizeManager: Do not in AppLaunchOptList!
+07-12 21:57:52.823  1521  6326 I InputDispatcher: setFocusedApplication displayId=0 ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}
+07-12 21:57:52.824  1326  1326 E PerformanceService: Failed to open /proc/sys/kernel/sched_impt_tgid (2): No such file or directory, Linux version 4.14.180
+07-12 21:57:52.825  1323  1323 E ORMS_HAL: open /sys/devices/platform/soc/soc:oplus-omrg/oplus-omrg0/ruler_enable failed(No such file or directory)
+07-12 21:57:52.826  1323  1323 E ORMS_HAL: open /sys/devices/platform/soc/soc:oplus-omrg/oplus-omrg0/ruler_enable failed(No such file or directory)
+07-12 21:57:52.829  1521  2706 D CompactWindowManagerService: updateBackgroundSurface openingApp: ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}
+07-12 21:57:52.830  1521  2706 D ActivityRecordExtImpl: setting mUseTransferredAnimation to false for ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}
+07-12 21:57:52.830  7635 16273 D OplusAtlas.OplusAtlasEventDispatch: setEvent:atlas_event_on_foreground_activities_changed info:pid:9552,uid:10526,hasForegroundActivities:1
+07-12 21:57:52.830  7635 10648 D OplusAtlas.OplusAudioScene: callback success event:atlas_event_on_foreground_activities_changed eventInfo:pid:9552,uid:10526,hasForegroundActivities:1
+07-12 21:57:52.830  1521  2706 I OplusAppSwitchManagerService:  handleAppVisible , r = ActivityRecord{78225de u0 com.pryvn.audiophile/.CrashActivity t1666}
+07-12 21:57:52.831  7635 10663 D OplusAtlas.OplusMessageHandler: handleMessage: Msg { when=0 what=2 obj=com.oplus.atlas.OplusAtlasEvent@9266c68 target=com.oplus.atlas.OplusMessageHandler$MyHandler }
+07-12 21:57:52.831  9552  9552 D CompatibilityChangeReporter: Compat change id reported: 171979766; UID 10526; state: ENABLED
+07-12 21:57:52.832  9552  9552 I oplus.android.OplusFrameworkFactoryImpl: get feature:IOplusAutoResolutionFeature
+07-12 21:57:52.832  9552  9552 I oplus.android.OplusFrameworkFactoryImpl: getOplusAutoResolutionFeature
+07-12 21:57:52.832 11133 11221 V DeepThinker: ProcessManager: onForegroundActivitiesChanged pid:9552, uid:10526, foregroundActivities:true
+07-12 21:57:52.832  9552  9552 D CompactWindowAppManager: initCompactApplicationInfo 
+07-12 21:57:52.832  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/io_percent not supported
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 2]
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/bw_hwmon/sample_ms not supported
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 8]
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource SPECIAL_NODE - cpubw_hwmon_hyst_opt not supported
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 3]
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/min_freq not supported
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 0]
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-OPTSHANDLER: Perflock resource /sys/class/devfreq/soc:qcom,cpubw/max_freq not supported
+07-12 21:57:52.833  1299  1379 E ANDR-PERF-RESOURCEQS: Failed to apply optimization [6, 6]
+07-12 21:57:52.850  1383  1383 D OplusMovieIdle: updateLayerStacks,mOmiSupport is not supoort
+07-12 21:57:52.850  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:52.878  9552  9552 I OplusFeatureCache: Milliseconds spent on init(): 32
+07-12 21:57:52.881  9552  9552 D LoadedApk: mApplicationInfo overrideDisplayId:null
+07-12 21:57:52.890  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+07-12 21:57:52.890  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+07-12 21:57:52.891  1299  8047 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.891  1299  8047 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.891  1299  8047 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.916  3949  3949 D OplusPrivacyDotViewController: scheduleUpdate: 
+07-12 21:57:52.955 10905 11357 I Athena  : CommonAction: 0,1494,145,13.632903,22
+07-12 21:57:52.956  1292 10719 E sensors-hal: ssc_conn_event_cb:661, event[0] msg_id=1025, ts=3393883909832 sensor_type = pedometer_minute  Wakeup
+07-12 21:57:52.957  1292 10719 E sensors-hal: handle_sns_client_event:83, pedometer_minute: report_ts=2916,counter=308.000000 move_status =[SNS_CMC_STATIONARY] time_gap = 0 run_counter=0.000000 walk_counter=83.000000
+07-12 21:57:52.970  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+07-12 21:57:52.987  1299  8046 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:52.987  1299  8046 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:52.987  1299  8046 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:52.997  1521  2705 W ActivityTaskManager: Activity top resumed state loss timeout for ActivityRecord{c7bdbbd u0 com.pryvn.audiophile/.CrashActivity t-1 f}}
+07-12 21:57:52.997  1521  2705 I OplusAppSwitchManager: notifyAppSwitch the same packageName!
+07-12 21:57:52.998  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_WAKE_IND: 0xFD
+07-12 21:57:52.998  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Writing IBS_WAKE_ACK
+07-12 21:57:53.001 10905 11357 I Athena  : CommonAction: 22,1480,130,14.0161295,22
+07-12 21:57:53.039  1279 16817 I vendor.qti.bluetooth@1.0-ibs_handler: ProcessIbsCmd: Received IBS_SLEEP_IND: 0xFE
+07-12 21:57:53.047  6262  6319 W android.vendin: Monitor::Inflate: Install failed 0x6a21fa48
+07-12 21:57:53.048  6262  6319 W android.vendin: Monitor::Inflate: Install failed 0x6a21fd38
+07-12 21:57:53.063  6262  6273 I android.vendin: Background young concurrent copying GC freed 1988KB AllocSpace bytes, 0(0B) LOS objects, 2% free, 16MB/16MB, paused 1.141ms,135us total 283.430ms
+07-12 21:57:53.093  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:53.102  1521 10730 D UserManagerServiceExtImpl: getMultiSystemUserId  res = -10000
+07-12 21:57:53.103  1279 16831 I vendor.qti.bluetooth@1.0-ibs_handler: DeviceSleep: TX Awake, Sending SLEEP_IND
+07-12 21:57:53.103  1279 16831 D vendor.qti.bluetooth@1.0-ibs_handler: SerialClockVote: vote for UART CLK OFF
+07-12 21:57:53.103  6235  6235 I StepApp_StepDataPreHandler: (main)onSensorChanged raw data: step=308.0 state=3.0 minuteDelta=0.0 timestamp=176761447405036 steprun=0.0 stepwalk=83.0 formatted data: step=308 state=3 timestamp=176761447405036 time=1783873672951 steprun=0 stepwalk=83
+07-12 21:57:53.109  1521 10730 D UserManagerServiceExtImpl: getMultiSystemUserId  res = -10000
+07-12 21:57:53.161  3949  3949 D InterruptionStateProvider: No alerting: filtered notification: 0|moe.rukamori.archivetune|888|null|10272
+07-12 21:57:53.175  1383  1383 E CompositionEngine: map unknown (BT709 sRGB Full range)/(Unknown RenderIntent) to default color mode
+07-12 21:57:53.188  1521 10730 D AudioManagerExtImpl: getStreamVolume packageName=android, index=5, streamType=3
+07-12 21:57:53.191  3949  3949 D InterruptionStateProvider: No alerting: filtered notification: 0|moe.rukamori.archivetune|888|null|10272
+07-12 21:57:53.191  1299  8047 E ANDR-PERF-LM: StatsProvider: stats_nl_error_callback() 110: NL SOC receive error: No such process
+07-12 21:57:53.192  1299  8047 E ANDR-PERF-LM: StatsProvider: sendRecvData() 267: nl_recvmsgs failed return=-12
+07-12 21:57:53.192  1299  8047 E ANDR-PERF-LM: StatsProvider: getPIDStats() 119: sendRecvData returned error = -4
+07-12 21:57:53.225  8894  5928 D BufferPoolAccessor2.0: bufferpool2 0xb4000073acfdb028 : 4(23040 size) total buffers - 1(5760 size) used buffers - 5602/5606 (recycle/alloc) - 4/11208 (fetch/transfer)
+07-12 21:57:53.248  3949  3976 D PeopleSpaceWidgetMgr: Sbn doesn't contain valid PeopleTileKey: null/0/moe.rukamori.archivetune
+07-12 21:57:53.253  1279 16787 D vendor.qti.bluetooth@1.0-wake_lock: Release wakelock is released 
+07-12 21:57:53.257  3949  3949 D InterruptionStateProvider: No alerting: filtered notification: 0|moe.rukamori.archivetune|888|null|10272
+07-12 21:57:53.258  3949  3949 D InterruptionStateProvider: No alerting: filtered notification: 0|moe.rukamori.archivetune|888|null|10272
+07-12 21:57:53.260  1521 10731 D AudioManagerExtImpl: getStreamVolume packageName=android, index=5, streamType=3
+07-12 21:57:53.270  3949  3976 D PeopleSpaceWidgetMgr: Sbn doesn't contain valid PeopleTileKey: null/0/moe.rukamori.archivetune
+07-12 21:57:53.274  7936  8217 I MlsIntegration: Treatment for Weblab MLS_USE_PSEUDO_DEVICE_ID_ANDROID_1109242 is C_default (changed?: false)
+07-12 21:57:53.275  7936  8217 I MlsIntegration: Treatment for Weblab MLS_ANDROID_ZAZ_MIGRATION_1364350 is C_default (changed?: false)
+07-12 21:57:53.275  7936  8217 I MlsIntegration: Treatment for Weblab MLS_ENABLE_DEBUG_LOGS_1366122 is C_default (changed?: false)
+07-12 21:57:53.276  1521  6326 D AudioManagerExtImpl: getStreamVolume packageName=android, index=5, streamType=3
