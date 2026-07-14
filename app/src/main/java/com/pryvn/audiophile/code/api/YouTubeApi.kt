@@ -230,6 +230,15 @@ object YouTubeApi {
 
     suspend fun homeWithFallback(continuation: String? = null): Result<JsonObject> = home(continuation)
 
+    suspend fun recentlyPlayedSongs(limit: Int = 10): Result<List<YTSongItem>> = runCatching {
+        val page = YouTube.musicHistory().getOrThrow()
+        page.sections.orEmpty()
+            .flatMap { it.songs }
+            .map { it.toYTSongItem() }
+            .distinctBy { it.videoId }
+            .take(limit)
+    }
+
     suspend fun explore(continuation: String? = null): Result<JsonObject> = runCatching {
         if (continuation != null) {
             YouTube.browseJson(continuation = continuation).getOrThrow()

@@ -70,17 +70,14 @@ fun PullToRefreshLayout(
                 if (isRefreshing || !enabled || source != NestedScrollSource.UserInput) return Offset.Zero
                 val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
 
-                if (available.y < 0 && atTop) {
-                    val dragAmount = -available.y
-                    val newOffset = (offsetY + dragAmount).coerceAtMost(thresholdPx * 2)
-                    val consumed = offsetY - newOffset
+                if (available.y > 0 && atTop) {
+                    val newOffset = (offsetY + available.y).coerceAtMost(thresholdPx * 2)
                     offsetY = newOffset
-                    return Offset(0f, consumed)
+                    return Offset(0f, available.y)
                 }
-                if (available.y > 0 && offsetY > 0) {
-                    val pushAmount = available.y
-                    val newOffset = (offsetY - pushAmount).coerceAtLeast(0f)
-                    val consumed = offsetY - newOffset
+                if (available.y < 0 && offsetY > 0) {
+                    val newOffset = (offsetY + available.y).coerceAtLeast(0f)
+                    val consumed = newOffset - offsetY
                     offsetY = newOffset
                     return Offset(0f, consumed)
                 }
@@ -91,10 +88,8 @@ fun PullToRefreshLayout(
                 if (isRefreshing || !enabled || source != NestedScrollSource.UserInput) return Offset.Zero
                 val atTop = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
 
-                if (available.y < 0 && atTop) {
-                    val dragAmount = -available.y
-                    val newOffset = (offsetY + dragAmount).coerceAtMost(thresholdPx * 2)
-                    offsetY = newOffset
+                if (available.y > 0 && atTop) {
+                    offsetY = (offsetY + available.y).coerceAtMost(thresholdPx * 2)
                     return Offset(0f, available.y)
                 }
                 return Offset.Zero

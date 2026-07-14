@@ -114,5 +114,5 @@ fun String.toMultipleArtists(): List<String> {
 }
 
 fun List<String>.toArtistsString(): String {
-    return this.joinToString("、")
+    return this.joinToString(", ")
 }

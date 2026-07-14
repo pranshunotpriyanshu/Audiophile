@@ -88,11 +88,15 @@
 # Media3 ExoPlayer
 -keep class androidx.media3.** { *; }
 
-
-# Java Beans
+# NewPipeExtractor / Rhino signature-deciphering runtime dependencies.
+# These JDK classes are not present on Android; the extractor tolerates
+# their absence via reflection, so R8 must be told to ignore the missing
+# references or the minified (release) build strips NewPipe and playback
+# fails with "No URL found via NewPipe extraction".
 -dontwarn java.beans.BeanDescriptor
 -dontwarn java.beans.BeanInfo
 -dontwarn java.beans.IntrospectionException
 -dontwarn java.beans.Introspector
 -dontwarn java.beans.PropertyDescriptor
 -dontwarn javax.script.ScriptEngineFactory
+

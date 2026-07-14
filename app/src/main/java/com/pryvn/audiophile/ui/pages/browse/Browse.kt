@@ -27,7 +27,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
 import kotlinx.coroutines.Dispatchers
@@ -82,55 +81,53 @@ fun Browse(
 
     val listState = rememberLazyListState()
 
-    PullToRefreshLayout(
-        isRefreshing = isLoading,
-        onRefresh = { loadBrowse() },
-        listState = listState,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            item("header") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.page_browse_title),
-                        fontSize = 35.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 40.sp,
-                        fontFamily = SfProFontFamily,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { navController.toUI(UI.Settings.Main) }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = CupertinoIcons.Default.PersonCropCircle,
-                        contentDescription = "Account",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+            Text(
+                text = stringResource(id = R.string.page_browse_title),
+                fontSize = 35.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 40.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { navController.toUI(UI.Settings.Main) }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = CupertinoIcons.Default.PersonCropCircle,
+                    contentDescription = "Account",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
 
-        // Section tabs
+        PullToRefreshLayout(
+            isRefreshing = isLoading,
+            onRefresh = { loadBrowse() },
+            listState = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {        // Section tabs
         item("tabs") {
             Row(
                 modifier = Modifier
@@ -164,16 +161,7 @@ fun Browse(
             }
         }
 
-        if (isLoading) {
-            item("loading") {
-                Box(
-                    Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppleLoadingSpinner()
-                }
-            }
-        } else if (loadError) {
+        if (loadError) {
             item("error") {
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 20.dp),
@@ -285,7 +273,8 @@ fun Browse(
             }
         }
     }
-    }
+}
+}
 }
 
 @Composable

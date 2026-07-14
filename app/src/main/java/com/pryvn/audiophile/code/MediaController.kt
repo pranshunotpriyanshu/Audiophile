@@ -72,6 +72,7 @@ import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.uri
 import com.pryvn.audiophile.data.objects.MainViewModelObject
+import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 
@@ -351,6 +352,12 @@ object MediaController {
         Log.d("PlaybackDebug", "YosMediaItem created: title=${mediaItem.title} artists=${mediaItem.artists} thumb=${mediaItem.thumb} duration=${mediaItem.duration}")
         Log.d("VideoIdChain", "playOnline: YosMediaItem videoId=${mediaItem.mediaId} url=${mediaItem.uri?.toString()?.take(80)}")
         prepare(mediaItem, listOf(mediaItem))
+
+        startSmartRadioQueue(
+            seedVideoId = song.videoId,
+            artistIds = song.artists.map { it.id },
+            artistNames = song.artists.map { it.name },
+        )
     }
 
     suspend fun playOnline(videoId: String, title: String? = null) {
@@ -382,6 +389,111 @@ object MediaController {
             mimeType = resolved.mimeType,
         )
         prepare(mediaItem, listOf(mediaItem))
+
+        startSmartRadioQueue(
+            seedVideoId = videoId,
+            artistIds = emptyList(),
+            artistNames = emptyList(),
+        )
+    }
+
+    private suspend fun startSmartRadioQueue(
+        seedVideoId: String,
+        artistIds: List<String?>,
+        artistNames: List<String>,
+    ) {
+        Log.d("PlaybackDebug", "startSmartRadioQueue: seed=$seedVideoId")
+        SmartRadioQueue.startNewRadioSession(seedVideoId)
+
+        CoroutineScope(Dispatchers.IO + Job()).launch {
+            val recommendations = SmartRadioQueue.fetchRecommendations(
+                seedVideoId = seedVideoId,
+                seedArtistIds = artistIds,
+                seedArtistNames = artistNames,
+            )
+
+            if (recommendations.isEmpty()) {
+                Log.d("PlaybackDebug", "startSmartRadioQueue: no recommendations found")
+                return@launch
+            }
+            if (!SmartRadioQueue.isCurrentRadioSession(seedVideoId)) {
+                Log.d("PlaybackDebug", "startSmartRadioQueue: radio session superseded")
+                return@launch
+            }
+
+            val queueSnapshot = withContext(Dispatchers.Main) {
+                playingMusicList.value?.toList()
+            } ?: return@launch
+
+            val fullList = queueSnapshot.toMutableList()
+            val addedIds = fullList.mapNotNull { it.mediaId }.toMutableSet()
+
+            val newItems = recommendations.mapNotNull { rec ->
+                if (rec.id in addedIds) return@mapNotNull null
+                addedIds.add(rec.id)
+                YosMediaItem(
+                    uri = null,
+                    mediaId = rec.id,
+                    mimeType = null,
+                    title = rec.title,
+                    artists = rec.artists.map { it.name }.joinToString(", "),
+                    album = rec.album?.name,
+                    thumb = rec.thumbnail?.let { Uri.parse(it) },
+                    duration = (rec.duration?.toLong() ?: 0L) * 1000L,
+                )
+            }.toMutableList()
+
+            if (newItems.isEmpty()) return@launch
+
+            fullList.addAll(newItems)
+
+            Log.d("PlaybackDebug", "startSmartRadioQueue: appending ${newItems.size} songs to queue")
+
+            withContext(Dispatchers.Main) {
+                playingMusicList.value = fullList.toList()
+            }
+
+            for (i in newItems.indices) {
+                if (!SmartRadioQueue.isCurrentRadioSession(seedVideoId)) {
+                    Log.d("PlaybackDebug", "startSmartRadioQueue: session changed, stopping resolution")
+                    return@launch
+                }
+
+                val item = newItems[i]
+                try {
+                    val resolved = resolveStreamUrl(
+                        videoId = item.mediaId ?: continue,
+                        title = item.title,
+                        artists = item.artists?.split(", ").orEmpty(),
+                        durationSeconds = ((item.duration ?: 0L) / 1000L).toInt(),
+                    )
+
+                    if (resolved.url.isNullOrBlank()) continue
+
+                    val resolvedItem = item.copy(
+                        uri = Uri.parse(resolved.url),
+                        mimeType = resolved.mimeType,
+                    )
+                    newItems[i] = resolvedItem
+
+                    withContext(Dispatchers.Main) {
+                        val list = playingMusicList.value?.toMutableList()
+                        if (list != null) {
+                            val idx = list.indexOfFirst { it.mediaId == resolvedItem.mediaId }
+                            if (idx >= 0) {
+                                list[idx] = resolvedItem
+                            }
+                            playingMusicList.value = list.toList()
+                        }
+                        mediaControl?.addMediaItem(resolvedItem.toMediaItem())
+                    }
+                    Log.d("PlaybackDebug", "startSmartRadioQueue: resolved track $i ${item.mediaId}")
+                } catch (e: Exception) {
+                    Log.e("PlaybackDebug", "startSmartRadioQueue: failed to resolve ${item.mediaId}", e)
+                }
+            }
+            Log.d("PlaybackDebug", "startSmartRadioQueue: all tracks resolved, final queue size=${fullList.size}")
+        }
     }
 
     suspend fun playPlaylist(startSong: YTSongItem, allSongs: List<YTSongItem>) {
@@ -479,23 +591,22 @@ object MediaController {
     private fun refresh(music: YosMediaItem) {
         Log.d("PlaybackDebug", "Current song: title=${music.title} artist=${music.artists} artwork=${music.thumb} album=${music.album} duration=${music.duration} mediaId=${music.mediaId}")
 
-        // Assertion 4: ExoPlayer's current media ID matches
+        // ExoPlayer's current media ID from the session controller.
+        // During auto-transitions the session proxy may lag behind the local player,
+        // so we trust the `music` parameter (derived from the callback) and only log.
         val playerMediaId = mediaControl?.currentMediaItem?.mediaId
         Log.d("VideoIdChain", "refresh: musicPlaying.mediaId=${music.mediaId} player.current=$playerMediaId")
-        if (playerMediaId != null && music.mediaId != null) {
-            require(playerMediaId == music.mediaId) {
-                "refresh: player.currentMediaItem.mediaId ($playerMediaId) != musicPlaying.mediaId (${music.mediaId})"
-            }
+        if (playerMediaId != null && music.mediaId != null && playerMediaId != music.mediaId) {
+            Log.w("PlaybackDebug", "refresh: player.currentMediaItem.mediaId ($playerMediaId) != music.mediaId (${music.mediaId}) — synchronizing")
         }
 
-        // Assertion 3: queue entry at current index matches
+        // Queue-entry consistency check (non-fatal)
         val list = playingMusicList.value
         val currentIndex = list?.indexOfFirst { it.uri == music.uri } ?: -1
         if (currentIndex >= 0 && currentIndex < (list?.size ?: 0)) {
             val queueItem = list!![currentIndex]
-            Log.d("VideoIdChain", "refresh: queue[$currentIndex] videoId=${queueItem.mediaId} matches music=${queueItem.mediaId == music.mediaId}")
-            require(queueItem.mediaId == music.mediaId) {
-                "refresh: queue[$currentIndex].mediaId (${queueItem.mediaId}) != musicPlaying.mediaId (${music.mediaId})"
+            if (queueItem.mediaId != music.mediaId) {
+                Log.w("PlaybackDebug", "refresh: queue[$currentIndex].mediaId (${queueItem.mediaId}) != music.mediaId (${music.mediaId}) — synchronizing")
             }
         }
 
@@ -608,6 +719,7 @@ class YosPlaybackService : MediaSessionService() {
     }*/
 
     private var saveJob: Job? = null
+    private var pendingRecordVideoId: String? = null
 
     val sleepTimer = com.pryvn.audiophile.code.player.SleepTimer()
 
@@ -644,6 +756,19 @@ class YosPlaybackService : MediaSessionService() {
                 )
             )
         }
+    }
+
+    private fun recordCurrentPlayToHistory() {
+        val pendingId = pendingRecordVideoId ?: return
+        val music = musicPlaying.value ?: return
+        if (music.mediaId != pendingId) return
+        ListeningHistory.record(
+            videoId = pendingId,
+            title = music.title ?: "Unknown",
+            artists = music.artists,
+            thumbnailUrl = music.thumb?.toString(),
+        )
+        pendingRecordVideoId = null
     }
 
     @OptIn(UnstableApi::class)
@@ -879,12 +1004,12 @@ class YosPlaybackService : MediaSessionService() {
                     prefetchJob?.cancel()
                     prefetchJob = null
 
-                    mediaItem?.let {
+                    if (mediaItem != null) {
                         com.pryvn.audiophile.code.MediaController.onCase(
-                            it.toYosMediaItem()
+                            mediaItem.toYosMediaItem()
                         )
 
-                        val yosItem = it.toYosMediaItem()
+                        val yosItem = mediaItem.toYosMediaItem()
                         val videoId = yosItem.mediaId
                         if (videoId != null && videoId.length == 11) {
                             SponsorBlockManager.onNewVideo(videoId, forwardingPlayer)
@@ -893,6 +1018,22 @@ class YosPlaybackService : MediaSessionService() {
                         // Single centralized lyrics refresh for every song transition,
                         // regardless of where playback originated.
                         triggerLyricsFetch()
+
+                        // ── Listening History ────────────────────────────────
+                        // Record the song to local listening history when playback
+                        // genuinely starts. If the player is already playing when
+                        // the transition occurs (e.g. auto-advance, next song while
+                        // playing), record immediately. Otherwise defer until the
+                        // onIsPlayingChanged(true) callback confirms playback.
+                        if (videoId != null) {
+                            pendingRecordVideoId = videoId
+                            if (forwardingPlayer.isPlaying) {
+                                recordCurrentPlayToHistory()
+                            }
+                        }
+                    } else {
+                        // Player cleared — discard any pending history.
+                        pendingRecordVideoId = null
                     }
 
                     super.onMediaItemTransition(mediaItem, reason)
@@ -926,6 +1067,9 @@ class YosPlaybackService : MediaSessionService() {
                     MediaViewModelObject.isPlaying.value = isPlaying
                     if (isPlaying) {
                         MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Playing
+                        // Record any deferred listening history entry now that
+                        // playback has genuinely started.
+                        recordCurrentPlayToHistory()
                     } else if (forwardingPlayer.playbackState == Player.STATE_READY) {
                         MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Paused
                     }

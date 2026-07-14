@@ -160,6 +160,7 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.MediaController.mediaControl
 import com.pryvn.audiophile.code.MediaController.musicPlaying
 import com.pryvn.audiophile.code.MediaController.playingMusicList
+import com.pryvn.audiophile.data.libraries.MusicLibrary.toYosMediaItem
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.SystemMediaControlResolver
 import com.pryvn.audiophile.code.VolumeChangeReceiver
@@ -1175,6 +1176,18 @@ private fun ColumnScope.Album(
 }
 
 
+private fun syncQueueWithPlayer() {
+    val controller = mediaControl ?: return
+    val count = controller.mediaItemCount
+    if (count <= 0) return
+    val items = (0 until count).mapNotNull { index ->
+        controller.getMediaItemAt(index)?.toYosMediaItem()
+    }
+    if (items.isNotEmpty()) {
+        playingMusicList.value = items
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PlayingList(
@@ -1200,7 +1213,7 @@ private fun PlayingList(
         ) {
             val hide = remember("PlayingList_hide") {
                 derivedStateOf {
-                    musicList.value.isNullOrEmpty() || shuffleModeEnabledLambda()
+                    musicList.value.isNullOrEmpty()
                 }
             }
 
@@ -1254,6 +1267,7 @@ private fun PlayingList(
                                             !shuffleModeEnabledLambda()
                                         mediaControl?.let { YosPlaybackService().setCustomButtons(it) }
                                         shuffleModeOnChanged(!shuffleModeEnabledLambda())
+                                        syncQueueWithPlayer()
                                     },
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() })
@@ -1364,25 +1378,14 @@ private fun PlayingList(
                         color = Color.White,
                         modifier = Modifier.padding(top = 18.dp, bottom = 12.dp)
                     )
-                    YosWrapper {
-                        val msg = remember("PlayingList_msg") {
-                            derivedStateOf {
-                                if (musicList.value.isNullOrEmpty()) {
-                                    R.string.playlist_unavailable_desc
-                                } else {
-                                    R.string.playlist_shuffle_desc
-                                }
-                            }
-                        }
-                        Text(
-                            text = stringResource(id = msg.value),
+                    Text(
+                        text = stringResource(id = R.string.playlist_unavailable_desc),
                             fontSize = 16.sp,
                             color = Color.White,
                             modifier = Modifier
                                 .overlayEffect()
                                 .alpha(0.4f)
                         )
-                    }
                 }
             } else {
                 val musicIndex = remember(musicList.value, thisMusicPlayingLambda()) {
@@ -1435,21 +1438,24 @@ private fun PlayingList(
                             item("blank_before") {
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
+                            val currentPlaying = thisMusicPlayingLambda()
                             items(
                                 musicList.value ?: emptyList(),
                                 key = { music -> music }/*,
                                 contentType = { _ -> "NowPlaying_item" }*/
                             ) { music ->
                                 SmallMusicListItem(
-                                    music
-                                ) {
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.prepare(
-                                            music,
-                                            musicList.value ?: emptyList()
-                                        )
+                                    music = music,
+                                    isCurrentItem = music.mediaId != null && music.mediaId == currentPlaying?.mediaId,
+                                    itemClick = {
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.prepare(
+                                                music,
+                                                musicList.value ?: emptyList()
+                                            )
+                                        }
                                     }
-                                }
+                                )
                             }
                             item("blank_after") {
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -1464,14 +1470,21 @@ private fun PlayingList(
 }
 
 @Composable
-private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, itemClick: () -> Unit) {
+private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem: Boolean = false, itemClick: () -> Unit) {
+    val bgColor by animateColorAsState(
+        targetValue = if (isCurrentItem)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        else
+            Color.Transparent,
+        animationSpec = tween(250),
+        label = "nowPlayingItemBg"
+    )
     Row(
         modifier = Modifier
             .height(64.dp)
             .fillMaxWidth()
-            .clickable {
-                itemClick()
-            }
+            .clickable { itemClick() }
+            .background(bgColor)
             .padding(horizontal = 30.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
