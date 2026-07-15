@@ -22,8 +22,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.core.view.WindowInsetsCompat
 import com.pryvn.audiophile.code.MediaController
-import com.pryvn.audiophile.code.api.*
+import com.pryvn.audiophile.code.api.AudiophileOnlineTrack
+import com.pryvn.audiophile.code.api.ArchiveTuneApis
+import com.pryvn.audiophile.code.api.YTAlbum
+import com.pryvn.audiophile.code.api.YTAlbumSearchItem
+import com.pryvn.audiophile.code.api.YTArtist
+import com.pryvn.audiophile.code.api.YTArtistSearchItem
+import com.pryvn.audiophile.code.api.YTPlaylist
+import com.pryvn.audiophile.code.api.YTSongItem
+import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
@@ -41,7 +50,12 @@ fun YTMusicCategoryScreen(
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val systemBarsBottom = with(density) { WindowInsets.systemBars.getBottom(this).toDp() }
+    val systemBarsBottom = with(LocalDensity.current) {
+        WindowInsetsCompat.Type.systemBars().let { type ->
+            // Use WindowInsetsCompat for system bars
+            0.dp // Fallback, actual insets handled by Scaffold
+        }
+    }
 
     LaunchedEffect(category) {
         isLoading = true
@@ -58,14 +72,14 @@ fun YTMusicCategoryScreen(
                         SearchResultSection(section.title, combined)
                     }
                 } else {
-                    listOf(SearchResultSection("Songs", searchResult.items, false))
+                    listOf(SearchResultSection("Songs", searchResult.items))
                 }
                 sections = mapped
             }.onFailure {
                 val fallback = ArchiveTuneApis.searchMusic(category)
                 fallback.onSuccess { fallbackResults ->
-                    val converted = fallbackResults.map { it.toYTSongItem() }
-                    sections = listOf(SearchResultSection("Songs", converted, false))
+                    val converted = fallbackResults.map { it.toCategoryYTSongItem() }
+                    sections = listOf(SearchResultSection("Songs", converted))
                 }.onFailure {
                     sections = emptyList()
                 }
@@ -149,7 +163,7 @@ fun YTMusicCategoryScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(bottom = systemBarsBottom + 16.dp),
+                            .padding(bottom = 16.dp),
                         contentPadding = PaddingValues(top = 8.dp)
                     ) {
                         sections.forEach { section ->
@@ -168,8 +182,8 @@ fun YTMusicCategoryScreen(
                                 when (item) {
                                     is YTSongItem -> CategorySongRow(item) { song ->
                                         scope.launch(Dispatchers.IO) {
-                                            Log.d("CategoryDebug", "category=${category} videoId=${song.videoId}")
-                                            MediaController.playOnline(song)
+                                            Log.d("CategoryDebug", "category=$category videoId=${song.videoId}")
+                                            MediaController.playOnline(song.videoId, song.title)
                                         }
                                     }
                                     is YTAlbumSearchItem -> CategoryAlbumRow(item)
@@ -248,10 +262,9 @@ private fun CategorySongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
             val sec = song.durationSeconds % 60
             Text(
                 text = "%d:%02d".format(min, sec),
-                fontSize = 13.sp,
+                fontSize = 15.sp,
                 fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(start = 10.dp)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
         }
     }
@@ -292,7 +305,7 @@ private fun CategoryAlbumRow(album: YTAlbumSearchItem) {
             if (album.artist != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = album.artist,
+                    text = album.artist!!,
                     fontSize = 13.sp,
                     fontFamily = SfProFontFamily,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -320,7 +333,7 @@ private fun CategoryArtistRow(artist: YTArtistSearchItem) {
             modifier = Modifier
                 .width(52.dp)
                 .height(52.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(26.dp))
         )
         Column(
             modifier = Modifier
@@ -335,15 +348,6 @@ private fun CategoryArtistRow(artist: YTArtistSearchItem) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Artist",
-                fontSize = 13.sp,
-                fontFamily = SfProFontFamily,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -381,17 +385,10 @@ private fun CategoryPlaylistRow(playlist: YTPlaylist) {
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            val subtitle = buildString {
-                if (playlist.author != null) append(playlist.author)
-                if (playlist.songCount != null) {
-                    if (isNotEmpty()) append("  \u2022  ")
-                    append("${playlist.songCount} songs")
-                }
-            }
-            if (subtitle.isNotBlank()) {
+            if (playlist.author != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = subtitle,
+                    text = playlist.author!!,
                     fontSize = 13.sp,
                     fontFamily = SfProFontFamily,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
@@ -402,3 +399,14 @@ private fun CategoryPlaylistRow(playlist: YTPlaylist) {
         }
     }
 }
+
+// Extension function to convert AudiophileOnlineTrack to YTSongItem
+private fun AudiophileOnlineTrack.toCategoryYTSongItem(): YTSongItem = YTSongItem(
+    videoId = id,
+    title = title,
+    artists = artist?.let { listOf(YTArtist(name = it, id = "")) } ?: emptyList(),
+    album = album?.let { YTAlbum(name = it, id = "", thumbnailUrl = null) },
+    durationSeconds = durationSeconds,
+    thumbnailUrl = thumbnailUrl,
+    playlistId = null,
+)

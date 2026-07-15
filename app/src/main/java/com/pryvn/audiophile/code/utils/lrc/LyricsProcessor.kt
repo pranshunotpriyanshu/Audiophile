@@ -1,6 +1,6 @@
 package com.pryvn.audiophile.code.utils.lrc
 
-import com.pryvn.audiophile.code.api.lyrics.AudiophileLyrics
+import com.pryvn.audiophile.code.api.AudiophileLyrics
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
@@ -10,6 +10,7 @@ object LyricsProcessor {
     fun applyLyrics(
         onlineLyrics: AudiophileLyrics,
         lrcEntriesSetter: (List<List<Pair<Float, String>>>) -> Unit,
+        songDurationMs: Long = 0L,
     ) {
         val text = onlineLyrics.text
         if (text.isBlank()) return

@@ -3,6 +3,6 @@
     <background android:drawable="@drawable/ic_launcher_background" />
     <foreground>
         <inset android:drawable="@mipmap/ic_launcher_foreground"
-            android:inset="12dp" />
+            android:inset="14dp" />
     </foreground>
 </adaptive-icon>

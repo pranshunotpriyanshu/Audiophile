@@ -123,26 +123,6 @@ object SettingsLibrary {
     )
 
     /**
-     * 状态栏歌词启用
-     */
-    @Stable
-    var StatusBarLyricEnabled by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "settings_performance_lyric_statusbar_enabled",
-        initialValue = false
-    )
-
-    /**
-     * 状态栏歌词已挂钩
-     */
-    @Stable
-    var StatusBarLyricHooked by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "settings_performance_lyric_statusbar_hooked",
-        initialValue = false
-    )
-
-    /**
      * 播放界面背景动态效果
      */
     @Stable
@@ -200,6 +180,26 @@ object SettingsLibrary {
         dataSaverInterface = SettingsSaver,
         key = "settings_play_history",
         initialValue = true
+    )
+
+    /**
+     * 状态栏歌词
+     */
+    @Stable
+    var StatusBarLyricEnabled by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "statusBarLyricEnabled",
+        initialValue = false
+    )
+
+    /**
+     * 状态栏歌词 Hook 状态
+     */
+    @Stable
+    var StatusBarLyricHooked by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "statusBarLyricHooked",
+        initialValue = false
     )
 
     /**
@@ -309,13 +309,6 @@ object SettingsLibrary {
         initialValue = 0L
     )
 
-    @Stable
-    var YtMusicPlaylistsJson by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "ytmusic_playlists_json",
-        initialValue = ""
-    )
-
     val isYtMusicLoggedIn: Boolean
         get() = YtMusicCookie.isNotBlank() && YtMusicCookie.contains("SAPISID")
 
@@ -332,119 +325,6 @@ object SettingsLibrary {
     var LocalMusicEnabled by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "local_music_enabled",
-        initialValue = false
-    )
-
-    // ---------- Shazam Integration ----------
-    @Stable
-    var ShazamEnabled by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "shazam_enabled",
-        initialValue = false
-    )
-
-    // ---------- SponsorBlock ----------
-    @Stable
-    var SponsorBlockEnabled by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_enabled",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipSponsor by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_sponsor",
-        initialValue = true
-    )
-
-    @Stable
-    var SponsorBlockSkipIntro by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_intro",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipOutro by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_outro",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipSelfPromo by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_selfpromo",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipMusicOfftopic by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_music_offtopic",
-        initialValue = true
-    )
-
-    @Stable
-    var SponsorBlockSkipPreview by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_preview",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipFiller by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_filler",
-        initialValue = false
-    )
-
-    @Stable
-    var SponsorBlockSkipInteraction by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "sponsorblock_skip_interaction",
-        initialValue = false
-    )
-
-    val sponsorBlockEnabledCategories: List<String>
-        get() = buildList {
-            if (SponsorBlockSkipSponsor) add("sponsor")
-            if (SponsorBlockSkipIntro) add("intro")
-            if (SponsorBlockSkipOutro) add("outro")
-            if (SponsorBlockSkipSelfPromo) add("selfpromo")
-            if (SponsorBlockSkipMusicOfftopic) add("music_offtopic")
-            if (SponsorBlockSkipPreview) add("preview")
-            if (SponsorBlockSkipFiller) add("filler")
-            if (SponsorBlockSkipInteraction) add("interaction")
-        }
-
-    // ---------- Playback Settings ----------
-    @Stable
-    var PlaybackSpeed by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "playback_speed",
-        initialValue = 1.0f
-    )
-
-    @Stable
-    var PlaybackPitch by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "playback_pitch",
-        initialValue = 0.0f
-    )
-
-    @Stable
-    var SkipSilence by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "skip_silence",
-        initialValue = false
-    )
-
-    @Stable
-    var NormalizeVolume by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "normalize_volume",
         initialValue = false
     )
 }

@@ -304,10 +304,10 @@ fun Home(
                                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                items(recentlyPlayed, key = { it.videoId }) { song ->
+                                items(recentlyPlayed, key = { it.videoId }) { song: YTSongItem ->
                                     SongCard(song = song, onClick = {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song)
+                                            MediaController.playOnline(song.videoId)
                                         }
                                     })
                                 }
@@ -328,13 +328,13 @@ fun Home(
                             contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            items(relatedSongs, key = { it.videoId }) { song ->
-                                SongCard(song = song, onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.playOnline(song)
-                                    }
-                                })
-                            }
+items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
+                                    SongCard(song = song, onClick = {
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.playOnline(song.videoId)
+                                        }
+                                    })
+                                }
                         }
                     }
                 } else {

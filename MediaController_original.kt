@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -59,7 +58,6 @@ import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.parseSyncedLyrics
-import com.pryvn.audiophile.code.playback.SimpMusicStreamResolver
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
@@ -283,42 +281,6 @@ object MediaController {
         prepare(mediaItem, listOf(mediaItem))
     }
 
-    suspend fun playOnline(song: com.pryvn.audiophile.code.api.YTSongItem) {
-        playOnline(song.videoId, song.title)
-    }
-
-    suspend fun playPlaylist(firstSong: com.pryvn.audiophile.code.api.YTSongItem, songs: List<com.pryvn.audiophile.code.api.YTSongItem>) {
-        val resolved = resolveStreamUrl(
-            videoId = firstSong.videoId,
-            title = firstSong.title,
-            artists = firstSong.artists.map { it.name },
-            durationSeconds = firstSong.durationSeconds,
-        )
-        val mediaItems = songs.map { song ->
-            if (song.videoId == firstSong.videoId) {
-                YosMediaItem(
-                    uri = Uri.parse(resolved.url),
-                    mediaId = song.videoId,
-                    title = resolved.title ?: song.title,
-                    artists = song.artists.joinToString(", ") { it.name },
-                    duration = (resolved.durationSeconds?.toLong() ?: 0L) * 1000L,
-                    thumb = song.thumbnailUrl?.let { Uri.parse(it) },
-                    mimeType = resolved.mimeType,
-                )
-            } else {
-                YosMediaItem(
-                    uri = Uri.EMPTY,
-                    mediaId = song.videoId,
-                    title = song.title,
-                    artists = song.artists.joinToString(", ") { it.name },
-                    duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
-                    thumb = song.thumbnailUrl?.let { Uri.parse(it) },
-                )
-            }
-        }
-        prepare(mediaItems.firstOrNull() ?: return, mediaItems)
-    }
-
     fun onCase(mediaItem: YosMediaItem) {
         CoroutineScope(Dispatchers.IO).launch {
             refresh(mediaItem)
@@ -348,36 +310,6 @@ object MediaController {
         scope.launch {
             MainViewModelObject.syncLyricIndex.intValue = -1
         }
-    }
-
-    data class ResolvedStream(
-        val url: String,
-        val mimeType: String?,
-        val title: String?,
-        val durationSeconds: Int?,
-    )
-
-    suspend fun resolveStreamUrl(
-        videoId: String,
-        title: String? = null,
-        artists: List<String> = emptyList(),
-        durationSeconds: Int? = null,
-    ): ResolvedStream {
-        return SimpMusicStreamResolver.resolve(videoId)
-            .fold(
-                onSuccess = { resolverStream ->
-                    ResolvedStream(
-                        url = resolverStream.url,
-                        mimeType = null,
-                        title = title ?: resolverStream.title,
-                        durationSeconds = durationSeconds ?: resolverStream.durationSeconds,
-                    )
-                },
-                onFailure = { e ->
-                    Log.e("MediaController", "Failed to resolve stream for $videoId", e)
-                    throw e
-                }
-            )
     }
 }
 
@@ -633,8 +565,7 @@ class YosPlaybackService : MediaSessionService() {
                                     val lrcFactory = YosLrcFactory()
                                     LyricsProcessor.applyLyrics(
                                         AudiophileLyrics("Cache", cached, isWordSynced = TTMLParser.isTtml(cached)),
-                                        { lrcEntries.value = it }
-                                    )
+                                    ) { lrcEntries.value = it }
                                     MediaViewModelObject.isLoadingLyrics.value = false
                                 } else {
                                     val onlineLyrics = ArchiveTuneApis.fetchLyrics(
@@ -652,7 +583,7 @@ class YosPlaybackService : MediaSessionService() {
                                                 MediaViewModelObject.lyricsCache.remove(keys[i])
                                             }
                                         }
-                                        LyricsProcessor.applyLyrics(onlineLyrics, { lrcEntries.value = it })
+                                        LyricsProcessor.applyLyrics(onlineLyrics) { lrcEntries.value = it }
                                     }
                                     MediaViewModelObject.isLoadingLyrics.value = false
                                 }

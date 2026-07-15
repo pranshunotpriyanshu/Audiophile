@@ -160,7 +160,6 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.MediaController.mediaControl
 import com.pryvn.audiophile.code.MediaController.musicPlaying
 import com.pryvn.audiophile.code.MediaController.playingMusicList
-import com.pryvn.audiophile.data.libraries.MusicLibrary.toYosMediaItem
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.SystemMediaControlResolver
 import com.pryvn.audiophile.code.VolumeChangeReceiver
@@ -213,6 +212,8 @@ object NowPlayingPage {
 
 private const val ShareAlbumKey = "album"
 private const val AnimDurationMillis = 300
+
+private var originalPlayingMusicList: List<YosMediaItem>? = null
 
 /*
 private val MaterialFadeInTransitionSpec
@@ -572,9 +573,7 @@ fun NowPlaying(
                                                         videoId = track.mediaId,
                                                     )
                                                     if (lyrics != null && lyrics.text.isNotBlank()) {
-                                                        LyricsProcessor.applyLyrics(lyrics) {
-                                                            MediaViewModelObject.lrcEntries.value = it
-                                                        }
+                                                        LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
                                                     }
                                                     MediaViewModelObject.isLoadingLyrics.value = false
                                                 }
@@ -1112,9 +1111,7 @@ fun NowPlaying(
                                 videoId = track.mediaId,
                             )
                             if (lyrics != null && lyrics.text.isNotBlank()) {
-                                LyricsProcessor.applyLyrics(lyrics) {
-                                    MediaViewModelObject.lrcEntries.value = it
-                                }
+                                LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
                             }
                             MediaViewModelObject.isLoadingLyrics.value = false
                         }
@@ -1175,18 +1172,6 @@ private fun ColumnScope.Album(
     }
 }
 
-
-private fun syncQueueWithPlayer() {
-    val controller = mediaControl ?: return
-    val count = controller.mediaItemCount
-    if (count <= 0) return
-    val items = (0 until count).mapNotNull { index ->
-        controller.getMediaItemAt(index)?.toYosMediaItem()
-    }
-    if (items.isNotEmpty()) {
-        playingMusicList.value = items
-    }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1263,11 +1248,51 @@ private fun PlayingList(
                                 .clickable(
                                     onClick = {
                                         Vibrator.click(context)
-                                        mediaControl?.shuffleModeEnabled =
-                                            !shuffleModeEnabledLambda()
+                                        val newShuffleState = !shuffleModeEnabledLambda()
+
+                                        if (newShuffleState) {
+                                            val currentList = playingMusicList.value
+                                            if (currentList != null && currentList.size > 1) {
+                                                if (originalPlayingMusicList == null) {
+                                                    originalPlayingMusicList =
+                                                        currentList.toList()
+                                                }
+                                                val shuffledList = currentList.toMutableList()
+                                                shuffledList.shuffle()
+                                                val currentSong = musicPlaying.value
+                                                currentSong?.let { song ->
+                                                    val idx = shuffledList.indexOfFirst { it.mediaId == song.mediaId }
+                                                    if (idx > 0) {
+                                                        shuffledList.removeAt(idx)
+                                                        shuffledList.add(0, song)
+                                                    }
+                                                }
+                                                playingMusicList.value = shuffledList
+                                            }
+                                        } else {
+                                            originalPlayingMusicList?.let { original ->
+                                                val currentList = playingMusicList.value
+                                                if (currentList != null) {
+                                                    val restoredOrder = mutableListOf<YosMediaItem>()
+                                                    restoredOrder.addAll(
+                                                        original.filter { orig ->
+                                                            currentList.any { it.mediaId == orig.mediaId }
+                                                        }
+                                                    )
+                                                    restoredOrder.addAll(
+                                                        currentList.filter { curr ->
+                                                            original.none { it.mediaId == curr.mediaId }
+                                                        }
+                                                    )
+                                                    playingMusicList.value = restoredOrder
+                                                }
+                                            }
+                                            originalPlayingMusicList = null
+                                        }
+
+                                        mediaControl?.shuffleModeEnabled = newShuffleState
                                         mediaControl?.let { YosPlaybackService().setCustomButtons(it) }
-                                        shuffleModeOnChanged(!shuffleModeEnabledLambda())
-                                        syncQueueWithPlayer()
+                                        shuffleModeOnChanged(newShuffleState)
                                     },
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() })
@@ -1484,8 +1509,16 @@ private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem:
             .height(64.dp)
             .fillMaxWidth()
             .clickable { itemClick() }
-            .background(bgColor)
-            .padding(horizontal = 30.dp),
+            .then(
+                if (isCurrentItem) {
+                    Modifier
+                        .padding(horizontal = 20.dp)
+                        .background(bgColor, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp)
+                } else {
+                    Modifier.padding(horizontal = 30.dp)
+                }
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         println("重组：播放界面歌曲列表 ${music.title}")
