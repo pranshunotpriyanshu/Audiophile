@@ -37,6 +37,7 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
@@ -221,9 +222,9 @@ fun Browse(
                             LibraryObject.setTargetBrowseId(first.browseId)
                             navController.toUI(UI.OnlineAlbumInfo)
                         } else {
-                            first.videoId?.let { vid ->
+                            first.videoId?.let {
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playOnline(vid, first.title)
+                                    MediaController.playOnline(first.toYTSongItem())
                                 }
                             }
                         }
@@ -260,9 +261,9 @@ fun Browse(
                                     LibraryObject.setTargetBrowseId(item.browseId)
                                     navController.toUI(UI.OnlineAlbumInfo)
                                 } else {
-                                    item.videoId?.let { vid ->
+                                    item.videoId?.let {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(vid, item.title)
+                                            MediaController.playOnline(item.toYTSongItem())
                                         }
                                     }
                                 }

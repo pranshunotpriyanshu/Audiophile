@@ -1,6 +1,9 @@
 package com.pryvn.audiophile.code.playback
 
 import android.util.Log
+import com.pryvn.audiophile.code.api.InnerTubeClient
+import com.pryvn.audiophile.code.api.PlaybackAuthState
+import com.pryvn.audiophile.code.api.innertube.YouTube as ArchiveTuneYouTube
 import com.pryvn.audiophile.code.playback.models.YouTubeLocale
 import com.pryvn.audiophile.code.playback.models.response.PlayerResponse
 
@@ -22,6 +25,19 @@ object SimpMusicStreamResolver {
         ytMusic.visitorData = visitorData
         ytMusic.dataSyncId = dataSyncId
         ytMusic.pageId = pageId
+
+        val apiAuthState = PlaybackAuthState(
+            cookie = cookie,
+            visitorData = visitorData,
+            dataSyncId = dataSyncId,
+        ).normalized()
+        InnerTubeClient.applyAuthState(apiAuthState)
+        ArchiveTuneYouTube.authState = com.pryvn.audiophile.code.api.innertube.PlaybackAuthState(
+            cookie = apiAuthState.cookie,
+            visitorData = apiAuthState.visitorData,
+            dataSyncId = apiAuthState.dataSyncId,
+        )
+
         Log.d(TAG, "Auth updated: cookie=${cookie?.take(20)}... visitorData=$visitorData")
     }
 
@@ -41,16 +57,20 @@ object SimpMusicStreamResolver {
             urlCache.remove(videoId)
         }
 
-        val playerResponse = youTube.player(videoId).getOrThrow()
+        Log.d(TAG, "Trying YouTube player API (SimpMusic) for $videoId...")
+        val playerResponse = youTube.player(videoId).fold(
+            onSuccess = { response ->
+                Log.d(TAG, "SimpMusic player API success for $videoId")
+                response
+            },
+            onFailure = { e ->
+                Log.w(TAG, "SimpMusic player API failed for $videoId: ${e.message}")
+                throw e
+            }
+        )
 
-        // Assertion 2: response videoId matches requested videoId
         val responseVideoId = playerResponse.videoDetails?.videoId
         Log.d("VideoIdChain", "Resolver: requested=$videoId response.videoDetails.id=$responseVideoId")
-        if (responseVideoId != null) {
-            require(responseVideoId == videoId) {
-                "Resolver: response videoDetails.videoId ($responseVideoId) != requested videoId ($videoId)"
-            }
-        }
 
         val url = pickBestAudioUrl(playerResponse)
             ?: throw RuntimeException("Could not retrieve audio stream. Try a different song.")

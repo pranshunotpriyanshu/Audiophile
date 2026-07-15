@@ -40,6 +40,7 @@ import com.pryvn.audiophile.code.api.YTArtist
 import com.pryvn.audiophile.code.api.YTSongItem
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.HomeItem
+import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.models.ImageViewModel
@@ -282,9 +283,9 @@ fun Home(
                         ) {
                             items(featuredSongs, key = { it.title + (it.videoId ?: "") }) { item ->
                                 FeaturedSongCard(item = item, onClick = {
-                                    item.videoId?.let { vid ->
+                                    item.videoId?.let {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(vid, item.title)
+                                            MediaController.playOnline(item.toYTSongItem())
                                         }
                                     }
                                 })
@@ -307,7 +308,7 @@ fun Home(
                                 items(recentlyPlayed, key = { it.videoId }) { song: YTSongItem ->
                                     SongCard(song = song, onClick = {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song.videoId)
+                                            MediaController.playOnline(song)
                                         }
                                     })
                                 }
@@ -328,10 +329,10 @@ fun Home(
                             contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
+                                items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
                                     SongCard(song = song, onClick = {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song.videoId)
+                                            MediaController.playOnline(song)
                                         }
                                     })
                                 }
@@ -365,9 +366,9 @@ items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
                                         LibraryObject.setTargetBrowseId(item.browseId)
                                         navController.toUI(UI.OnlineAlbumInfo)
                                     } else {
-                                        item.videoId?.let { vid ->
+                                        item.videoId?.let {
                                             scope.launch(Dispatchers.IO) {
-                                                MediaController.playOnline(vid, item.title)
+                                                MediaController.playOnline(item.toYTSongItem())
                                             }
                                         }
                                     }
@@ -382,8 +383,8 @@ items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
                     item("curated_title") { SectionTitle("Curated Songs") }
                     item("curated_pager") {
                         CuratedSongsPager(songs = curatedSongs, onClick = { song ->
-                            song.videoId?.let { vid ->
-                                scope.launch(Dispatchers.IO) { MediaController.playOnline(vid, song.title) }
+                            song.videoId?.let {
+                                scope.launch(Dispatchers.IO) { MediaController.playOnline(song.toYTSongItem()) }
                             }
                         })
                     }

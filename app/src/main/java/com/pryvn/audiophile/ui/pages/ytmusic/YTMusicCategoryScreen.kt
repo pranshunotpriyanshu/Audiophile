@@ -183,7 +183,7 @@ fun YTMusicCategoryScreen(
                                     is YTSongItem -> CategorySongRow(item) { song ->
                                         scope.launch(Dispatchers.IO) {
                                             Log.d("CategoryDebug", "category=$category videoId=${song.videoId}")
-                                            MediaController.playOnline(song.videoId, song.title)
+                                            MediaController.playOnline(song)
                                         }
                                     }
                                     is YTAlbumSearchItem -> CategoryAlbumRow(item)

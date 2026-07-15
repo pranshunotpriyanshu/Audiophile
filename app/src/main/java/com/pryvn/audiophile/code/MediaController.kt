@@ -284,7 +284,19 @@ object MediaController {
     }
 
     suspend fun playOnline(song: com.pryvn.audiophile.code.api.YTSongItem) {
-        playOnline(song.videoId, song.title)
+        val response = YouTubeApi.player(song.videoId).getOrThrow()
+        val streamUrl = response.streamUrl ?: throw Exception("Could not retrieve audio stream. Try a different song.")
+        if (streamUrl.isBlank()) throw Exception("Empty stream URL received.")
+        val mediaItem = YosMediaItem(
+            uri = Uri.parse(streamUrl),
+            mediaId = song.videoId,
+            title = song.title,
+            artists = song.artists.joinToString(", ") { it.name },
+            album = song.album?.name,
+            thumb = song.thumbnailUrl?.let { Uri.parse(it) },
+            duration = (response.lengthSeconds?.toLong() ?: 0L) * 1000L
+        )
+        prepare(mediaItem, listOf(mediaItem))
     }
 
     suspend fun playPlaylist(firstSong: com.pryvn.audiophile.code.api.YTSongItem, songs: List<com.pryvn.audiophile.code.api.YTSongItem>) {

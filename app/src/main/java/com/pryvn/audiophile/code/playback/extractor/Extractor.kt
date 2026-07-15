@@ -3,6 +3,7 @@ package com.pryvn.audiophile.code.playback.extractor
 import android.util.Log
 import dev.maxrave.pipepipe.extractor.NewPipe as PipePipe
 import dev.maxrave.pipepipe.extractor.ServiceList as PipeServiceList
+import dev.maxrave.pipepipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import dev.maxrave.pipepipe.extractor.stream.StreamInfo as PipeStreamInfo
 import org.schabi.newpipe.extractor.NewPipe as BraveNewPipe
 import org.schabi.newpipe.extractor.ServiceList as BraveServiceList
@@ -17,6 +18,19 @@ class Extractor {
     fun init() {
         PipePipe.init(newPipeDownloader)
         BraveNewPipe.init(braveNewPipeDownloader)
+        warmUpJavaScriptPlayerManager()
+    }
+
+    private fun warmUpJavaScriptPlayerManager() {
+        Thread {
+            try {
+                Log.d(TAG, "Warming up PipePipe JavaScript player manager...")
+                YoutubeJavaScriptPlayerManager.getSignatureTimestamp("dQw4w9WgXcQ")
+                Log.d(TAG, "PipePipe JavaScript player manager warmed up successfully")
+            } catch (e: Throwable) {
+                Log.w(TAG, "PipePipe JavaScript player warm-up failed (will retry lazily): ${e.message}")
+            }
+        }.apply { isDaemon = true }.start()
     }
 
     fun logIn(cookie: String?) {
@@ -27,19 +41,21 @@ class Extractor {
         Log.d(TAG, "newPipePlayer: resolving videoId=$videoId")
         try {
             val streamInfo = PipeStreamInfo.getInfo(PipeServiceList.YouTube, "https://music.youtube.com/watch?v=$videoId")
-            val pipeResult = streamInfo.audioStreams.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
+            val streamsList = streamInfo.audioStreams + streamInfo.videoStreams + streamInfo.videoOnlyStreams
+            val pipeResult = streamsList.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
             if (pipeResult.isNotEmpty()) {
                 Log.d(TAG, "newPipePlayer: PipePipe success videoId=$videoId streams=${pipeResult.size}")
                 return pipeResult
             }
-            Log.d(TAG, "PipePipe no audio for $videoId, falling back to BravePipe")
+            Log.d(TAG, "PipePipe no streams for $videoId, falling back to BravePipe")
         } catch (e: Throwable) {
             Log.w(TAG, "PipePipe extractor failed for $videoId: ${e.message}, falling back to BravePipe")
         }
 
         return runCatching {
             val streamInfo = BraveStreamInfo.getInfo(BraveServiceList.YouTube, "https://www.youtube.com/watch?v=$videoId")
-            val result = streamInfo.audioStreams.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
+            val streamsList = streamInfo.audioStreams + streamInfo.videoStreams + streamInfo.videoOnlyStreams
+            val result = streamsList.mapNotNull { (it.itagItem?.id ?: return@mapNotNull null) to it.content }
             Log.d(TAG, "newPipePlayer: BravePipe success videoId=$videoId streams=${result.size}")
             result
         }.onFailure {

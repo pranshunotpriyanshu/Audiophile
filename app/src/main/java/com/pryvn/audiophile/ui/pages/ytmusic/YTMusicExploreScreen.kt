@@ -21,6 +21,7 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.code.api.toYTSongItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,9 +95,9 @@ fun YTMusicExploreScreen(navController: NavController) {
                         ) {
                             items(section.items) { item ->
                                 ExploreItemCard(item = item, onClick = {
-                                    item.videoId?.let { vid ->
+                                    item.videoId?.let {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(vid, item.title)
+                                            MediaController.playOnline(item.toYTSongItem())
                                         }
                                     }
                                 })

@@ -113,6 +113,16 @@ private fun SongItem.toYTSongItem() = YTSongItem(
     thumbnailUrl = thumbnail,
 )
 
+internal fun HomeItem.toYTSongItem(): YTSongItem = YTSongItem(
+    videoId = videoId ?: "",
+    title = title,
+    artists = artists,
+    album = album,
+    durationSeconds = durationSeconds,
+    thumbnailUrl = thumbnailUrl,
+    playlistId = playlistId,
+)
+
 object YouTubeApi {
 
     suspend fun fetchAccountInfo(): Result<YTAccountInfo> = runCatching {
