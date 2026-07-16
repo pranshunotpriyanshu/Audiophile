@@ -1180,7 +1180,7 @@ class MainActivity : BaseActivity() {
                                                                                     Vibrator.click(
                                                                                         context
                                                                                     )
-                                                                                    MediaController.mediaControl?.seekToNextMediaItem()
+                                                                                    MediaController.manualNext()
                                                                                 }),
                                                                         contentAlignment = Alignment.Center
                                                                     ) {

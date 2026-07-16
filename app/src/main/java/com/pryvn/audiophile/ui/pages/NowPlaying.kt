@@ -765,7 +765,7 @@ fun NowPlaying(
                                         isPlayingLambda = isPlayingStatusLambda,
                                         isPlayingOnChanged = isPlayingOnChanged,
                                         onPrevious = {
-                                            mediaControl?.seekToPrevious()
+                                            MediaController.manualPrevious()
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
@@ -779,7 +779,7 @@ fun NowPlaying(
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
                                         onNext = {
-                                            mediaControl?.seekToNextMediaItem()
+                                            MediaController.manualNext()
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
@@ -901,7 +901,7 @@ fun NowPlaying(
                             isPlayingLambda = isPlayingStatusLambda,
                             isPlayingOnChanged = isPlayingOnChanged,
                             onPrevious = {
-                                mediaControl?.seekToPrevious()
+                                MediaController.manualPrevious()
                             },
                             onStatus = { status ->
                                 if (status) {
@@ -911,7 +911,7 @@ fun NowPlaying(
                                 }
                             },
                             onNext = {
-                                mediaControl?.seekToNextMediaItem()
+                                MediaController.manualNext()
                             },
                             onSeek = { position ->
                                 mediaControl?.seekTo(position.toLong())
