@@ -24,10 +24,14 @@ import com.pryvn.audiophile.data.libraries.PlayList
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.YosStringWrapper
 import kotlin.system.exitProcess
+import moe.rukamori.archivetune.innertube.YouTube
 import moe.rukamori.archivetune.utils.PreferenceStore
+import moe.rukamori.archivetune.utils.potoken.BotGuardTokenGenerator
+import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
 
 class YosBasicApplication : Application() {
     override fun onCreate() {
+        instance = this
 
         Thread.setDefaultUncaughtExceptionHandler { _, e ->
             e.printStackTrace()
@@ -41,6 +45,27 @@ class YosBasicApplication : Application() {
 
         // 初始化 ArchiveTune DataStore 内存缓存 (幂等，仅启动一次)
         PreferenceStore.start(applicationContext)
+
+        // 启动 ArchiveTune 在线播放后端 (PoToken 生成 + visitorData 引导)
+        runCatching { BotGuardTokenGenerator.initialize(applicationContext) }
+
+        // 恢复持久化的认证状态 (visitorData, cookie, dataSyncId)
+        ArchiveTuneAdapter.restorePersistedAuth()
+
+        val atScope = CoroutineScope(Dispatchers.IO)
+
+        // 预缓存 visitorData (如果未持久化则触发首次网络请求)
+        atScope.launch { runCatching { ArchiveTuneAdapter.ensureVisitorData() } }
+
+        // 预热 BotGuard Webview (避免首次播放时冷启动)
+        atScope.launch {
+            runCatching {
+                val visitor = YouTube.currentPlaybackAuthState().visitorData
+                if (!visitor.isNullOrBlank()) {
+                    BotGuardTokenGenerator.preWarm(visitor)
+                }
+            }
+        }
 
         val gson =
             GsonBuilder()
@@ -125,6 +150,11 @@ class YosBasicApplication : Application() {
         )
 
         super.onCreate()
+    }
+
+    companion object {
+        lateinit var instance: YosBasicApplication
+            private set
     }
 }
 

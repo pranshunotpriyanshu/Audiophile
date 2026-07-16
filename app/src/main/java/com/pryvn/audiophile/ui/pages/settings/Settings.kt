@@ -138,7 +138,7 @@ fun Settings(navController: NavController) =
                                             YouTube.cookie = null
                                             YouTube.visitorData = null
                                             YouTube.dataSyncId = null
-                                            com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                            com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                                 cookie = null,
                                                 visitorData = null,
                                                 dataSyncId = null,

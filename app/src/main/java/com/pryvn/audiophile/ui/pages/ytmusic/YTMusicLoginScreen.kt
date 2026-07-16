@@ -121,7 +121,7 @@ fun YTMusicLoginScreen(
                             SettingsLibrary.YtMusicCookie = mergedCookie
                             com.pryvn.audiophile.code.api.InnerTubeClient.cookie = mergedCookie
                             YouTube.cookie = mergedCookie
-                            com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                            com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                 cookie = mergedCookie,
                                 visitorData = com.pryvn.audiophile.code.api.InnerTubeClient.visitorData,
                                 dataSyncId = com.pryvn.audiophile.code.api.InnerTubeClient.dataSyncId,
@@ -146,7 +146,7 @@ fun YTMusicLoginScreen(
                                 SettingsLibrary.YtMusicVisitorData = newVisitorData
                                 com.pryvn.audiophile.code.api.InnerTubeClient.visitorData = newVisitorData
                                 YouTube.visitorData = newVisitorData
-                                com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                     cookie = SettingsLibrary.YtMusicCookie,
                                     visitorData = newVisitorData,
                                     dataSyncId = com.pryvn.audiophile.code.api.InnerTubeClient.dataSyncId,
@@ -160,7 +160,7 @@ fun YTMusicLoginScreen(
                                 SettingsLibrary.YtMusicDataSyncId = newDataSyncId
                                 com.pryvn.audiophile.code.api.InnerTubeClient.dataSyncId = newDataSyncId
                                 YouTube.dataSyncId = newDataSyncId
-                                com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                     cookie = SettingsLibrary.YtMusicCookie,
                                     visitorData = com.pryvn.audiophile.code.api.InnerTubeClient.visitorData,
                                     dataSyncId = newDataSyncId,

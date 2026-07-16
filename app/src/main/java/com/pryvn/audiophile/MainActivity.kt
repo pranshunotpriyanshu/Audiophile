@@ -220,7 +220,7 @@ class MainActivity : BaseActivity() {
                                 YouTube.cookie = cookie
                                 YouTube.visitorData = SettingsLibrary.YtMusicVisitorData
                                 YouTube.dataSyncId = SettingsLibrary.YtMusicDataSyncId
-                                com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                                com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                     cookie = cookie,
                                     visitorData = SettingsLibrary.YtMusicVisitorData,
                                     dataSyncId = SettingsLibrary.YtMusicDataSyncId,
@@ -234,7 +234,7 @@ class MainActivity : BaseActivity() {
                             if (YouTube.visitorData.isNullOrBlank()) {
                                 YouTube.visitorData = visitorData
                             }
-                            com.pryvn.audiophile.code.playback.SimpMusicStreamResolver.updateAuth(
+                            com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                 cookie = SettingsLibrary.YtMusicCookie,
                                 visitorData = visitorData,
                                 dataSyncId = SettingsLibrary.YtMusicDataSyncId,

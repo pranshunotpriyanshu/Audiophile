@@ -277,28 +277,6 @@ object YouTubeApi {
         }.getOrElse { 24007 }.also { cachedSignatureTimestamp = it }
     }
 
-    suspend fun player(videoId: String, playlistId: String? = null): Result<YTPlayerResponse> {
-        // Use YTPlayerUtils for PoToken-aware playback resolution
-        return YTPlayerUtils.resolvePlayable(videoId, playlistId) as Result<YTPlayerResponse>
-    }
-
-    suspend fun playerWithPiped(videoId: String): Result<YTPlayerResponse> = runCatching {
-        val piped = PipedClient.streamsWithFallback(videoId).getOrThrow()
-        val bestAudio = piped.audioStreams
-            .filter { !it.videoOnly }
-            .maxByOrNull { it.bitrate ?: 0 }
-            ?: throw Exception("No audio streams available from Piped")
-        YTPlayerResponse(
-            videoId = videoId,
-            title = piped.title,
-            artist = piped.uploader,
-            thumbnailUrl = piped.thumbnailUrl,
-            lengthSeconds = piped.duration,
-            streamUrl = bestAudio.url,
-            expiresInSeconds = null,
-        )
-    }
-
     suspend fun getSearchSuggestions(input: String): Result<List<String>> = runCatching {
         YouTube.searchSuggestions(input).getOrThrow().queries
     }

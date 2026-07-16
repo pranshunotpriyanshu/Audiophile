@@ -126,6 +126,51 @@ object MusicLibrary {
         return lyricsMmkv.decodeString(lyricsPrefix + key)
     }
 
+    private val cacheMmkv by lazy { MMKV.mmkvWithID("yos_playback_cache") }
+    private const val visitorDataKey = "cached_visitor_data"
+    private const val cookieKey = "cached_cookie"
+    private const val dataSyncIdKey = "cached_data_sync_id"
+    private const val potokenPlayerKey = "cached_potoken_player"
+    private const val potokenGvsKey = "cached_potoken_gvs"
+    private const val potokenExpiryKey = "cached_potoken_expiry"
+
+    fun saveCachedVisitorData(value: String) {
+        cacheMmkv.encode(visitorDataKey, value)
+    }
+
+    fun loadCachedVisitorData(): String? {
+        return cacheMmkv.decodeString(visitorDataKey)
+    }
+
+    fun saveCachedCookie(value: String) {
+        cacheMmkv.encode(cookieKey, value)
+    }
+
+    fun loadCachedCookie(): String? {
+        return cacheMmkv.decodeString(cookieKey)
+    }
+
+    fun saveCachedDataSyncId(value: String) {
+        cacheMmkv.encode(dataSyncIdKey, value)
+    }
+
+    fun loadCachedDataSyncId(): String? {
+        return cacheMmkv.decodeString(dataSyncIdKey)
+    }
+
+    fun saveCachedPoToken(playerToken: String, gvsToken: String, expiryMs: Long) {
+        cacheMmkv.encode(potokenPlayerKey, playerToken)
+        cacheMmkv.encode(potokenGvsKey, gvsToken)
+        cacheMmkv.encode(potokenExpiryKey, expiryMs)
+    }
+
+    fun loadCachedPoToken(): Triple<String?, String?, Long> {
+        val player = cacheMmkv.decodeString(potokenPlayerKey)
+        val gvs = cacheMmkv.decodeString(potokenGvsKey)
+        val expiry = cacheMmkv.decodeLong(potokenExpiryKey, 0L)
+        return Triple(player, gvs, expiry)
+    }
+
     var hideSongs by mutableDataSaverListStateOf(
         dataSaverInterface = SongListSaver,
         key = "hide_songs",

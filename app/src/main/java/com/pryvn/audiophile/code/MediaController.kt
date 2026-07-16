@@ -57,9 +57,8 @@ import com.pryvn.audiophile.code.MediaController.onServiceRunning
 import com.pryvn.audiophile.code.MediaController.playingMusicList
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
-import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
 import com.pryvn.audiophile.code.api.parseSyncedLyrics
-import com.pryvn.audiophile.code.playback.SimpMusicStreamResolver
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
@@ -267,34 +266,46 @@ object MediaController {
                 mediaControl?.fadePlay()
             }
         }
+
+        prefetchNext(music, thisMusicList)
+    }
+
+    private fun prefetchNext(current: YosMediaItem, playlist: List<YosMediaItem>) {
+        if (playlist.size <= 1) return
+        val currentIndex = playlist.indexOf(current)
+        if (currentIndex < 0) return
+        val nextIndex = currentIndex + 1
+        if (nextIndex >= playlist.size) return
+        val next = playlist[nextIndex]
+        val nextVideoId = next.mediaId ?: return
+        ArchiveTuneAdapter.prefetch(nextVideoId)
     }
 
     suspend fun playOnline(videoId: String, title: String? = null) {
-        val response = YouTubeApi.player(videoId).getOrThrow()
-        val streamUrl = response.streamUrl ?: throw Exception("Could not retrieve audio stream. Try a different song.")
-        if (streamUrl.isBlank()) throw Exception("Empty stream URL received.")
+        val resolved = ArchiveTuneAdapter.resolve(videoId)
+        if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
-            uri = Uri.parse(streamUrl),
+            uri = Uri.parse(resolved.url),
             mediaId = videoId,
-            title = title ?: response.title,
-            artists = response.artist,
-            duration = (response.lengthSeconds?.toLong() ?: 0L) * 1000L
+            title = title ?: resolved.title,
+            artists = resolved.artists,
+            duration = (resolved.durationSeconds?.toLong() ?: 0L) * 1000L
         )
         prepare(mediaItem, listOf(mediaItem))
     }
 
     suspend fun playOnline(song: com.pryvn.audiophile.code.api.YTSongItem) {
-        val response = YouTubeApi.player(song.videoId).getOrThrow()
-        val streamUrl = response.streamUrl ?: throw Exception("Could not retrieve audio stream. Try a different song.")
-        if (streamUrl.isBlank()) throw Exception("Empty stream URL received.")
+        val resolved = ArchiveTuneAdapter.resolve(song.videoId)
+        if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
-            uri = Uri.parse(streamUrl),
+            uri = Uri.parse(resolved.url),
             mediaId = song.videoId,
             title = song.title,
             artists = song.artists.joinToString(", ") { it.name },
             album = song.album?.name,
             thumb = song.thumbnailUrl?.let { Uri.parse(it) },
-            duration = (response.lengthSeconds?.toLong() ?: 0L) * 1000L
+            duration = (resolved.durationSeconds?.toLong() ?: song.durationSeconds?.toLong() ?: 0L) * 1000L,
+            mimeType = resolved.mimeType
         )
         prepare(mediaItem, listOf(mediaItem))
     }
@@ -367,6 +378,10 @@ object MediaController {
         val mimeType: String?,
         val title: String?,
         val durationSeconds: Int?,
+        val artists: String? = null,
+        val thumbnailUrl: String? = null,
+        val album: String? = null,
+        val timingLog: String = "",
     )
 
     suspend fun resolveStreamUrl(
@@ -375,14 +390,17 @@ object MediaController {
         artists: List<String> = emptyList(),
         durationSeconds: Int? = null,
     ): ResolvedStream {
-        return SimpMusicStreamResolver.resolve(videoId)
+        return runCatching { ArchiveTuneAdapter.resolve(videoId) }
             .fold(
-                onSuccess = { resolverStream ->
+                onSuccess = { resolved ->
                     ResolvedStream(
-                        url = resolverStream.url,
-                        mimeType = null,
-                        title = title ?: resolverStream.title,
-                        durationSeconds = durationSeconds ?: resolverStream.durationSeconds,
+                        url = resolved.url,
+                        mimeType = resolved.mimeType,
+                        title = title ?: resolved.title,
+                        durationSeconds = durationSeconds ?: resolved.durationSeconds,
+                        artists = resolved.artists,
+                        thumbnailUrl = resolved.thumbnailUrl,
+                        album = resolved.album,
                     )
                 },
                 onFailure = { e ->

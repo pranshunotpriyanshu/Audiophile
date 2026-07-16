@@ -594,9 +594,11 @@ object YTPlayerUtils {
         preferredStreamClient: PlayerStreamClient,
         networkMetered: Boolean?,
     ): PlaybackData {
+        val t0 = System.currentTimeMillis()
         Timber.tag(logTag).i("Fetching player response for videoId: $videoId, playlistId: $playlistId")
         val signatureTimestamp = getSignatureTimestampOrNull(videoId)
-        Timber.tag(logTag).v("Signature timestamp: $signatureTimestamp")
+        val tSig = System.currentTimeMillis()
+        Timber.tag(logTag).i("[TIMING] getSignatureTimestamp: %d ms", tSig - t0)
 
         var authState = YouTube.currentPlaybackAuthState()
         val hasLoginCookie = authState.hasLoginCookie
@@ -649,19 +651,29 @@ object YTPlayerUtils {
 
         var metadataPoToken: String? = null
         if (metadataClient.useWebPoTokens && sessionId != null) {
-            try {
-                val tokenResult = BotGuardTokenGenerator.mintToken(videoId, sessionId)
-                metadataPoToken = tokenResult?.playerToken
-                tokenResult?.let {
-                    YouTube.authState =
-                        YouTube.authState.copy(
-                            poTokenGvs = it.sessionToken,
-                            poTokenPlayer = it.playerToken,
-                            webClientPoTokenEnabled = true,
-                        )
+            val existingPlayerTok = authState.resolvePlayerPoToken(metadataClient)
+            val existingGvsTok = authState.resolveGvsPoToken(metadataClient)
+            if (
+                !existingPlayerTok.isNullOrBlank() && !existingGvsTok.isNullOrBlank() &&
+                authState.webClientPoTokenEnabled
+            ) {
+                metadataPoToken = existingPlayerTok
+                Timber.tag(logTag).v("Reusing cached PoToken for metadata request")
+            } else {
+                try {
+                    val tokenResult = BotGuardTokenGenerator.mintToken(videoId, sessionId)
+                    metadataPoToken = tokenResult?.playerToken
+                    tokenResult?.let {
+                        YouTube.authState =
+                            YouTube.authState.copy(
+                                poTokenGvs = it.sessionToken,
+                                poTokenPlayer = it.playerToken,
+                                webClientPoTokenEnabled = true,
+                            )
+                    }
+                } catch (e: Exception) {
+                    Timber.tag(logTag).w(e, "PoToken generation failed for metadata request")
                 }
-            } catch (e: Exception) {
-                Timber.tag(logTag).w(e, "PoToken generation failed for metadata request")
             }
         }
 
@@ -1048,19 +1060,29 @@ object YTPlayerUtils {
         var poToken: String? = null
 
         if (MAIN_CLIENT.useWebPoTokens && sessionId != null) {
-            try {
-                val tokenResult = BotGuardTokenGenerator.mintToken(videoId, sessionId)
-                poToken = tokenResult?.playerToken
-                tokenResult?.let {
-                    YouTube.authState =
-                        YouTube.authState.copy(
-                            poTokenGvs = it.sessionToken,
-                            poTokenPlayer = it.playerToken,
-                            webClientPoTokenEnabled = true,
-                        )
+            val existingPlayerTok = authState.resolvePlayerPoToken(MAIN_CLIENT)
+            val existingGvsTok = authState.resolveGvsPoToken(MAIN_CLIENT)
+            if (
+                !existingPlayerTok.isNullOrBlank() && !existingGvsTok.isNullOrBlank() &&
+                authState.webClientPoTokenEnabled
+            ) {
+                poToken = existingPlayerTok
+                Timber.tag(logTag).v("Reusing cached PoToken for metadata request")
+            } else {
+                try {
+                    val tokenResult = BotGuardTokenGenerator.mintToken(videoId, sessionId)
+                    poToken = tokenResult?.playerToken
+                    tokenResult?.let {
+                        YouTube.authState =
+                            YouTube.authState.copy(
+                                poTokenGvs = it.sessionToken,
+                                poTokenPlayer = it.playerToken,
+                                webClientPoTokenEnabled = true,
+                            )
+                    }
+                } catch (e: Exception) {
+                    Timber.tag(logTag).w(e, "PoToken generation failed for metadata request")
                 }
-            } catch (e: Exception) {
-                Timber.tag(logTag).w(e, "PoToken generation failed for metadata request")
             }
         }
 
@@ -1289,14 +1311,23 @@ object YTPlayerUtils {
         return false
     }
 
-    /**
-     * Wrapper around the [NewPipeUtils.getSignatureTimestamp] function which reports exceptions
-     */
+    private var cachedSignatureTimestamp: Int? = null
+    private var cachedSignatureTimestampObtainedAt: Long = 0
+    private const val SIGNATURE_TIMESTAMP_CACHE_TTL_MS = 30 * 60 * 1000L
+
     private fun getSignatureTimestampOrNull(videoId: String): Int? {
+        val now = System.currentTimeMillis()
+        if (cachedSignatureTimestamp != null && now - cachedSignatureTimestampObtainedAt < SIGNATURE_TIMESTAMP_CACHE_TTL_MS) {
+            return cachedSignatureTimestamp
+        }
         Timber.tag(logTag).i("Getting signature timestamp for videoId: $videoId")
         return NewPipeUtils
             .getSignatureTimestamp(videoId)
-            .onSuccess { Timber.tag(logTag).i("Signature timestamp obtained: $it") }
+            .onSuccess {
+                Timber.tag(logTag).i("Signature timestamp obtained: $it")
+                cachedSignatureTimestamp = it
+                cachedSignatureTimestampObtainedAt = now
+            }
             .onFailure {
                 Timber.tag(logTag).e(it, "Failed to get signature timestamp")
                 reportException(it)
