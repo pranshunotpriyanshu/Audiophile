@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -43,6 +44,7 @@ import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
+import com.pryvn.audiophile.data.libraries.PlaybackSource
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
@@ -79,7 +81,7 @@ fun Home(
     }
 
     // ── Recently Played ──
-    var recentlyPlayed by remember { mutableStateOf<List<YTSongItem>>(emptyList()) }
+    var recentlyPlayed by remember { mutableStateOf<List<HistoryEntry>>(emptyList()) }
     var recentLoading by remember { mutableStateOf(false) }
 
     // ── Related Songs ──
@@ -124,7 +126,7 @@ fun Home(
         if (recentLoading) return
         recentLoading = true
         val entries = ListeningHistory.history.value
-        recentlyPlayed = entries.map { it.toYTSongItem() }
+        recentlyPlayed = entries
         recentLoading = false
 
         val seed = recentlyPlayed.firstOrNull()
@@ -132,7 +134,7 @@ fun Home(
             relatedLoading = true
             scope.launch {
                 val results = withContext(Dispatchers.IO) {
-                    val query = seed.artists.firstOrNull()?.name ?: seed.title
+                    val query = seed.artists?.split(", ")?.firstOrNull() ?: seed.title
                     runCatching {
                         YouTubeApi.search(query).getOrThrow()
                             .items
@@ -169,6 +171,7 @@ fun Home(
     }
 
     val listState = rememberLazyListState()
+    val bottomInset = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -215,7 +218,7 @@ fun Home(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp)
+                contentPadding = PaddingValues(bottom = bottomInset + 134.dp)
             ) {
 
             // ─── Loading / Error states ──────────────────────────────────────
@@ -305,10 +308,23 @@ fun Home(
                                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                items(recentlyPlayed, key = { it.videoId }) { song: YTSongItem ->
+                                items(recentlyPlayed, key = { it.videoId }) { entry: HistoryEntry ->
+                                    val song = entry.toYTSongItem()
                                     SongCard(song = song, onClick = {
                                         scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song)
+                                            when (entry.source) {
+                                                PlaybackSource.LOCAL -> {
+                                                    // Find local song by mediaId and play via prepare
+                                                    val localSong = MediaController.mainMusicList
+                                                        .find { it.mediaId == entry.videoId }
+                                                    localSong?.let {
+                                                        MediaController.prepare(it, listOf(it))
+                                                    }
+                                                }
+                                                PlaybackSource.ONLINE -> {
+                                                    MediaController.playOnline(song)
+                                                }
+                                            }
                                         }
                                     })
                                 }

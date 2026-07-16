@@ -77,6 +77,7 @@ import com.pryvn.audiophile.data.objects.MainViewModelObject
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 import com.pryvn.audiophile.data.libraries.ListeningHistory
+import com.pryvn.audiophile.data.libraries.PlaybackSource
 
 @Stable
 object MediaController {
@@ -345,6 +346,7 @@ object MediaController {
             artists = song.artists.joinToString(", ") { it.name },
             album = song.album?.name,
             thumb = thumbUri,
+            duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
         )
         MediaViewModelObject.bitmap.value = thumbUri
 
@@ -375,6 +377,7 @@ object MediaController {
             artists = firstSong.artists.joinToString(", ") { it.name },
             album = firstSong.album?.name,
             thumb = thumbUri,
+            duration = (firstSong.durationSeconds?.toLong() ?: 0L) * 1000L,
         )
         MediaViewModelObject.bitmap.value = thumbUri
 
@@ -384,6 +387,7 @@ object MediaController {
             artists = firstSong.artists.map { it.name },
             durationSeconds = firstSong.durationSeconds,
         )
+        if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItems = songs.map { song ->
             if (song.videoId == firstSong.videoId) {
                 YosMediaItem(
@@ -805,7 +809,8 @@ class YosPlaybackService : MediaSessionService() {
                                             title = track.title,
                                             artist = track.artists,
                                             album = track.album,
-                                            durationMs = track.duration
+                                            durationMs = track.duration,
+                                            videoId = track.mediaId
                                         )
                                         if (lyrics != null && lyrics.text.isNotBlank()) {
                                             MediaViewModelObject.lyricsCache[key] = lyrics.text
@@ -829,11 +834,17 @@ class YosPlaybackService : MediaSessionService() {
                         val yosItem = it.toYosMediaItem()
                         com.pryvn.audiophile.code.MediaController.onCase(yosItem)
                         yosItem.mediaId?.let { videoId ->
+                            val source = if (yosItem.uri?.scheme?.let { it == "file" || it == "content" } == true) {
+                                PlaybackSource.LOCAL
+                            } else {
+                                PlaybackSource.ONLINE
+                            }
                             ListeningHistory.record(
                                 videoId = videoId,
                                 title = yosItem.title.orEmpty(),
                                 artists = yosItem.artists,
                                 thumbnailUrl = yosItem.thumb?.toString(),
+                                source = source,
                             )
                         }
                     }

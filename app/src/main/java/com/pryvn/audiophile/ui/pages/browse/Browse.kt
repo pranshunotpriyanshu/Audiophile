@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -61,7 +62,7 @@ fun Browse(
         loadError = false
         scope.launch(Dispatchers.IO) {
             try {
-                val result = YouTubeApi.explore()
+                val result = YouTubeApi.home()
                 result.onSuccess { json ->
                     val parsed = YouTubeApi.parseHomeSections(json)
                     withContext(Dispatchers.Main) {
@@ -81,6 +82,7 @@ fun Browse(
     LaunchedEffect(Unit) { loadBrowse() }
 
     val listState = rememberLazyListState()
+    val bottomInset = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -127,7 +129,7 @@ fun Browse(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp)
+                contentPadding = PaddingValues(bottom = bottomInset + 102.dp)
             ) {        // Section tabs
         item("tabs") {
             Row(

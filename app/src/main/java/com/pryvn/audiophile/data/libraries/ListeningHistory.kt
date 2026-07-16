@@ -7,12 +7,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+enum class PlaybackSource {
+    LOCAL, ONLINE
+}
+
 data class HistoryEntry(
     val videoId: String,
     val title: String,
     val artists: String?,
     val thumbnailUrl: String?,
     val lastPlayedAt: Long,
+    val source: PlaybackSource = PlaybackSource.ONLINE,
 )
 
 object ListeningHistory {
@@ -35,6 +40,7 @@ object ListeningHistory {
         title: String,
         artists: String?,
         thumbnailUrl: String?,
+        source: PlaybackSource = PlaybackSource.ONLINE,
     ) {
         val entry = HistoryEntry(
             videoId = videoId,
@@ -42,6 +48,7 @@ object ListeningHistory {
             artists = artists,
             thumbnailUrl = thumbnailUrl,
             lastPlayedAt = System.currentTimeMillis(),
+            source = source,
         )
 
         val current = _history.value.toMutableList()
