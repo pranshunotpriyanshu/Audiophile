@@ -33,8 +33,6 @@ class YosLrcFactory(private val formatText: Boolean = true) {
         val lrcLines = lrcText.lines()
         val timeLyricPairs = mutableListOf<MutableList<Pair<Float, String>>>()
         lrcLines.fastForEachIndexed { index, line ->
-            //将文本中完全相同而且重复的两个时间轴修改为一个
-            //比如[12:34.56][12:34.56]改为[12:34.56]
             var remainingLine =
                 line.replace(Regex("([\\[\\]]){2,}"), "$1").replace(Regex("<([^>]+)>"), "[$1]")
                     .replace(Regex("(\\[\\d{2}:\\d{2}\\.\\d{2,3}]){2,}"), "$1")

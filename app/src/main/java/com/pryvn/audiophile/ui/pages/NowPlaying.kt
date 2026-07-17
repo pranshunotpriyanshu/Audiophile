@@ -81,6 +81,9 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderPositions
 import androidx.compose.material3.Surface
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -1529,31 +1532,72 @@ private fun PlayingList(
                                         reorderableState,
                                         key = "niq_${song.mediaId ?: song.title}"
                                     ) { isDragging ->
-                                        QueueMusicListItem(
-                                            music = song,
-                                            isCurrentItem = false,
-                                            itemClick = {
-                                                scope.launch(Dispatchers.IO) {
-                                                    MediaController.skipToNextInQueueItem(index)
-                                                }
-                                            },
-                                            trailing = {
-                                                IconButton(
-                                                    onClick = {
-                                                        scope.launch(Dispatchers.IO) {
-                                                            MediaController.removeNextInQueueItem(index)
+                                        val swipeState = rememberSwipeToDismissBoxState(
+                                            confirmValueChange = {
+                                                if (it == SwipeToDismissBoxValue.StartToEnd) {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        if (index != 0) {
+                                                            MediaController.moveNextInQueueItem(index, 0)
                                                         }
-                                                    },
-                                                    modifier = Modifier.size(36.dp)
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.Clear,
-                                                        contentDescription = "Remove from queue",
-                                                        modifier = Modifier.alpha(0.5f)
-                                                    )
+                                                    }
+                                                    true
+                                                } else if (it == SwipeToDismissBoxValue.EndToStart) {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        MediaController.removeNextInQueueItem(index)
+                                                    }
+                                                    true
+                                                } else {
+                                                    false
                                                 }
                                             }
                                         )
+                                        SwipeToDismissBox(
+                                            state = swipeState,
+                                            enableDismissFromStartToEnd = true,
+                                            enableDismissFromEndToStart = true,
+                                            backgroundContent = {
+                                                val direction = swipeState.dismissDirection
+                                                val color by animateColorAsState(
+                                                    targetValue = when (direction) {
+                                                        SwipeToDismissBoxValue.StartToEnd -> Color(0xFF34C759)
+                                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFE8453C)
+                                                        else -> Color.Transparent
+                                                    },
+                                                    label = "swipeBg"
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(color)
+                                                )
+                                            }
+                                        ) {
+                                            QueueMusicListItem(
+                                                music = song,
+                                                isCurrentItem = false,
+                                                itemClick = {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        MediaController.skipToNextInQueueItem(index)
+                                                    }
+                                                },
+                                                trailing = {
+                                                    IconButton(
+                                                        onClick = {
+                                                            scope.launch(Dispatchers.IO) {
+                                                                MediaController.removeNextInQueueItem(index)
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(36.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Clear,
+                                                            contentDescription = "Remove from queue",
+                                                            modifier = Modifier.alpha(0.5f)
+                                                        )
+                                                    }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1574,47 +1618,86 @@ private fun PlayingList(
                                         reorderableState,
                                         key = "upnext_${song.mediaId ?: song.title}"
                                     ) { isDragging ->
-                                        val dragModifier = Modifier
-                                            .draggableHandle()
-                                            .alpha(if (isDragging) 0.85f else 0.4f)
-                                            .size(36.dp)
-                                        QueueMusicListItem(
-                                            music = song,
-                                            isCurrentItem = song.mediaId != null && song.mediaId == currentPlaying?.mediaId,
-                                            itemClick = {
-                                                scope.launch(Dispatchers.IO) {
-                                                    MediaController.prepare(
-                                                        song,
-                                                        upNext
-                                                    )
-                                                }
-                                            },
-                                            trailing = {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        Icons.Default.MoreVert,
-                                                        contentDescription = "Drag to reorder",
-                                                        modifier = dragModifier
-                                                    )
-                                                    IconButton(
-                                                        onClick = {
-                                                            scope.launch(Dispatchers.IO) {
-                                                                MediaController.removeUpNextItem(index)
-                                                            }
-                                                        },
-                                                        modifier = Modifier.size(36.dp)
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.Clear,
-                                                            contentDescription = "Remove from queue",
-                                                            modifier = Modifier.alpha(0.5f)
-                                                        )
+                                        val swipeState = rememberSwipeToDismissBoxState(
+                                            confirmValueChange = {
+                                                if (it == SwipeToDismissBoxValue.StartToEnd) {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        MediaController.moveUpNextToNextQueue(index)
                                                     }
+                                                    true
+                                                } else if (it == SwipeToDismissBoxValue.EndToStart) {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        MediaController.removeUpNextItem(index)
+                                                    }
+                                                    true
+                                                } else {
+                                                    false
                                                 }
                                             }
                                         )
+                                        SwipeToDismissBox(
+                                            state = swipeState,
+                                            enableDismissFromStartToEnd = true,
+                                            enableDismissFromEndToStart = true,
+                                            backgroundContent = {
+                                                val direction = swipeState.dismissDirection
+                                                val color by animateColorAsState(
+                                                    targetValue = when (direction) {
+                                                        SwipeToDismissBoxValue.StartToEnd -> Color(0xFF34C759)
+                                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFE8453C)
+                                                        else -> Color.Transparent
+                                                    },
+                                                    label = "swipeBg"
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(color)
+                                                )
+                                            }
+                                        ) {
+                                            val dragModifier = Modifier
+                                                .draggableHandle()
+                                                .alpha(if (isDragging) 0.85f else 0.4f)
+                                                .size(36.dp)
+                                            QueueMusicListItem(
+                                                music = song,
+                                                isCurrentItem = song.mediaId != null && song.mediaId == currentPlaying?.mediaId,
+                                                itemClick = {
+                                                    scope.launch(Dispatchers.IO) {
+                                                        MediaController.prepare(
+                                                            song,
+                                                            upNext
+                                                        )
+                                                    }
+                                                },
+                                                trailing = {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.DragHandle,
+                                                            contentDescription = "Drag to reorder",
+                                                            modifier = dragModifier
+                                                        )
+                                                        IconButton(
+                                                            onClick = {
+                                                                scope.launch(Dispatchers.IO) {
+                                                                    MediaController.removeUpNextItem(index)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                Icons.Default.Clear,
+                                                                contentDescription = "Remove from queue",
+                                                                modifier = Modifier.alpha(0.5f)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }

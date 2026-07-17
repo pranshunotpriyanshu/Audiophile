@@ -53,8 +53,13 @@ import coil.size.Precision
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
+import com.pryvn.audiophile.data.libraries.ArtistLibrary
 import com.pryvn.audiophile.data.libraries.MusicLibrary
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
+import com.pryvn.audiophile.data.objects.LibraryObject
+import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
@@ -66,7 +71,7 @@ fun LocalArtists(navController: NavController) {
             .fillMaxSize()
         /*.statusBarsPadding()*/
     ) {
-        val artistsList = MusicLibrary.artists
+        val artistsList = ArtistLibrary.sortedArtists(MusicLibrary.artists)
 
         val searchText = remember("LocalArtists_searchText") {
             mutableStateOf("")
@@ -99,14 +104,14 @@ fun LocalArtists(navController: NavController) {
             }
         } else {
             val useSearch = remember { derivedStateOf { searchText.value.isNotEmpty() } }
-            val list = remember { mutableStateOf(artistsList) }
+            val list = remember(artistsList) { mutableStateOf(artistsList) }
 
             YosWrapper {
-                LaunchedEffect(searchText.value) {
+                LaunchedEffect(searchText.value, artistsList) {
                     withContext(Dispatchers.IO) {
                         val filteredList = withContext(Dispatchers.IO) {
                             if (useSearch.value) {
-                                MusicLibrary.artists.asSequence().filter { artist ->
+                                ArtistLibrary.sortedArtists(MusicLibrary.artists).asSequence().filter { artist ->
                                     artist.contains(searchText.value, ignoreCase = true)
                                 }.toList()
                             } else {
@@ -118,14 +123,13 @@ fun LocalArtists(navController: NavController) {
                 }
             }
 
+            val keyboardController = LocalSoftwareKeyboardController.current
+
             Title(
                 title = stringResource(id = R.string.page_library_artists), onBack = {
                     navController.popBackStack()
-                }
-            ) {
-                item("SearchField") {
-                    val keyboardController = LocalSoftwareKeyboardController.current
-
+                },
+                stickyContent = {
                     SearchTextField(
                         text = searchText.value,
                         placeholder = stringResource(id = R.string.page_library_search_artists),
@@ -140,20 +144,24 @@ fun LocalArtists(navController: NavController) {
                             if (searchText.value.isNotEmpty()) {
                                 keyboardController?.hide()
                             }
-                        })
-                }
-
+                        },
+                    )
+                },
+                stickyContentHeight = 61.dp,
+            ) {
                 itemsIndexed(
                     list.value,
                     key = { _, artist -> artist }/*,
                     contentType = { _, _ -> "LocalArtists_item" }*/
                 ) { index, artist ->
                     ArtistItem(artistName = artist) {
-
+                        LibraryObject.setTargetArtistName(artist)
+                        LibraryObject.setArtistSongsSearchOnOpen(false)
+                        navController.toUI(UI.ArtistInfo)
                     }
 
                     key(index) {
-                        val needDivider = index < artistsList.size - 1
+                        val needDivider = index < list.value.size - 1
                         if (needDivider) {
                             Spacer(
                                 modifier = Modifier
@@ -244,6 +252,17 @@ private fun LazyItemScope.ArtistItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 20.sp
+            )
+        }
+
+        if (SettingsLibrary.isArtistFollowed(artistName)) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_nowplaying_favorited),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(19.dp)
+                    .padding(end = 10.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
         }
 
