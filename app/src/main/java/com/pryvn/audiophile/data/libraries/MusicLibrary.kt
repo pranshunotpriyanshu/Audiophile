@@ -54,8 +54,16 @@ data class Time(
 @Parcelize
 @Stable
 data class PlayListV1(
-    val mainMusicList: List<YosMediaItem>?,
-    val playingMusicList: List<YosMediaItem>?
+    val mainMusicList: List<YosMediaItem>? = null,
+    val playingMusicList: List<YosMediaItem>? = null,
+    val nextInQueueMusicList: List<YosMediaItem>? = null,
+    val historyMusicList: List<YosMediaItem>? = null,
+    val musicPlaying: YosMediaItem? = null,
+    val shuffleModeEnabled: Boolean = false,
+    val playingMusicUris: List<String>? = null,
+    val nextInQueueMusicUris: List<String>? = null,
+    val historyMusicUris: List<String>? = null,
+    val musicPlayingUri: String? = null,
 ) : Parcelable
 
 @Parcelize

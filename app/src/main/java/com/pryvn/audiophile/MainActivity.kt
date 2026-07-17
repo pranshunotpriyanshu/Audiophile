@@ -163,6 +163,8 @@ import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistInfo
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInterfaceSetting
 import com.pryvn.audiophile.ui.pages.settings.integration.ShazamRecognitionScreen
+import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.AnimatedAlbumCoversSetting
+import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.AnimatedAlbumCoverBlacklistSetting
 import com.pryvn.audiophile.ui.theme.YosMusicTheme
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.isAudiophileInDarkMode
@@ -571,6 +573,13 @@ class MainActivity : BaseActivity() {
 
                                             composable(UI.Settings.ShazamRecognition) {
                                                 ShazamRecognitionScreen(navController)
+                                            }
+
+                                            composable(UI.Settings.AnimatedAlbumCovers) {
+                                                AnimatedAlbumCoversSetting(navController)
+                                            }
+                                            composable(UI.Settings.AnimatedAlbumCoverBlacklist) {
+                                                AnimatedAlbumCoverBlacklistSetting(navController)
                                             }
 
                                             composable(UI.YTMusicLogin) {

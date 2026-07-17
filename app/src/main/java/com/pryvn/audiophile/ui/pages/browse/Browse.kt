@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
+import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -101,23 +102,10 @@ fun Browse(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { navController.toUI(UI.Settings.Main) }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = CupertinoIcons.Default.PersonCropCircle,
-                    contentDescription = "Account",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+            ProfileButton(
+                size = 24.dp,
+                onClick = { navController.toUI(UI.Settings.Main) },
+            )
         }
 
         PullToRefreshLayout(

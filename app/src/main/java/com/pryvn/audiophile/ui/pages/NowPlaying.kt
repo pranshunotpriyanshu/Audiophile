@@ -54,6 +54,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,6 +66,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ripple
@@ -168,6 +170,7 @@ import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
+import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.code.utils.player.FadeExo.fadePause
 import com.pryvn.audiophile.code.utils.player.FadeExo.fadePlay
@@ -191,16 +194,28 @@ import com.pryvn.audiophile.ui.widgets.YosLyricView
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
 import com.pryvn.audiophile.ui.widgets.audio.MusicQualityIndicator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
+import com.pryvn.audiophile.ui.pages.library.FloatingMenu
+import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
+import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
 import com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet
 import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
 import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
+import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
+import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverState
+import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
+import com.pryvn.audiophile.ui.widgets.basic.rememberAnimatedAlbumCoverState
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.IconButton
 
 
 @Stable
@@ -212,8 +227,6 @@ object NowPlayingPage {
 
 private const val ShareAlbumKey = "album"
 private const val AnimDurationMillis = 300
-
-private var originalPlayingMusicList: List<YosMediaItem>? = null
 
 /*
 private val MaterialFadeInTransitionSpec
@@ -261,7 +274,6 @@ fun NowPlaying(
 
         var showMenu by remember { mutableStateOf(false) }
         var showPlaylistSheet by remember { mutableStateOf(false) }
-        val menuSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
         val lrcEntries: MutableState<List<List<Pair<Float, String>>>> =
             MediaViewModelObject.lrcEntries
@@ -486,6 +498,8 @@ fun NowPlaying(
                                         YosWrapper {
                                             Column(Modifier.fillMaxHeight(0.595f)) {
                                                 val isVisible = nowPageLambda() == Album
+                                                val animatedAlbumLifecycleState =
+                                                    LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
 
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
@@ -495,7 +509,10 @@ fun NowPlaying(
                                                         visible = isVisible
                                                     ),
                                                     albumUrl = { thisMusicPlaying.value?.thumb },
-                                                    isPlaying = isPlayingStatusLambda
+                                                    isPlaying = isPlayingStatusLambda,
+                                                    music = { thisMusicPlaying.value },
+                                                    active = nowPageLambda() == Album &&
+                                                        animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
                                                 )
                                                 Row(
                                                     Modifier
@@ -853,12 +870,17 @@ fun NowPlaying(
                                     when (page) {
                                         Album, Lyric -> {
                                             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            val animatedAlbumLifecycleState =
+                                                LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
                                             Album(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 albumUrl = { thisMusicPlaying.value?.thumb },
-                                                isPlaying = isPlayingStatusLambda
+                                                isPlaying = isPlayingStatusLambda,
+                                                music = { thisMusicPlaying.value },
+                                                active = nowPageLambda() == Album &&
+                                                    animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
                                             )
-                                            }
+                                        }
                                         }
                                         PlayingList -> {
                                             PlayingList(
@@ -1084,9 +1106,9 @@ fun NowPlaying(
 
         if (showMenu) {
             val song = thisMusicPlaying.value
-            AppleActionSheet(
+            FloatingMenu(
+                isOpen = showMenu,
                 onDismissRequest = { showMenu = false },
-                sheetState = menuSheetState,
             ) {
                 ThreeDotMenuContent(
                     musicPlaying = song,
@@ -1132,7 +1154,9 @@ fun NowPlaying(
 private fun ColumnScope.Album(
     modifier: Modifier,
     albumUrl: () -> Uri?,
-    isPlaying: () -> Boolean
+    isPlaying: () -> Boolean,
+    music: () -> YosMediaItem?,
+    active: Boolean
 ) = Box(
     Modifier
         .weight(1f)
@@ -1156,6 +1180,12 @@ private fun ColumnScope.Album(
         visibilityThreshold = 0.001f
     )
 
+    val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
+        music = music(),
+        isPlaying = isPlaying(),
+        active = active
+    )
+
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
         ShadowImageWithCache(
@@ -1167,13 +1197,16 @@ private fun ColumnScope.Album(
                 .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
-            shadowOverlay = true
+            shadowOverlay = true,
+            overlayContent = {
+                AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
+            }
         )
     }
 }
 
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayingList(
     shuffleModeEnabledLambda: () -> Boolean,
@@ -1186,9 +1219,9 @@ private fun PlayingList(
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    val musicList = remember("PlayingList_musicList") {
-        playingMusicList
-    }
+    val nextInQueue = MediaController.nextInQueueMusicList.value
+    val upNext = MediaController.playingMusicList.value ?: emptyList()
+    val scope = rememberCoroutineScope()
 
     YosWrapper {
         Column(
@@ -1198,7 +1231,7 @@ private fun PlayingList(
         ) {
             val hide = remember("PlayingList_hide") {
                 derivedStateOf {
-                    musicList.value.isNullOrEmpty()
+                    nextInQueue.isEmpty() && upNext.isEmpty()
                 }
             }
 
@@ -1218,12 +1251,11 @@ private fun PlayingList(
                         text = stringResource(id = R.string.page_library_playlists),
                         fontSize = 16.5.sp,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier/*.padding(top = 10.dp)*/
                     )
                     Text(
                         text = stringResource(
                             id = R.string.page_library_playlists_music_total,
-                            musicList.value?.size ?: 0
+                            upNext.size
                         ),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
@@ -1248,51 +1280,10 @@ private fun PlayingList(
                                 .clickable(
                                     onClick = {
                                         Vibrator.click(context)
-                                        val newShuffleState = !shuffleModeEnabledLambda()
-
-                                        if (newShuffleState) {
-                                            val currentList = playingMusicList.value
-                                            if (currentList != null && currentList.size > 1) {
-                                                if (originalPlayingMusicList == null) {
-                                                    originalPlayingMusicList =
-                                                        currentList.toList()
-                                                }
-                                                val shuffledList = currentList.toMutableList()
-                                                shuffledList.shuffle()
-                                                val currentSong = musicPlaying.value
-                                                currentSong?.let { song ->
-                                                    val idx = shuffledList.indexOfFirst { it.mediaId == song.mediaId }
-                                                    if (idx > 0) {
-                                                        shuffledList.removeAt(idx)
-                                                        shuffledList.add(0, song)
-                                                    }
-                                                }
-                                                playingMusicList.value = shuffledList
-                                            }
-                                        } else {
-                                            originalPlayingMusicList?.let { original ->
-                                                val currentList = playingMusicList.value
-                                                if (currentList != null) {
-                                                    val restoredOrder = mutableListOf<YosMediaItem>()
-                                                    restoredOrder.addAll(
-                                                        original.filter { orig ->
-                                                            currentList.any { it.mediaId == orig.mediaId }
-                                                        }
-                                                    )
-                                                    restoredOrder.addAll(
-                                                        currentList.filter { curr ->
-                                                            original.none { it.mediaId == curr.mediaId }
-                                                        }
-                                                    )
-                                                    playingMusicList.value = restoredOrder
-                                                }
-                                            }
-                                            originalPlayingMusicList = null
+                                        scope.launch(Dispatchers.IO) {
+                                            val newState = MediaController.toggleShuffleMode()
+                                            shuffleModeOnChanged(newState)
                                         }
-
-                                        mediaControl?.shuffleModeEnabled = newShuffleState
-                                        mediaControl?.let { YosPlaybackService().setCustomButtons(it) }
-                                        shuffleModeOnChanged(newShuffleState)
                                     },
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() })
@@ -1405,27 +1396,46 @@ private fun PlayingList(
                     )
                     Text(
                         text = stringResource(id = R.string.playlist_unavailable_desc),
-                            fontSize = 16.sp,
-                            color = Color.White,
-                            modifier = Modifier
-                                .overlayEffect()
-                                .alpha(0.4f)
-                        )
+                        fontSize = 16.sp,
+                        color = Color.White,
+                        modifier = Modifier
+                            .overlayEffect()
+                            .alpha(0.4f)
+                    )
                 }
             } else {
-                val musicIndex = remember(musicList.value, thisMusicPlayingLambda()) {
-                    musicList.value?.indexOf(musicPlaying.value) ?: 0
-                }
-                val scope = rememberCoroutineScope()
-                val state = rememberLazyListState(
-                    initialFirstVisibleItemIndex = musicIndex + 1,
+                val currentPlaying = thisMusicPlayingLambda()
+
+                val lazyListState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = 1,
                     initialFirstVisibleItemScrollOffset = -15
                 )
+                val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+                    val list = MediaController.playingMusicList.value?.toMutableList() ?: return@rememberReorderableLazyListState
+                    if (nextInQueue.isNotEmpty() && upNext.isNotEmpty()) {
+                        val offset = nextInQueue.size + 2
+                        val fromUp = from.index - offset
+                        val toUp = to.index - offset
+                        if (fromUp in list.indices && toUp in list.indices) {
+                            val moved = list.removeAt(fromUp)
+                            list.add(toUp, moved)
+                            MediaController.playingMusicList.value = list
+                        }
+                    } else {
+                        val fromUp = from.index - 1
+                        val toUp = to.index - 1
+                        if (fromUp in list.indices && toUp in list.indices) {
+                            val moved = list.removeAt(fromUp)
+                            list.add(toUp, moved)
+                            MediaController.playingMusicList.value = list
+                        }
+                    }
+                }
 
                 YosWrapper {
                     CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
 
-                        LazyColumn(state = state, modifier = Modifier
+                        LazyColumn(state = lazyListState, modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
                                 compositingStrategy = CompositingStrategy.Offscreen
@@ -1458,30 +1468,122 @@ private fun PlayingList(
                                         blendMode = BlendMode.DstIn
                                     )
                                 }
-                            }/*, contentPadding = PaddingValues(vertical = 12.dp)*/
+                            }
                         ) {
                             item("blank_before") {
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
-                            val currentPlaying = thisMusicPlayingLambda()
-                            items(
-                                musicList.value ?: emptyList(),
-                                key = { music -> music }/*,
-                                contentType = { _ -> "NowPlaying_item" }*/
-                            ) { music ->
-                                SmallMusicListItem(
-                                    music = music,
-                                    isCurrentItem = music.mediaId != null && music.mediaId == currentPlaying?.mediaId,
-                                    itemClick = {
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.prepare(
-                                                music,
-                                                musicList.value ?: emptyList()
-                                            )
+
+                            if (nextInQueue.isNotEmpty()) {
+                                item("niq_header") {
+                                    QueueSectionHeader(
+                                        title = stringResource(R.string.queue_next_in_queue),
+                                        itemCount = nextInQueue.size,
+                                        onClear = {
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.clearNextInQueue()
+                                            }
                                         }
+                                    )
+                                }
+                                itemsIndexed(
+                                    items = nextInQueue,
+                                    key = { _, item -> "niq_${item.mediaId ?: item.title}" }
+                                ) { index, song ->
+                                    ReorderableItem(
+                                        reorderableState,
+                                        key = "niq_${song.mediaId ?: song.title}"
+                                    ) { isDragging ->
+                                        QueueMusicListItem(
+                                            music = song,
+                                            isCurrentItem = false,
+                                            itemClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.skipToNextInQueueItem(index)
+                                                }
+                                            },
+                                            trailing = {
+                                                IconButton(
+                                                    onClick = {
+                                                        scope.launch(Dispatchers.IO) {
+                                                            MediaController.removeNextInQueueItem(index)
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(36.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Clear,
+                                                        contentDescription = "Remove from queue",
+                                                        modifier = Modifier.alpha(0.5f)
+                                                    )
+                                                }
+                                            }
+                                        )
                                     }
-                                )
+                                }
                             }
+
+                            if (upNext.isNotEmpty()) {
+                                item("upnext_header") {
+                                    QueueSectionHeader(
+                                        title = stringResource(R.string.queue_up_next),
+                                        itemCount = upNext.size,
+                                        onClear = null
+                                    )
+                                }
+                                itemsIndexed(
+                                    items = upNext,
+                                    key = { _, item -> "upnext_${item.mediaId ?: item.title}" }
+                                ) { index, song ->
+                                    ReorderableItem(
+                                        reorderableState,
+                                        key = "upnext_${song.mediaId ?: song.title}"
+                                    ) { isDragging ->
+                                        val dragModifier = Modifier
+                                            .draggableHandle()
+                                            .alpha(if (isDragging) 0.85f else 0.4f)
+                                            .size(36.dp)
+                                        QueueMusicListItem(
+                                            music = song,
+                                            isCurrentItem = song.mediaId != null && song.mediaId == currentPlaying?.mediaId,
+                                            itemClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.prepare(
+                                                        song,
+                                                        upNext
+                                                    )
+                                                }
+                                            },
+                                            trailing = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.MoreVert,
+                                                        contentDescription = "Drag to reorder",
+                                                        modifier = dragModifier
+                                                    )
+                                                    IconButton(
+                                                        onClick = {
+                                                            scope.launch(Dispatchers.IO) {
+                                                                MediaController.removeUpNextItem(index)
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(36.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Clear,
+                                                            contentDescription = "Remove from queue",
+                                                            modifier = Modifier.alpha(0.5f)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
                             item("blank_after") {
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -1495,7 +1597,53 @@ private fun PlayingList(
 }
 
 @Composable
-private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem: Boolean = false, itemClick: () -> Unit) {
+private fun LazyItemScope.QueueSectionHeader(
+    title: String,
+    itemCount: Int,
+    onClear: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 30.dp, end = 30.dp, top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.overlayEffect().alpha(0.5f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "· $itemCount",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.overlayEffect().alpha(0.35f)
+        )
+        if (onClear != null) {
+            Spacer(modifier = Modifier.weight(1f))
+            TextButton(
+                onClick = onClear,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.queue_clear),
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LazyItemScope.QueueMusicListItem(
+    music: YosMediaItem,
+    isCurrentItem: Boolean = false,
+    itemClick: () -> Unit,
+    trailing: @Composable RowScope.() -> Unit
+) {
     val bgColor by animateColorAsState(
         targetValue = if (isCurrentItem)
             MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
@@ -1516,12 +1664,11 @@ private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem:
                         .background(bgColor, RoundedCornerShape(12.dp))
                         .padding(horizontal = 10.dp)
                 } else {
-                    Modifier.padding(horizontal = 30.dp)
+                    Modifier.padding(start = 30.dp, end = 12.dp)
                 }
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        println("重组：播放界面歌曲列表 ${music.title}")
         ShadowImageWithCache(
             dataLambda = { music.thumb },
             contentDescription = null,
@@ -1531,7 +1678,7 @@ private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem:
             imageQuality = ImageQuality.LOW
         )
 
-        Column(Modifier.padding(start = 14.dp)) {
+        Column(Modifier.padding(start = 14.dp).weight(1f)) {
             Text(
                 text = music.title ?: defaultTitle,
                 modifier = Modifier.padding(bottom = 1.dp),
@@ -1550,6 +1697,8 @@ private fun LazyItemScope.SmallMusicListItem(music: YosMediaItem, isCurrentItem:
                 lineHeight = 11.5.sp,
             )
         }
+
+        trailing()
     }
 }
 
@@ -1785,142 +1934,114 @@ private fun ThreeDotMenuContent(
     onRefetchLyrics: (() -> Unit)? = null,
 ) {
     val song = musicPlaying
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(bottom = 12.dp),
     ) {
-        ShadowImageWithCache(
-            dataLambda = albumUrl,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            cornerRadius = 10.dp,
-            imageQuality = ImageQuality.LOW,
-            shadowType = ShadowType.Small,
-            shadowOverlay = true,
-        )
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = song?.title ?: defaultTitle,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontFamily = SfProFontFamily,
-                color = Color.White,
-            )
-            Text(
-                text = song?.artistsName ?: defaultArtistsName,
-                fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.45f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontFamily = SfProFontFamily,
-            )
-        }
-    }
-    Spacer(Modifier.height(8.dp))
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF2C2C2E)),
-    ) {
-        if (onRefetchLyrics != null) {
-            AppleSheetMenuRow(
-                text = "Refetch Lyrics",
-                onClick = { onDismiss(); onRefetchLyrics() },
-                icon = R.drawable.ic_nowplaying_lyricson,
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.08f),
-            )
-        }
-        AppleSheetMenuRow(
-            text = "Add to Playlist",
-            onClick = onShowPlaylistSheet,
-            icon = R.drawable.ic_library_link_icon_playlists,
-        )
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            thickness = 0.5.dp,
-            color = Color.White.copy(alpha = 0.08f),
-        )
-        AppleSheetMenuRow(
-            text = "Copy Link",
-            onClick = {
-                onDismiss()
-                song?.mediaId?.let { vid ->
-                    val clip = context.getSystemService(android.content.ClipboardManager::class.java)
-                    clip?.setPrimaryClip(
-                        android.content.ClipData.newPlainText(
-                            "Song Link",
-                            "https://music.youtube.com/watch?v=$vid",
-                        ),
+        Column {
+            Spacer(Modifier.height(8.dp))
+
+            if (song != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CachedArtworkImage(
+                        url = albumUrl()?.toString(),
+                        contentDescription = null,
+                        size = 112,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(10.dp)),
                     )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = song.title ?: defaultTitle,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = song.artistsName ?: defaultArtistsName,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
-            },
-            icon = R.drawable.ic_library_link_icon_songs,
-        )
-        if (song?.artists?.isNotBlank() == true) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.08f),
+                Spacer(Modifier.height(8.dp))
+                FloatingMenuDivider()
+            }
+
+            if (onRefetchLyrics != null) {
+                FloatingMenuItem(
+                    label = "Refetch Lyrics",
+                    icon = painterResource(id = R.drawable.ic_nowplaying_lyricson),
+                    onClick = { onDismiss(); onRefetchLyrics() },
+                )
+                FloatingMenuDivider()
+            }
+
+            FloatingMenuItem(
+                label = "Add to Playlist",
+                icon = painterResource(id = R.drawable.ic_library_link_icon_playlists),
+                onClick = onShowPlaylistSheet,
             )
-            AppleSheetMenuRow(
-                text = "View Artist",
+            FloatingMenuDivider()
+
+            FloatingMenuItem(
+                label = "Copy Link",
+                icon = painterResource(id = R.drawable.ic_library_link_icon_songs),
                 onClick = {
                     onDismiss()
-                    navController?.let { nv ->
-                        val artistName = song.artists
-                        com.pryvn.audiophile.ui.UI.YTMusicSearch.let { route ->
-                            nv.navigate("$route/${android.net.Uri.encode(artistName)}")
-                        }
+                    song?.mediaId?.let { vid ->
+                        val clip = context.getSystemService(android.content.ClipboardManager::class.java)
+                        clip?.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                "Song Link",
+                                "https://music.youtube.com/watch?v=$vid",
+                            ),
+                        )
                     }
                 },
-                icon = R.drawable.ic_library_link_icon_artists,
             )
-        }
-        if (song?.album?.isNotBlank() == true) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.08f),
-            )
-            AppleSheetMenuRow(
-                text = "View Album",
-                onClick = {
-                    onDismiss()
-                    navController?.let { nv ->
-                        val albumName = song.album
-                        com.pryvn.audiophile.ui.UI.YTMusicSearch.let { route ->
-                            nv.navigate("$route/${android.net.Uri.encode(albumName)}")
+
+            if (song?.artists?.isNotBlank() == true) {
+                FloatingMenuDivider()
+                FloatingMenuItem(
+                    label = "View Artist",
+                    icon = painterResource(id = R.drawable.ic_library_link_icon_artists),
+                    onClick = {
+                        onDismiss()
+                        navController?.let { nv ->
+                            val artistName = song.artists
+                            nv.navigate("${UI.YTMusicSearch}/${android.net.Uri.encode(artistName)}")
                         }
-                    }
-                },
-                icon = R.drawable.ic_library_link_icon_album,
-            )
+                    },
+                )
+            }
+
+            if (song?.album?.isNotBlank() == true) {
+                FloatingMenuDivider()
+                FloatingMenuItem(
+                    label = "View Album",
+                    icon = painterResource(id = R.drawable.ic_library_link_icon_album),
+                    onClick = {
+                        onDismiss()
+                        navController?.let { nv ->
+                            val albumName = song.album
+                            nv.navigate("${UI.YTMusicSearch}/${android.net.Uri.encode(albumName)}")
+                        }
+                    },
+                )
+            }
         }
-    }
-    Spacer(Modifier.height(8.dp))
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF2C2C2E)),
-    ) {
-        AppleSheetMenuRow(
-            text = "Cancel",
-            onClick = onDismiss,
-            tint = Color(0xFF0A84FF),
-        )
     }
 }
 

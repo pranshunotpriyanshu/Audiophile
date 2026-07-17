@@ -50,8 +50,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
+import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import androidx.navigation.NavController
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileOnlineTrack
@@ -442,23 +441,10 @@ fun YTMusicSearchScreen(
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { navController?.toUI(UI.Settings.Main) }
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = CupertinoIcons.Default.PersonCropCircle,
-                                contentDescription = "Account",
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        ProfileButton(
+                            size = 24.dp,
+                            onClick = { navController?.toUI(UI.Settings.Main) },
+                        )
                     }
                 }
             }

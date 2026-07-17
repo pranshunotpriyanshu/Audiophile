@@ -96,6 +96,18 @@ object MediaController {
     var musicPlaying = mutableStateOf<YosMediaItem?>(null)
 
     @Stable
+    var nextInQueueMusicList = mutableStateOf<List<YosMediaItem>>(emptyList())
+
+    @Stable
+    var historyMusicList = mutableStateOf<List<YosMediaItem>>(emptyList())
+
+    @Stable
+    var orderedPlayingMusicList = mutableStateOf<List<YosMediaItem>>(emptyList())
+
+    @Stable
+    var queueShuffleEnabled = mutableStateOf(false)
+
+    @Stable
     var mediaSession: MediaSession? = null
 
     fun onServiceRunning() {
@@ -232,9 +244,13 @@ object MediaController {
             }
 
             println("prepare 调用切列表")
+            orderedPlayingMusicList.value = thisMusicList
+            nextInQueueMusicList.value = emptyList()
+            historyMusicList.value = emptyList()
+            queueShuffleEnabled.value = shuffleModeEnabled
+
             if (!play && playingMusicList.value == null) {
                 playingMusicList.value = thisMusicList
-                //refresh(music)
                 withContext(Dispatchers.Main) {
                     mediaControl?.shuffleModeEnabled = shuffleModeEnabled
                     mediaControl?.repeatMode = repeatMode
@@ -256,8 +272,8 @@ object MediaController {
                 println("prepare 保存播放列表")
                 MusicLibrary.updatePlayList(
                     PlayListV1(
-                        mainMusicList,
-                        playingMusicList.value
+                        mainMusicList = mainMusicList,
+                        playingMusicList = playingMusicList.value,
                     )
                 )
             }
@@ -537,6 +553,205 @@ object MediaController {
                     throw e
                 }
             )
+    }
+
+    // ── Queue management ───────────────────────────────────────────────
+
+    private fun currentQueueIndex(): Int {
+        val current = musicPlaying.value ?: return -1
+        return orderedPlayingMusicList.value.indexOfFirst { it.uri == current.uri }
+    }
+
+    private fun syncQueueState() {
+        val ordered = orderedPlayingMusicList.value
+        val idx = currentQueueIndex()
+        if (idx < 0 || ordered.isEmpty()) {
+            historyMusicList.value = emptyList()
+            nextInQueueMusicList.value = emptyList()
+            playingMusicList.value = ordered.ifEmpty { null }
+            return
+        }
+        val pending = ordered.drop(idx + 1)
+        val knownNiq = nextInQueueMusicList.value
+        val matchedNiq = pending.matchingQueuePrefix(knownNiq)
+        historyMusicList.value = ordered.take(idx)
+        nextInQueueMusicList.value = matchedNiq
+        playingMusicList.value = pending.drop(matchedNiq.size).ifEmpty { null }
+    }
+
+    suspend fun toggleShuffleMode(): Boolean {
+        val ordered = orderedPlayingMusicList.value
+        if (ordered.isEmpty()) {
+            queueShuffleEnabled.value = !queueShuffleEnabled.value
+            return queueShuffleEnabled.value
+        }
+        val newEnabled = !queueShuffleEnabled.value
+        val idx = currentQueueIndex()
+        if (newEnabled && idx >= 0) {
+            val history = ordered.take(idx)
+            val current = ordered.getOrNull(idx)
+            val niq = nextInQueueMusicList.value
+            val upcoming = ordered.drop(idx + 1 + niq.size)
+            val updated = buildList {
+                addAll(history)
+                current?.let { add(it) }
+                addAll(niq)
+                addAll(upcoming.shuffled())
+            }
+            orderedPlayingMusicList.value = updated
+            reindexPlayer(updated, idx)
+        } else if (!newEnabled) {
+            val original = ordered
+            orderedPlayingMusicList.value = original
+        }
+        queueShuffleEnabled.value = newEnabled
+        saveQueueState()
+        syncQueueState()
+        return newEnabled
+    }
+
+    private suspend fun reindexPlayer(queue: List<YosMediaItem>, currentIdx: Int) {
+        if (queue.isEmpty()) return
+        withContext(Dispatchers.Main) {
+            val items = queue.map { it.toMediaItem() }
+            val seekIdx = currentIdx.coerceIn(0, items.lastIndex)
+            mediaControl?.setMediaItems(items, seekIdx, mediaControl?.currentPosition ?: 0L)
+        }
+    }
+
+    suspend fun addToQueue(songs: List<YosMediaItem>) {
+        val ordered = orderedPlayingMusicList.value
+        val idx = currentQueueIndex()
+        if (idx < 0) return
+        val niq = nextInQueueMusicList.value
+        val upcoming = ordered.drop(idx + 1 + niq.size)
+        val updated = buildList {
+            addAll(ordered.take(idx + 1))
+            addAll(niq)
+            addAll(songs)
+            addAll(upcoming)
+        }
+        orderedPlayingMusicList.value = updated
+        val insertAt = idx + 1 + niq.size
+        withContext(Dispatchers.Main) {
+            val items = updated.map { it.toMediaItem() }
+            mediaControl?.setMediaItems(items, insertAt - 1, mediaControl?.currentPosition ?: 0L)
+        }
+        saveQueueState()
+        syncQueueState()
+    }
+
+    suspend fun removeNextInQueueItem(index: Int) {
+        val niq = nextInQueueMusicList.value.toMutableList()
+        if (index < 0 || index >= niq.size) return
+        niq.removeAt(index)
+        nextInQueueMusicList.value = niq
+        rebuildOrderedQueue()
+        saveQueueState()
+    }
+
+    suspend fun clearNextInQueue() {
+        nextInQueueMusicList.value = emptyList()
+        rebuildOrderedQueue()
+        saveQueueState()
+    }
+
+    suspend fun removeUpNextItem(index: Int) {
+        val upNext = playingMusicList.value?.toMutableList() ?: return
+        if (index < 0 || index >= upNext.size) return
+        upNext.removeAt(index)
+        playingMusicList.value = upNext.ifEmpty { null }
+        rebuildOrderedQueue()
+        saveQueueState()
+    }
+
+    suspend fun skipToNextInQueueItem(index: Int) {
+        val niq = nextInQueueMusicList.value
+        if (index < 0 || index >= niq.size) return
+        val ordered = orderedPlayingMusicList.value
+        val idx = currentQueueIndex()
+        if (idx < 0) return
+        val targetOrderIdx = idx + 1 + index
+        withContext(Dispatchers.Main) {
+            mediaControl?.seekToDefaultPosition(targetOrderIdx)
+            mediaControl?.fadePlay()
+        }
+        syncQueueState()
+    }
+
+    suspend fun skipToUpNextItem(index: Int) {
+        val upNext = playingMusicList.value ?: return
+        if (index < 0 || index >= upNext.size) return
+        val ordered = orderedPlayingMusicList.value
+        val idx = currentQueueIndex()
+        if (idx < 0) return
+        val niqSize = nextInQueueMusicList.value.size
+        val targetOrderIdx = idx + 1 + niqSize + index
+        withContext(Dispatchers.Main) {
+            mediaControl?.seekToDefaultPosition(targetOrderIdx)
+            mediaControl?.fadePlay()
+        }
+        syncQueueState()
+    }
+
+    suspend fun moveUpNextToNextQueue(index: Int) {
+        val upNext = playingMusicList.value?.toMutableList() ?: return
+        if (index < 0 || index >= upNext.size) return
+        val song = upNext.removeAt(index)
+        val niq = nextInQueueMusicList.value.toMutableList()
+        niq.add(song)
+        nextInQueueMusicList.value = niq
+        playingMusicList.value = upNext.ifEmpty { null }
+        rebuildOrderedQueue()
+        saveQueueState()
+    }
+
+    private fun rebuildOrderedQueue() {
+        val ordered = orderedPlayingMusicList.value
+        val idx = currentQueueIndex()
+        if (idx < 0) {
+            orderedPlayingMusicList.value = buildList {
+                addAll(historyMusicList.value)
+                addAll(nextInQueueMusicList.value)
+                playingMusicList.value?.let { addAll(it) }
+            }
+            return
+        }
+        orderedPlayingMusicList.value = buildList {
+            addAll(historyMusicList.value)
+            ordered.getOrNull(idx)?.let { add(it) }
+            addAll(nextInQueueMusicList.value)
+            playingMusicList.value?.let { addAll(it) }
+        }
+    }
+
+    fun saveQueueState() {
+        MusicLibrary.updatePlayList(
+            PlayListV1(
+                playingMusicUris = (playingMusicList.value ?: emptyList()).mapNotNull { it.uri?.toString() },
+                nextInQueueMusicUris = nextInQueueMusicList.value.mapNotNull { it.uri?.toString() },
+                historyMusicUris = historyMusicList.value.mapNotNull { it.uri?.toString() },
+                musicPlayingUri = musicPlaying.value?.uri?.toString(),
+                shuffleModeEnabled = queueShuffleEnabled.value,
+            )
+        )
+    }
+
+    private fun List<YosMediaItem>.matchingQueuePrefix(candidate: List<YosMediaItem>): List<YosMediaItem> {
+        val maxPrefix = minOf(size, candidate.size, 50)
+        for (prefixSize in maxPrefix downTo 0) {
+            if (take(prefixSize).queueMatches(candidate.take(prefixSize))) {
+                return candidate.take(prefixSize)
+            }
+        }
+        return emptyList()
+    }
+
+    private fun List<YosMediaItem>.queueMatches(other: List<YosMediaItem>): Boolean {
+        if (size != other.size) return false
+        return indices.all { i ->
+            this[i].mediaId != null && this[i].mediaId == other[i].mediaId
+        }
     }
 }
 

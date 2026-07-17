@@ -478,19 +478,3 @@ fun FloatingMenuItem(label: String, icon: ImageVector, onClick: () -> Unit) {
         )
     }
 }
-
-@Composable
-fun FloatingMenuItemDivider() =
-    Spacer(
-        modifier = Modifier
-            .fillMaxWidth(0.618f)
-            .alpha(0.1f)
-            .height(0.65.dp)
-            .background(Color.Black withNight Color.White)
-    )
-
-@Composable
-fun FloatingMenuDivider() =
-    Spacer(
-        modifier = Modifier.height(8.dp)
-    )

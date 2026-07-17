@@ -1,6 +1,8 @@
 package com.pryvn.audiophile.ui.widgets.basic
 
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -125,67 +127,71 @@ fun ShadowImageWithCache(
     shadowType: ShadowType = ShadowType.Large,
     shadowOverlay: Boolean = false,
     cornerRadius: Dp = 8.dp,
-    imageQuality: ImageQuality
+    imageQuality: ImageQuality,
+    overlayContent: @Composable BoxScope.() -> Unit = {}
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
     val url = dataLambda()
     val density = LocalDensity.current
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
-            .error(R.drawable.placeholder_music_default_artwork)
-            .placeholder(R.drawable.placeholder_music_default_artwork)
-            .fallback(R.drawable.placeholder_music_default_artwork)
-            .placeholderMemoryCacheKey(url.toString())
-            .memoryCacheKey(url.toString())
-            .allowHardware(true)
-            .crossfade(true)
-            .apply {
-                if (imageQuality != ImageQuality.RAW) {
-                    val size = getSizeFromQuality(imageQuality)
-                    this.size(size)
-                    if (imageQuality == ImageQuality.LOW) {
-                        this.precision(Precision.INEXACT)
+    Box {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
+                .error(R.drawable.placeholder_music_default_artwork)
+                .placeholder(R.drawable.placeholder_music_default_artwork)
+                .fallback(R.drawable.placeholder_music_default_artwork)
+                .placeholderMemoryCacheKey(url.toString())
+                .memoryCacheKey(url.toString())
+                .allowHardware(true)
+                .crossfade(true)
+                .apply {
+                    if (imageQuality != ImageQuality.RAW) {
+                        val size = getSizeFromQuality(imageQuality)
+                        this.size(size)
+                        if (imageQuality == ImageQuality.LOW) {
+                            this.precision(Precision.INEXACT)
+                        }
+                    } else {
+                        this.precision(Precision.EXACT)
+                        this.size(coil.size.Size.ORIGINAL)
                     }
-                } else {
-                    this.precision(Precision.EXACT)
-                    this.size(coil.size.Size.ORIGINAL)
                 }
-            }
-            .build(),
-        contentDescription = contentDescription.toString(),
-        contentScale = ContentScale.Crop,
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
-            .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
-                clip = true
-                this.shape = shape
-            }
-            .drawWithCache {
-                onDrawWithContent {
-                    drawContent()
-                    val outline = shape.createOutline(
-                        Size(size.width, size.height),
-                        LayoutDirection.Ltr,
-                        density
-                    )
-                    drawOutline(
-                        outline = outline,
-                        color = Color.Gray.copy(alpha = 0.1f),
-                        style = Stroke(width = 12f)
-                    )
-                    drawOutline(
-                        outline = outline,
-                        color = Color.Gray.copy(alpha = 0.5f),
-                        style = Stroke(width = 12f),
-                        blendMode = BlendMode.Overlay
-                    )
+                .build(),
+            contentDescription = contentDescription.toString(),
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                    clip = true
+                    this.shape = shape
                 }
-            }
+                .drawWithCache {
+                    onDrawWithContent {
+                        drawContent()
+                        val outline = shape.createOutline(
+                            Size(size.width, size.height),
+                            LayoutDirection.Ltr,
+                            density
+                        )
+                        drawOutline(
+                            outline = outline,
+                            color = Color.Gray.copy(alpha = 0.1f),
+                            style = Stroke(width = 12f)
+                        )
+                        drawOutline(
+                            outline = outline,
+                            color = Color.Gray.copy(alpha = 0.5f),
+                            style = Stroke(width = 12f),
+                            blendMode = BlendMode.Overlay
+                        )
+                    }
+                }
 
-    )
+        )
+        overlayContent()
+    }
 }
 
 @Composable

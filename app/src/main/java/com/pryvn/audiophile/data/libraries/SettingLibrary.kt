@@ -419,6 +419,68 @@ object SettingsLibrary {
             if (SponsorBlockSkipInteraction) add("interaction")
         }
 
+    // ---------- Profile Picture ----------
+    @Stable
+    var ProfilePictureUri by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "profile_picture_uri",
+        initialValue = ""
+    )
+
+    @Stable
+    var ProfileDisplayName by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "profile_display_name",
+        initialValue = ""
+    )
+
+    // ---------- Animated Album Covers ----------
+    @Stable
+    var AnimatedAlbumCovers by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "animated_album_covers",
+        initialValue = true
+    )
+
+    @Stable
+    var AnimatedAlbumCoversUseApi by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "animated_album_covers_use_api",
+        initialValue = true
+    )
+
+    @Stable
+    var AnimatedAlbumCoverBlacklist by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "animated_album_cover_blacklist",
+        initialValue = ""
+    )
+
+    fun isAnimatedAlbumCoverBlacklisted(albumName: String): Boolean {
+        if (AnimatedAlbumCoverBlacklist.isBlank()) return false
+        return AnimatedAlbumCoverBlacklist.split("\n").any { it.trim().equals(albumName.trim(), ignoreCase = true) }
+    }
+
+    fun toggleAnimatedAlbumCoverBlacklist(albumName: String) {
+        val current = AnimatedAlbumCoverBlacklist.split("\n").map { it.trim() }.filter { it.isNotBlank() }.toMutableList()
+        val normalized = albumName.trim()
+        val index = current.indexOfFirst { it.equals(normalized, ignoreCase = true) }
+        if (index >= 0) {
+            current.removeAt(index)
+        } else {
+            current.add(normalized)
+        }
+        AnimatedAlbumCoverBlacklist = current.joinToString("\n")
+    }
+
+    // ---------- Sleep Timer ----------
+    @Stable
+    var SleepTimerFadeDurationMs by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "sleep_timer_fade_duration_ms",
+        initialValue = 0L
+    )
+
     // ---------- Playback Settings ----------
     @Stable
     var PlaybackSpeed by mutableDataSaverStateOf(

@@ -45,6 +45,9 @@ interface UI {
             const val NotificationSetting = "NotificationSetting"
 
             const val ShazamRecognition = "ShazamRecognition"
+
+            const val AnimatedAlbumCovers = "AnimatedAlbumCovers"
+            const val AnimatedAlbumCoverBlacklist = "AnimatedAlbumCoverBlacklist"
         }
     }
 }

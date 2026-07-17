@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.pryvn.audiophile.R
+import com.pryvn.audiophile.ui.UI
+import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.pages.settings.Divider
 import com.pryvn.audiophile.ui.pages.settings.GroupSpacer
@@ -114,6 +116,17 @@ fun UserInterfaceSetting(navController: NavController) =
                         }
 
                         ListHeader(content = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect_desc))
+
+                        GroupSpacerMedium()
+
+                        RoundColumn {
+                            LabelItem(
+                                title = stringResource(id = R.string.settings_library_animated_album_covers),
+                                superLink = true
+                            ) {
+                                navController.toUI(UI.Settings.AnimatedAlbumCovers)
+                            }
+                        }
 
                         GroupSpacer()
                     }

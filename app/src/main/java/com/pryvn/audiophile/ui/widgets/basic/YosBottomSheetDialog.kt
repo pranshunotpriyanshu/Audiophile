@@ -46,7 +46,7 @@ import com.pryvn.audiophile.ui.theme.withNight
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun YosBottomSheetDialog(
+internal fun YosBottomSheetDialog(
     bottomSheetState: SheetState = rememberModalBottomSheetState(),
     properties: ModalBottomSheetProperties,
     cornerRadius: () -> Dp,

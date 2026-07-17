@@ -15,14 +15,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.libraries.MusicLibrary.songs
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
+import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 
@@ -34,9 +33,11 @@ fun Library(navController: NavController) =
     ) {
         Title(
             title = stringResource(id = R.string.page_library_title),
-            rightIcon = CupertinoIcons.Default.PersonCropCircle,
-            onRightIcon = {
-                navController.toUI(UI.Settings.Main)
+            rightBarIcon = {
+                ProfileButton(
+                    size = 24.dp,
+                    onClick = { navController.toUI(UI.Settings.Main) },
+                )
             }
         ) {
             if (!SettingsLibrary.LocalMusicEnabled) {

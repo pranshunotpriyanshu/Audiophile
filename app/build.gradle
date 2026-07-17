@@ -195,6 +195,8 @@ dependencies {
 
     implementation "com.github.FunnySaltyFish.ComposeDataSaver:data-saver:1.1.9"
 
+    implementation 'sh.calvin.reorderable:reorderable:2.5.1'
+
     implementation 'androidx.palette:palette-ktx:1.0.0'
 
     implementation "com.github.promeg:tinypinyin:2.0.2"

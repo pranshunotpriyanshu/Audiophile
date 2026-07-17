@@ -5,6 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
+import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,63 +121,66 @@ fun Settings(navController: NavController) =
                                     superLink = true
                                 ) {
                                     showLogoutDialog = true
-                                }
-                                if (showLogoutDialog) {
-                                    AppleConfirmSheet(
-                                        title = stringResource(R.string.ytmusic_logout),
-                                        message = stringResource(R.string.ytmusic_logout_confirm),
-                                        confirmText = "Log Out",
-                                        cancelText = "Cancel",
-                                        onConfirm = {
-                                            SettingsLibrary.YtMusicCookie = ""
-                                            SettingsLibrary.YtMusicVisitorData = ""
-                                            SettingsLibrary.YtMusicDataSyncId = ""
-                                            SettingsLibrary.YtMusicAccountName = ""
-                                            SettingsLibrary.YtMusicAccountEmail = ""
-                                            SettingsLibrary.YtMusicAvatarUrl = ""
-                                            SettingsLibrary.YtMusicSyncEnabled = true
-                                            InnerTubeClient.cookie = null
-                                            InnerTubeClient.visitorData = null
-                                            InnerTubeClient.dataSyncId = null
-                                            YouTube.cookie = null
-                                            YouTube.visitorData = null
-                                            YouTube.dataSyncId = null
-                                            com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
-                                                cookie = null,
-                                                visitorData = null,
-                                                dataSyncId = null,
-                                            )
-                                            showLogoutDialog = false
-                                        },
-                                        onDismiss = { showLogoutDialog = false },
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.ytmusic_login_desc),
-                                    fontSize = 13.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-                                )
-                                Button(
-                                    onClick = {
-                                        navController.toUI(UI.YTMusicLogin)
+                            }
+                            if (showLogoutDialog) {
+                                AppleConfirmSheet(
+                                    title = stringResource(R.string.ytmusic_logout),
+                                    message = stringResource(R.string.ytmusic_logout_confirm),
+                                    confirmText = "Log Out",
+                                    cancelText = "Cancel",
+                                    onConfirm = {
+                                        SettingsLibrary.YtMusicCookie = ""
+                                        SettingsLibrary.YtMusicVisitorData = ""
+                                        SettingsLibrary.YtMusicDataSyncId = ""
+                                        SettingsLibrary.YtMusicAccountName = ""
+                                        SettingsLibrary.YtMusicAccountEmail = ""
+                                        SettingsLibrary.YtMusicAvatarUrl = ""
+                                        SettingsLibrary.YtMusicSyncEnabled = true
+                                        InnerTubeClient.cookie = null
+                                        InnerTubeClient.visitorData = null
+                                        InnerTubeClient.dataSyncId = null
+                                        YouTube.cookie = null
+                                        YouTube.visitorData = null
+                                        YouTube.dataSyncId = null
+                                        com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
+                                            cookie = null,
+                                            visitorData = null,
+                                            dataSyncId = null,
+                                        )
+                                        showLogoutDialog = false
                                     },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.ytmusic_login),
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    )
-                                }
+                                    onDismiss = { showLogoutDialog = false },
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.ytmusic_login_desc),
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                            )
+                            Button(
+                                onClick = {
+                                    navController.toUI(UI.YTMusicLogin)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.ytmusic_login),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
                             }
                         }
+
+                        Divider()
+                        ProfilePictureRow()
+                    }
 
                         GroupSpacer()
                         // ---- Local Music section ----
@@ -297,6 +304,74 @@ fun Settings(navController: NavController) =
                 }
             })
     }
+
+@Composable
+private fun ProfilePictureRow() {
+    val context = LocalContext.current
+    val uriString = SettingsLibrary.ProfilePictureUri
+
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: SecurityException) { }
+        SettingsLibrary.ProfilePictureUri = uri.toString()
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                imagePicker.launch(
+                    PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly,
+                    ),
+                )
+            }
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (uriString.isNotBlank()) {
+            CachedArtworkImage(
+                url = uriString,
+                contentDescription = "Profile picture",
+                size = 128,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(MaterialTheme.shapes.extraLarge),
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.songcredits_monogram_person),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                text = stringResource(R.string.profile_picture),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = if (uriString.isNotBlank()) stringResource(R.string.profile_picture_change)
+                else stringResource(R.string.profile_picture_set),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
 
 fun safeStartActivity(context: Context, intent: Intent, options: Bundle?) {
     if (intent.resolveActivity(context.packageManager) != null) {

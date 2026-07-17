@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,8 +29,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -45,12 +44,14 @@ import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.PlaybackSource
+import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
+import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
 
 private fun HistoryEntry.toYTSongItem(): YTSongItem = YTSongItem(
@@ -71,6 +72,9 @@ fun Home(
     var sections by remember { mutableStateOf<List<HomeSection>>(emptyList()) }
     var loadError by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // ── Try These (online songs derived from home sections) ──
+    // (declared below via remember(sections) to avoid stale local state)
 
     // ── Featured Songs (derived from sections, no API call) ──
     val featuredSongs = remember(sections) {
@@ -161,6 +165,16 @@ fun Home(
         loadHome()
     }
 
+    // ── Try These: pick a few online songs from the home sections ──
+    val tryTheseSongs = remember(sections) {
+        sections.flatMap { it.items }
+            .filter { it.videoId != null }
+            .distinctBy { it.videoId }
+            .shuffled()
+            .take(5)
+            .map { it.toYTSongItem() }
+    }
+
     // ── Observe listening history: fires immediately with current value,
     //     then on every song recording. Populates recentlyPlayed + relatedSongs
     //     without requiring the remote YouTube Music history API. ──
@@ -190,23 +204,10 @@ fun Home(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { navController.toUI(UI.Settings.Main) }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = CupertinoIcons.Default.PersonCropCircle,
-                    contentDescription = "Account",
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+            ProfileButton(
+                size = 32.dp,
+                onClick = { navController.toUI(UI.Settings.Main) },
+            )
         }
 
         PullToRefreshLayout(
@@ -272,7 +273,34 @@ fun Home(
 
             // ─── Content (sections loaded) ─────────────────────────────────
             if (!isLoading && !loadError) {
-                // ═══ 1. Featured Songs ════════════════════════════════════════
+                // ═══ 1. Try These (random from library) ═════════════════════════
+                if (tryTheseSongs.isNotEmpty()) {
+                    item("trythese_title") {
+                        SectionTitle(stringResource(R.string.home_recommend_title))
+                    }
+                    item("trythese_carousel") {
+                        val pagerState = rememberPagerState(
+                            pageCount = { tryTheseSongs.size },
+                        )
+                        HorizontalPager(
+                            state = pagerState,
+                            beyondViewportPageCount = 1,
+                            contentPadding = PaddingValues(start = 20.dp, end = 136.dp),
+                            pageSize = PageSize.Fixed(278.dp),
+                        ) { page ->
+                            TryTheseCard(
+                                song = tryTheseSongs[page],
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        MediaController.playOnline(tryTheseSongs[page])
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+
+                // ═══ 2. Featured Songs ════════════════════════════════════════
                 if (featuredSongs.isNotEmpty()) {
                     item("featured_title") {
                         SectionTitle("Featured Songs")
@@ -297,7 +325,7 @@ fun Home(
                     }
                 }
 
-                // ═══ 2. Recently Played ═══════════════════════════════════════
+                // ═══ 3. Recently Played ═══════════════════════════════════════
                 if (!recentLoading || recentlyPlayed.isNotEmpty()) {
                     item("recent_title") { SectionTitle("Recently Played") }
                     if (recentlyPlayed.isNotEmpty()) {
@@ -335,7 +363,7 @@ fun Home(
                     }
                 }
 
-                // ═══ 3. Related Songs ═════════════════════════════════════════
+                // ═══ 4. Related Songs ═════════════════════════════════════════
                 item("related_title") { SectionTitle("Because You Recently Listened") }
                 if (relatedSongs.isNotEmpty()) {
                     item("related_list") {
@@ -358,7 +386,7 @@ fun Home(
                     item("related_empty") { SectionMessage("Play some music to receive recommendations.") }
                 }
 
-                // ═══ 4. For You (original sections, working album backend) ═════════
+                // ═══ 5. For You (original sections, working album backend) ═════════
                 sections.forEach { section ->
                     item("foryou_header_${section.title}") {
                         SectionTitle(section.title)
@@ -394,7 +422,7 @@ fun Home(
                     }
                 }
 
-                // ═══ 5. Curated Songs (4—N horizontal pager) ═══════════════════
+                // ═══ 6. Curated Songs (4—N horizontal pager) ═══════════════════
                 if (curatedSongs.isNotEmpty()) {
                     item("curated_title") { SectionTitle("Curated Songs") }
                     item("curated_pager") {
@@ -579,6 +607,73 @@ private fun SongCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 2.dp),
             )
+        }
+    }
+}
+
+// ─── Try These Card (random from library, pager item) ───────────────────────
+
+@Composable
+private fun TryTheseCard(
+    song: YTSongItem,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(278.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(278.dp)
+                .height(278.dp)
+                .clip(RoundedCornerShape(14.dp)),
+        ) {
+            CachedArtworkImage(
+                url = song.thumbnailUrl,
+                contentDescription = null,
+                size = 556,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)),
+                        ),
+                    ),
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+            ) {
+                Text(
+                    text = song.title,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = SfProFontFamily,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (song.artists.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = song.artists.joinToString(", ") { it.name },
+                        fontSize = 13.sp,
+                        fontFamily = SfProFontFamily,
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
