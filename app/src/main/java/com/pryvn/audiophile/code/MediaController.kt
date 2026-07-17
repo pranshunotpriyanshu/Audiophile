@@ -48,6 +48,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import com.pryvn.audiophile.MainActivity
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController.mediaControl
@@ -285,6 +286,7 @@ object MediaController {
     }
 
     var lyricsFetchJob: Job? = null
+    var playbackJob: Job? = null
 
     private fun cancelLyricsFetch() {
         lyricsFetchJob?.cancel()
@@ -295,6 +297,18 @@ object MediaController {
         lyricsFetchJob?.cancel()
         val job = Job()
         lyricsFetchJob = job
+        return job
+    }
+
+    private fun cancelPlayback() {
+        playbackJob?.cancel()
+        playbackJob = null
+    }
+
+    private fun startPlayback(body: suspend CoroutineScope.() -> Unit): Job {
+        cancelPlayback()
+        val job = CoroutineScope(Dispatchers.IO).launch { body() }
+        playbackJob = job
         return job
     }
 
@@ -311,18 +325,21 @@ object MediaController {
         MainViewModelObject.syncLyricIndex.intValue = -1
     }
 
-    suspend fun playOnline(videoId: String, title: String? = null) {
+    suspend fun playOnline(videoId: String, title: String? = null) = startPlayback {
         cancelLyricsFetch()
         clearLyricsState()
         withContext(Dispatchers.Main.immediate) { mediaControl?.stop() }
+        ensureActive()
         musicPlaying.value = YosMediaItem(
             uri = Uri.EMPTY,
             mediaId = videoId,
             title = title ?: videoId,
         )
         MediaViewModelObject.bitmap.value = null
+        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
 
         val resolved = ArchiveTuneAdapter.resolve(videoId)
+        ensureActive()
         if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
@@ -331,13 +348,15 @@ object MediaController {
             artists = resolved.artists,
             duration = (resolved.durationSeconds?.toLong() ?: 0L) * 1000L
         )
+        ensureActive()
         prepare(mediaItem, listOf(mediaItem))
     }
 
-    suspend fun playOnline(song: com.pryvn.audiophile.code.api.YTSongItem) {
+    suspend fun playOnline(song: com.pryvn.audiophile.code.api.YTSongItem) = startPlayback {
         cancelLyricsFetch()
         clearLyricsState()
         withContext(Dispatchers.Main.immediate) { mediaControl?.stop() }
+        ensureActive()
         val thumbUri = song.thumbnailUrl?.let { Uri.parse(it) }
         musicPlaying.value = YosMediaItem(
             uri = Uri.EMPTY,
@@ -349,8 +368,10 @@ object MediaController {
             duration = (song.durationSeconds?.toLong() ?: 0L) * 1000L,
         )
         MediaViewModelObject.bitmap.value = thumbUri
+        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
 
         val resolved = ArchiveTuneAdapter.resolve(song.videoId)
+        ensureActive()
         if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
             uri = Uri.parse(resolved.url),
@@ -362,13 +383,15 @@ object MediaController {
             duration = (resolved.durationSeconds?.toLong() ?: song.durationSeconds?.toLong() ?: 0L) * 1000L,
             mimeType = resolved.mimeType
         )
+        ensureActive()
         prepare(mediaItem, listOf(mediaItem))
     }
 
-    suspend fun playPlaylist(firstSong: com.pryvn.audiophile.code.api.YTSongItem, songs: List<com.pryvn.audiophile.code.api.YTSongItem>) {
+    suspend fun playPlaylist(firstSong: com.pryvn.audiophile.code.api.YTSongItem, songs: List<com.pryvn.audiophile.code.api.YTSongItem>) = startPlayback {
         cancelLyricsFetch()
         clearLyricsState()
         withContext(Dispatchers.Main.immediate) { mediaControl?.stop() }
+        ensureActive()
         val thumbUri = firstSong.thumbnailUrl?.let { Uri.parse(it) }
         musicPlaying.value = YosMediaItem(
             uri = Uri.EMPTY,
@@ -380,6 +403,7 @@ object MediaController {
             duration = (firstSong.durationSeconds?.toLong() ?: 0L) * 1000L,
         )
         MediaViewModelObject.bitmap.value = thumbUri
+        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
 
         val resolved = resolveStreamUrl(
             videoId = firstSong.videoId,
@@ -387,6 +411,7 @@ object MediaController {
             artists = firstSong.artists.map { it.name },
             durationSeconds = firstSong.durationSeconds,
         )
+        ensureActive()
         if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItems = songs.map { song ->
             if (song.videoId == firstSong.videoId) {
@@ -410,7 +435,8 @@ object MediaController {
                 )
             }
         }
-        prepare(mediaItems.firstOrNull() ?: return, mediaItems)
+        ensureActive()
+        prepare(mediaItems.firstOrNull() ?: return@startPlayback, mediaItems)
     }
 
     fun manualNext() {
@@ -752,11 +778,12 @@ class YosPlaybackService : MediaSessionService() {
 
                         println("质量分析 采样率：${MediaViewModelObject.samplingRate.intValue}，比特率：${MediaViewModelObject.bitrate.intValue}")
 
-                        // Fetch online lyrics with cancellation + stale-update guard
-                        val lyricsJob = com.pryvn.audiophile.code.MediaController.newLyricsFetchJob()
+                        // Fetch online lyrics tied to playback job lifecycle
+                        val playbackJob = com.pryvn.audiophile.code.MediaController.playbackJob
+                            ?: return@runCatching
                         MediaViewModelObject.isLoadingLyrics.value = true
                         LyricsProcessor.resetLyricsState()
-                        CoroutineScope(Dispatchers.IO + lyricsJob).launch {
+                        CoroutineScope(Dispatchers.IO + playbackJob).launch {
                             val currentTrack = musicPlaying.value
                             val videoIdAtFetch = currentTrack?.mediaId
                             if (currentTrack != null) {
@@ -764,6 +791,7 @@ class YosPlaybackService : MediaSessionService() {
                                 val cached = MediaViewModelObject.lyricsCache[cacheKey]
                                 if (cached != null) {
                                     if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
+                                    ensureActive()
                                     LyricsProcessor.applyLyrics(
                                         AudiophileLyrics("Cache", cached, isWordSynced = TTMLParser.isTtml(cached)),
                                         { lrcEntries.value = it }
@@ -780,6 +808,7 @@ class YosPlaybackService : MediaSessionService() {
                                         videoId = currentTrack.mediaId,
                                     )
                                     if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
+                                    ensureActive()
                                     if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
                                         MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
                                         if (MediaViewModelObject.lyricsCache.size > 20) {
@@ -796,13 +825,14 @@ class YosPlaybackService : MediaSessionService() {
                                 }
                             }
                         }
-                        // Prefetch lyrics for upcoming songs (tied to same Job for cancellation)
-                        CoroutineScope(Dispatchers.IO + lyricsJob).launch {
+                        // Prefetch lyrics for upcoming songs (tied to same playback job for cancellation)
+                        CoroutineScope(Dispatchers.IO + playbackJob).launch {
                             val list = playingMusicList?.value ?: return@launch
                             val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
                             if (currentIndex >= 0) {
                                 val upcoming = list.subList(currentIndex + 1, kotlin.math.min(currentIndex + 16, list.size))
                                 for (track in upcoming) {
+                                    ensureActive()
                                     val key = track.mediaId ?: (track.title ?: "unknown")
                                     if (!MediaViewModelObject.lyricsCache.containsKey(key)) {
                                         val lyrics = ArchiveTuneApis.fetchLyrics(
