@@ -303,6 +303,8 @@ object MediaController {
     private fun cancelPlayback() {
         playbackJob?.cancel()
         playbackJob = null
+        lyricsFetchJob?.cancel()
+        lyricsFetchJob = null
     }
 
     private fun startPlayback(body: suspend CoroutineScope.() -> Unit): Job {
@@ -778,12 +780,11 @@ class YosPlaybackService : MediaSessionService() {
 
                         println("质量分析 采样率：${MediaViewModelObject.samplingRate.intValue}，比特率：${MediaViewModelObject.bitrate.intValue}")
 
-                        // Fetch online lyrics tied to playback job lifecycle
-                        val playbackJob = com.pryvn.audiophile.code.MediaController.playbackJob
-                            ?: return@runCatching
+                        // Fetch online lyrics with cancellation guard
                         MediaViewModelObject.isLoadingLyrics.value = true
                         LyricsProcessor.resetLyricsState()
-                        CoroutineScope(Dispatchers.IO + playbackJob).launch {
+                        val lyricsJob = com.pryvn.audiophile.code.MediaController.newLyricsFetchJob()
+                        CoroutineScope(Dispatchers.IO + lyricsJob).launch {
                             val currentTrack = musicPlaying.value
                             val videoIdAtFetch = currentTrack?.mediaId
                             if (currentTrack != null) {
@@ -825,8 +826,8 @@ class YosPlaybackService : MediaSessionService() {
                                 }
                             }
                         }
-                        // Prefetch lyrics for upcoming songs (tied to same playback job for cancellation)
-                        CoroutineScope(Dispatchers.IO + playbackJob).launch {
+                        // Prefetch lyrics for upcoming songs (tied to same lyrics job for cancellation)
+                        CoroutineScope(Dispatchers.IO + lyricsJob).launch {
                             val list = playingMusicList?.value ?: return@launch
                             val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
                             if (currentIndex >= 0) {
