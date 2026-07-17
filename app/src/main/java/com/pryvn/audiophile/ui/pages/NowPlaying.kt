@@ -244,7 +244,40 @@ private val MaterialFadeOutTransitionSpec
         fadeMode = FadeMode.Out,
         easing = EaseOutQuart
     )
-*/
+ */
+
+private data class QueueReorderTarget(
+    val nextInQueue: Boolean,
+    val index: Int,
+)
+
+private fun resolveQueueReorderTarget(
+    lazyListIndex: Int,
+    nextInQueueSize: Int,
+    upNextSize: Int,
+): QueueReorderTarget? {
+    var cursor = 1
+
+    if (nextInQueueSize > 0) {
+        cursor += 1
+
+        if (lazyListIndex in cursor until cursor + nextInQueueSize) {
+            return QueueReorderTarget(true, lazyListIndex - cursor)
+        }
+
+        cursor += nextInQueueSize
+    }
+
+    if (upNextSize > 0) {
+        cursor += 1
+
+        if (lazyListIndex in cursor until cursor + upNextSize) {
+            return QueueReorderTarget(false, lazyListIndex - cursor)
+        }
+    }
+
+    return null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalSharedTransitionApi
@@ -1411,24 +1444,26 @@ private fun PlayingList(
                     initialFirstVisibleItemScrollOffset = -15
                 )
                 val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
-                    val list = MediaController.playingMusicList.value?.toMutableList() ?: return@rememberReorderableLazyListState
-                    if (nextInQueue.isNotEmpty() && upNext.isNotEmpty()) {
-                        val offset = nextInQueue.size + 2
-                        val fromUp = from.index - offset
-                        val toUp = to.index - offset
-                        if (fromUp in list.indices && toUp in list.indices) {
-                            val moved = list.removeAt(fromUp)
-                            list.add(toUp, moved)
-                            MediaController.playingMusicList.value = list
-                        }
+                    val source = resolveQueueReorderTarget(
+                        from.index,
+                        nextInQueue.size,
+                        upNext.size,
+                    ) ?: return@rememberReorderableLazyListState
+                    val destination = resolveQueueReorderTarget(
+                        to.index,
+                        nextInQueue.size,
+                        upNext.size,
+                    ) ?: return@rememberReorderableLazyListState
+
+                    if (source.nextInQueue != destination.nextInQueue || source.index == destination.index) {
+                        return@rememberReorderableLazyListState
+                    }
+
+                    Vibrator.click(context)
+                    if (source.nextInQueue) {
+                        MediaController.moveNextInQueueItemDuringDrag(source.index, destination.index)
                     } else {
-                        val fromUp = from.index - 1
-                        val toUp = to.index - 1
-                        if (fromUp in list.indices && toUp in list.indices) {
-                            val moved = list.removeAt(fromUp)
-                            list.add(toUp, moved)
-                            MediaController.playingMusicList.value = list
-                        }
+                        MediaController.moveUpNextItemDuringDrag(source.index, destination.index)
                     }
                 }
 

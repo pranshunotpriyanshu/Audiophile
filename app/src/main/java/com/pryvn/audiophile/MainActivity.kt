@@ -709,17 +709,14 @@ class MainActivity : BaseActivity() {
 
                                                 val home =
                                                     context.getString(R.string.page_home_title)
-                                                val browse =
-                                                    context.getString(R.string.page_browse_title)
                                                 val library =
                                                     context.getString(R.string.page_library_title)
                                                 val search =
                                                     context.getString(R.string.page_search_title)
                                                 val target = when (it) {
                                                     home -> 0
-                                                    browse -> 1
-                                                    search -> 2
-                                                    library -> 3
+                                                    search -> 1
+                                                    library -> 2
                                                     else -> 0
                                                 }
                                                 if (route.value == UI.HomePage) {
@@ -741,12 +738,6 @@ class MainActivity : BaseActivity() {
                                                     NavItem(
                                                         stringResource(id = R.string.page_home_title),
                                                         R.drawable.ic_app_logo
-                                                    )
-                                                )
-                                                add(
-                                                    NavItem(
-                                                        stringResource(id = R.string.page_browse_title),
-                                                        R.drawable.ic_uitabbar_browse
                                                     )
                                                 )
                                                 add(

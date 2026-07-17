@@ -10,7 +10,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.models.ImageViewModel
-import com.pryvn.audiophile.ui.pages.browse.Browse
 import com.pryvn.audiophile.ui.pages.library.Library
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
@@ -25,7 +24,6 @@ fun HomeNav(
     YosWrapper {
         val context = LocalContext.current
         val home = context.getString(R.string.page_home_title)
-        val browse = context.getString(R.string.page_browse_title)
         val search = context.getString(R.string.page_search_title)
         val library = context.getString(R.string.page_library_title)
 
@@ -34,9 +32,8 @@ fun HomeNav(
                 nowPageOnChanged(
                     when (pagerState.currentPage) {
                         0 -> home
-                        1 -> browse
-                        2 -> search
-                        3 -> library
+                        1 -> search
+                        2 -> library
                         else -> home
                     }
                 )
@@ -52,14 +49,13 @@ fun HomeNav(
         ) { page ->
             when (page) {
                 0 -> Home(navController, imageViewModel)
-                1 -> Browse(navController)
-                2 -> YTMusicSearchScreen(
+                1 -> YTMusicSearchScreen(
                     showBackButton = false,
                     initialQuery = null,
                     isMoodGenreBrowse = false,
                     navController = navController
                 )
-                3 -> Library(navController)
+                2 -> Library(navController)
             }
         }
     }
