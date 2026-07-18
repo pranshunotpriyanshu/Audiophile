@@ -22,6 +22,8 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import com.pryvn.audiophile.code.api.innertube.models.Context
+import com.pryvn.audiophile.code.api.innertube.models.Thumbnails
+import com.pryvn.audiophile.code.api.innertube.models.bestUrl
 import com.pryvn.audiophile.code.api.innertube.models.MediaInfo
 import com.pryvn.audiophile.code.api.innertube.models.ReturnYouTubeDislikeResponse
 import com.pryvn.audiophile.code.api.innertube.models.YouTubeClient
@@ -864,10 +866,7 @@ class InnerTube {
                         ?.videoOwnerRenderer
                         ?.thumbnail
                         ?.thumbnails
-                        ?.find {
-                            it.height == 48
-                        }?.url
-                        ?.replace("s48", "s960"),
+                        ?.let { Thumbnails(it).bestUrl() },
                 description = baseForInfo?.attributedDescription?.content,
                 subscribers =
                     baseForInfo

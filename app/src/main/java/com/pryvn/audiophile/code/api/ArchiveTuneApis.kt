@@ -146,7 +146,7 @@ object ArchiveTuneApis {
                 artist = null,
                 album = null,
                 durationSeconds = null,
-                thumbnailUrl = "https://i.ytimg.com/vi/$id/hqdefault.jpg",
+                thumbnailUrl = "https://i.ytimg.com/vi/$id/maxresdefault.jpg",
                 source = "YouTube Music"
             )
         }

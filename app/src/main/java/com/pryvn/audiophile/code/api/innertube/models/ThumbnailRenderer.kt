@@ -25,7 +25,7 @@ data class ThumbnailRenderer(
         val thumbnailCrop: String?,
         val thumbnailScale: String?,
     ) {
-        fun getThumbnailUrl() = thumbnail.thumbnails.lastOrNull()?.normalizedUrl
+        fun getThumbnailUrl() = thumbnail.bestUrl()
     }
 
     @Serializable

@@ -11,6 +11,7 @@ import kotlinx.serialization.Serializable
 import com.pryvn.audiophile.code.api.innertube.models.AccountInfo
 import com.pryvn.audiophile.code.api.innertube.models.Runs
 import com.pryvn.audiophile.code.api.innertube.models.Thumbnails
+import com.pryvn.audiophile.code.api.innertube.models.bestUrl
 
 @Serializable
 data class AccountMenuResponse(
@@ -49,7 +50,7 @@ data class AccountMenuResponse(
                                     name = name,
                                     email = email?.runs?.firstOrNull()?.text,
                                     channelHandle = channelHandle?.runs?.firstOrNull()?.text,
-                                    thumbnailUrl = accountPhoto.thumbnails.lastOrNull()?.normalizedUrl,
+                                    thumbnailUrl = accountPhoto.bestUrl(),
                                 )
                             }
                         }

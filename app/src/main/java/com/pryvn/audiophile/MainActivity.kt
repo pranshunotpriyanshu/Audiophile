@@ -147,6 +147,7 @@ import com.pryvn.audiophile.ui.pages.library.artists.ArtistInfo
 import com.pryvn.audiophile.ui.pages.library.artists.ArtistSongs
 import com.pryvn.audiophile.ui.pages.library.artists.LocalArtists
 import com.pryvn.audiophile.ui.pages.library.playlists.PlayLists
+import com.pryvn.audiophile.ui.pages.library.playlists.UndoSnackbarHost
 import com.pryvn.audiophile.ui.pages.settings.Settings
 import com.pryvn.audiophile.ui.pages.settings.audio.exoPlayer.ExoPlayerSettings
 import com.pryvn.audiophile.ui.pages.settings.audio.exoPlayer.MediaCodec
@@ -626,8 +627,14 @@ class MainActivity : BaseActivity() {
                                             }
                                         }
 
-
                                     }
+
+
+                                }
+
+                                // 播放列表删除撤销 snackbar
+                                YosWrapper {
+                                    UndoSnackbarHost(bottomOffset = 62.dp)
                                 }
 
                                 // 底部导航栏

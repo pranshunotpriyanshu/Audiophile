@@ -46,9 +46,12 @@ object LibraryObject {
     private val targetList: MutableState<List<YosMediaItem>> = mutableStateOf(emptyList())
     @Stable
     private val targetListTitle = mutableStateOf("")
-    fun setTargetListWithTitle(title: String, list: List<YosMediaItem>) {
+    fun setTargetListWithTitle(title: String, list: List<YosMediaItem>, playListId: String? = null) {
         targetListTitle.value = title
         targetList.value = list
+        if (playListId != null) {
+            targetPlaylistId.value = playListId
+        }
     }
     fun getTargetListWithTitle(): Pair<String, List<YosMediaItem>> {
         return Pair(targetListTitle.value, targetList.value)
