@@ -1,0 +1,3 @@
+def cc = configurations.findByName("compileClasspath")
+println "=== kugou classpath jars ==="
+cc.resolvedConfiguration.resolvedArtifacts.each { a -> println a.file.name }

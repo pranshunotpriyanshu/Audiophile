@@ -63,6 +63,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     sourceSets {
@@ -160,6 +161,15 @@ dependencies {
     implementation "io.ktor:ktor-client-logging:$ktor_version"
     implementation "io.ktor:ktor-client-cio:$ktor_version"
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3"
+
+    // Lyrics provider modules (ported from the standalone `lyrics` project)
+    implementation project(':lyrics:kugou')
+    implementation project(':lyrics:lrclib')
+    implementation project(':lyrics:simpmusic')
+    implementation project(':lyrics:paxsenix')
+    implementation project(':lyrics:betterlyrics')
+    implementation project(':lyrics:unison')
+    implementation project(':lyrics:youlyplus')
 
     // SimpMusic-derived playback pipeline
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"

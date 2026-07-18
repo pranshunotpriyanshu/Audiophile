@@ -24,3 +24,10 @@ dependencyResolutionManagement {
 rootProject.name = "Audiophile"
 include ':app'
 include ':overscroll_core'
+include ':lyrics:kugou'
+include ':lyrics:lrclib'
+include ':lyrics:simpmusic'
+include ':lyrics:paxsenix'
+include ':lyrics:betterlyrics'
+include ':lyrics:unison'
+include ':lyrics:youlyplus'

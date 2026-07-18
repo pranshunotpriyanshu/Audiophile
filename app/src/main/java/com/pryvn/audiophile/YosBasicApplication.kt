@@ -25,6 +25,8 @@ import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.YosStringWrapper
 import kotlin.system.exitProcess
 import moe.rukamori.archivetune.innertube.YouTube
+import moe.rukamori.archivetune.kugou.KuGou
+import moe.rukamori.archivetune.paxsenix.PaxsenixLyrics
 import moe.rukamori.archivetune.utils.PreferenceStore
 import moe.rukamori.archivetune.utils.potoken.BotGuardTokenGenerator
 import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
@@ -45,6 +47,19 @@ class YosBasicApplication : Application() {
 
         // 初始化 ArchiveTune DataStore 内存缓存 (幂等，仅启动一次)
         PreferenceStore.start(applicationContext)
+
+        // 初始化歌词 provider 模块 (ported from the standalone `lyrics` project)
+        runCatching {
+            PaxsenixLyrics.setUserAgent("Audiophile", BuildConfig.VERSION_NAME)
+        }
+        runCatching {
+            val languageTag =
+                resources.configuration.locales.getFirstMatch(arrayOf("zh-TW"))?.toLanguageTag()
+                    ?: resources.configuration.locales[0]?.toLanguageTag()
+            if (languageTag == "zh-TW") {
+                KuGou.useTraditionalChinese = true
+            }
+        }
 
         // 启动 ArchiveTune 在线播放后端 (PoToken 生成 + visitorData 引导)
         runCatching { BotGuardTokenGenerator.initialize(applicationContext) }

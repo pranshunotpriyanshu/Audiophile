@@ -2,6 +2,7 @@ package com.pryvn.audiophile.code.api
 
 import android.net.Uri
 import com.google.gson.Gson
+import com.pryvn.audiophile.code.lyrics.LyricsHelper
 import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -80,21 +81,13 @@ object ArchiveTuneApis {
     ): AudiophileLyrics? = withContext(Dispatchers.IO) {
         val cleanTitle = title?.takeIf { it.isNotBlank() } ?: return@withContext null
         val cleanArtist = artist?.takeIf { it.isNotBlank() } ?: ""
-        val durationSeconds = durationMs.takeIf { it > 0 }?.let { (it / 1000L).toInt() }
-
-        val providers = listOf<suspend () -> AudiophileLyrics?>(
-            { fetchBetterLyrics(cleanTitle, cleanArtist, album, durationSeconds, preferTTML = true) },
-            { videoId?.let { fetchUnison(it, cleanTitle, cleanArtist, durationSeconds) } },
-            { videoId?.let { fetchYouLyPlus(it, durationSeconds) } },
-            { fetchLrcLib(cleanTitle, cleanArtist, album, durationSeconds) },
-            { fetchKuGou(cleanTitle, cleanArtist, durationSeconds) },
-            { videoId?.let { fetchSimpMusic(it, durationSeconds) } },
-            { fetchPaxsenix(cleanTitle, cleanArtist, durationSeconds) },
+        LyricsHelper.getLyrics(
+            title = cleanTitle,
+            artist = cleanArtist,
+            album = album,
+            durationMs = durationMs,
+            videoId = videoId,
         )
-
-        providers.firstNotNullOfOrNull { provider ->
-            runCatching { provider() }.getOrNull()?.takeIf { it.text.isNotBlank() }
-        }
     }
 
     suspend fun fetchTranslation(
