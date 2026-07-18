@@ -73,7 +73,7 @@ import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.consumeNowPlayingNavigationMarker
 import com.pryvn.audiophile.ui.returnToLibraryFromNowPlaying
-import com.pryvn.audiophile.ui.pages.library.FloatingMenu
+import com.pryvn.audiophile.ui.pages.library.FloatingMenuAnchored
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuItemDivider
@@ -113,11 +113,11 @@ fun ArtistInfo(
         mutableStateOf(LibraryObject.getTargetArtistName())
     }
     val artistSections = remember(artistName.value, MusicLibrary.songs) {
-        ArtistLibrary.sectionsForArtist(artistName.value)
+        ArtistLibrary.sectionsForArtist(artistName.value ?: "")
     }
     val showEmptyState = remember(artistName.value, artistSections) {
         derivedStateOf {
-            artistName.value.isEmpty() || (
+            artistName.value.isNullOrEmpty() || (
                 artistSections.songs.isEmpty() &&
                     artistSections.albums.isEmpty() &&
                     artistSections.singlesAndEps.isEmpty() &&
@@ -161,7 +161,7 @@ fun ArtistInfo(
     val artistSongs = artistSections.songs
     val isFollowed by remember(artistName.value, SettingsLibrary.FollowedArtists) {
         derivedStateOf {
-            SettingsLibrary.isArtistFollowed(artistName.value)
+            SettingsLibrary.isArtistFollowed(artistName.value ?: "")
         }
     }
     val openArtistSongsSearch: () -> Unit = {
@@ -170,7 +170,7 @@ fun ArtistInfo(
         navController.toUI(UI.ArtistSongs)
     }
 
-    FloatingMenu({ overflowSheetOpen.value }, {
+    FloatingMenuAnchored({ overflowSheetOpen.value }, {
         overflowSheetOpen.value = it
     }, overflowButtonPosition.value) {
         FloatingMenuItem(
@@ -185,7 +185,7 @@ fun ArtistInfo(
             Column {
                 FloatingMenuItemDivider()
                 ArtistAddToPlaylistContent(
-                    artistName = artistName.value,
+                    artistName = artistName.value ?: "",
                     songs = artistSongs,
                     showHeader = false,
                     onDone = { overflowSheetOpen.value = false },
@@ -221,7 +221,7 @@ fun ArtistInfo(
     }
 
     MusicDetailPage(
-        title = artistName.value,
+        title = artistName.value ?: "",
         listState = listState,
         searchText = "",
         searchPlaceholder = "",
@@ -249,7 +249,7 @@ fun ArtistInfo(
         ),
         topBarFirstActionSelected = isFollowed,
         onTopBarFirstActionClick = {
-            SettingsLibrary.toggleArtistFollowed(artistName.value)
+            SettingsLibrary.toggleArtistFollowed(artistName.value ?: "")
         },
         topBarSecondActionIconRes = R.drawable.ic_action_more,
         topBarSecondActionContentDescription = stringResource(id = R.string.playlist_overflow_more_cd),
@@ -265,7 +265,7 @@ fun ArtistInfo(
         },
         headerContent = {
             Text(
-                text = artistName.value,
+                text = artistName.value ?: "",
                 color = Color.White,
                 fontSize = 31.sp,
                 fontWeight = FontWeight.Bold,
@@ -317,7 +317,7 @@ fun ArtistInfo(
 
                 MusicDetailCircleButton(
                     painter = painterResource(id = R.drawable.ic_action_search),
-                    contentDescription = stringResource(id = R.string.music_detail_search_cd, artistName.value),
+                    contentDescription = stringResource(id = R.string.music_detail_search_cd),
                     showBackground = false,
                     iconSize = 36.dp,
                     onClick = openArtistSongsSearch,
@@ -344,7 +344,9 @@ fun ArtistInfo(
             MusicList(
                 music = music,
                 onQueueSwipe = {
-                    MediaController.addToQueue(music)
+                    scope.launch(Dispatchers.IO) {
+                        MediaController.addToQueue(music)
+                    }
                 },
                 navController = navController,
             ) {

@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.artistsName
 import com.pryvn.audiophile.data.libraries.defaultArtistsName
@@ -24,7 +25,12 @@ import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 
 @Composable
-fun /*LazyItemScope.*/MusicList(music: YosMediaItem, itemClick: () -> Unit) {
+fun /*LazyItemScope.*/MusicList(
+    music: YosMediaItem,
+    onQueueSwipe: (() -> Unit)? = null,
+    navController: NavController? = null,
+    itemClick: () -> Unit,
+) {
     /*rememberSaveable(stateSaver = object : Saver<String?, Any> {
     override fun restore(value: Any): String? {
         return value as String?

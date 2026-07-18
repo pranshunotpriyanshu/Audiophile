@@ -129,7 +129,8 @@ fun LocalArtists(navController: NavController) {
                 title = stringResource(id = R.string.page_library_artists), onBack = {
                     navController.popBackStack()
                 },
-                stickyContent = {
+            ) {
+                item {
                     SearchTextField(
                         text = searchText.value,
                         placeholder = stringResource(id = R.string.page_library_search_artists),
@@ -146,9 +147,7 @@ fun LocalArtists(navController: NavController) {
                             }
                         },
                     )
-                },
-                stickyContentHeight = 61.dp,
-            ) {
+                }
                 itemsIndexed(
                     list.value,
                     key = { _, artist -> artist }/*,

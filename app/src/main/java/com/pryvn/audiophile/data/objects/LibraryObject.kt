@@ -29,6 +29,20 @@ object LibraryObject {
     fun getTargetBrowseId(): String { return targetBrowseId.value }
 
     @Stable
+    private val targetArtistName = mutableStateOf<String?>(null)
+    fun setTargetArtistName(name: String?) { targetArtistName.value = name }
+    fun getTargetArtistName(): String? { return targetArtistName.value }
+
+    @Stable
+    private val artistSongsSearchOnOpen = mutableStateOf(false)
+    fun setArtistSongsSearchOnOpen(open: Boolean) { artistSongsSearchOnOpen.value = open }
+    fun consumeArtistSongsSearchOnOpen(): Boolean {
+        val value = artistSongsSearchOnOpen.value
+        artistSongsSearchOnOpen.value = false
+        return value
+    }
+
+    @Stable
     private val targetList: MutableState<List<YosMediaItem>> = mutableStateOf(emptyList())
     @Stable
     private val targetListTitle = mutableStateOf("")

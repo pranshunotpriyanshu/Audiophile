@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,8 +49,7 @@ fun ArtistSongs(navController: NavController)
     val artistName = rememberSaveable(key = "ArtistSongs_artistName") {
         mutableStateOf(LibraryObject.getTargetArtistName())
     }
-    val artistSongs = ArtistLibrary.songsForArtist(artistName.value)
-    val listState = rememberLazyListState()
+    val artistSongs = ArtistLibrary.songsForArtist(artistName.value ?: "")
     val scope = rememberCoroutineScope()
     val searchText = rememberSaveable(artistName.value) {
         mutableStateOf("")
@@ -63,7 +62,7 @@ fun ArtistSongs(navController: NavController)
     }
     val showEmptyState = remember(artistName.value, artistSongs) {
         derivedStateOf {
-            artistName.value.isEmpty() || artistSongs.isEmpty()
+            artistName.value.isNullOrEmpty() || artistSongs.isEmpty()
         }
     }
 
@@ -108,13 +107,13 @@ fun ArtistSongs(navController: NavController)
     val keyboardController = LocalSoftwareKeyboardController.current
 
     Title(
-        title = artistName.value,
+        title = artistName.value ?: "",
         subTitle = stringResource(id = R.string.page_library_songs),
         onBack = {
             navController.popBackStack()
         },
-        listState = listState,
-        stickyContent = {
+    ) {
+        item("ArtistSongs_search") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -140,9 +139,8 @@ fun ArtistSongs(navController: NavController)
                     },
                 )
             }
-        },
-        stickyContentHeight = 49.dp,
-    ) {
+        }
+
         if (displayedSongs.value.isEmpty()) {
             item("ArtistSongs_noResults") {
                 Text(
@@ -163,6 +161,7 @@ fun ArtistSongs(navController: NavController)
                 ArtistSongItem(
                     music = music,
                     navController = navController,
+                    scope = scope,
                     onPlay = {
                         scope.launch(Dispatchers.IO) {
                             MediaController.prepare(music, displayedSongs.value)
@@ -190,12 +189,15 @@ private fun ArtistSongItem(
     music: YosMediaItem,
     navController: NavController,
     onPlay: () -> Unit,
+    scope: CoroutineScope,
 )
 {
     MusicList(
         music = music,
         onQueueSwipe = {
-            MediaController.addToQueue(music)
+            scope.launch(Dispatchers.IO) {
+                MediaController.addToQueue(music)
+            }
         },
         navController = navController,
     ) {

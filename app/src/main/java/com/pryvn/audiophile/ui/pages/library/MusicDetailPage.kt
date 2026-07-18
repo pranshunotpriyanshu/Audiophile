@@ -1,0 +1,722 @@
+package com.pryvn.audiophile.ui.pages.library
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.cormor.overscroll.core.overScrollVertical
+import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import com.pryvn.audiophile.R
+import com.pryvn.audiophile.code.utils.others.Vibrator
+import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
+import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun MusicDetailPage(
+    title: String,
+    listState: LazyListState,
+    searchText: String,
+    searchPlaceholder: String,
+    enableSearch: Boolean,
+    showSortButton: Boolean = true,
+    showSearchButton: Boolean = enableSearch,
+    searchModeActive: Boolean,
+    searchRequestFocusSignal: Int,
+    searchTopPadding: Dp = 64.dp,
+    onBack: () -> Unit,
+    onSort: () -> Unit,
+    onSearchTextChange: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    onSearchDismiss: () -> Unit,
+    topBarFirstActionIconRes: Int? = null,
+    topBarFirstActionContentDescription: String? = null,
+    topBarFirstActionSelected: Boolean = false,
+    onTopBarFirstActionClick: (() -> Unit)? = null,
+    onTopBarFirstActionPositioned: (Offset) -> Unit = {},
+    topBarSecondActionIconRes: Int? = null,
+    topBarSecondActionContentDescription: String? = null,
+    topBarSecondActionSelected: Boolean = false,
+    onTopBarSecondActionClick: (() -> Unit)? = null,
+    onTopBarSecondActionPositioned: (Offset) -> Unit = {},
+    artwork: @Composable BoxScope.() -> Unit,
+    headerContent: @Composable ColumnScope.() -> Unit,
+    actionContent: @Composable () -> Unit,
+    content: LazyListScope.() -> Unit,
+) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val heroHeight = (configuration.screenHeightDp.dp * 0.52f).coerceIn(320.dp, 468.dp)
+    val heroHeightPx = with(density) { heroHeight.toPx() }
+
+    if (searchModeActive) {
+        BackHandler(onBack = onSearchDismiss)
+    }
+
+    val collapseProgress by remember(listState, heroHeightPx, searchModeActive) {
+        derivedStateOf {
+            when {
+                searchModeActive -> 1f
+                listState.firstVisibleItemIndex > 0 -> 1f
+                heroHeightPx == 0f -> 0f
+                else -> {
+                    (listState.firstVisibleItemScrollOffset / (heroHeightPx * 0.62f)).coerceIn(0f, 1f)
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (searchModeActive) Modifier else Modifier.overScrollVertical()),
+            flingBehavior = rememberOverscrollFlingBehavior { listState },
+            contentPadding = PaddingValues(bottom = 0.dp),
+        ) {
+            if (!searchModeActive) {
+                item("MusicDetailHero") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(heroHeight)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                        ) {
+                            artwork()
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Black.copy(alpha = 0.22f),
+                                            Color.Black.copy(alpha = 0.46f),
+                                            MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+                                            MaterialTheme.colorScheme.background,
+                                        ),
+                                    ),
+                                ),
+                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 20.dp, vertical = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Spacer(modifier = Modifier.height(88.dp))
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                content = headerContent,
+                            )
+
+                            Spacer(modifier = Modifier.height(28.dp))
+                            actionContent()
+                        }
+                    }
+                }
+            }
+
+            if (enableSearch && searchModeActive) {
+                stickyHeader("MusicDetailSearch") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .statusBarsPadding()
+                            .padding(horizontal = 18.dp)
+                            .padding(top = searchTopPadding, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SearchTextField(
+                            text = searchText,
+                            placeholder = searchPlaceholder,
+                            onValueChange = onSearchTextChange,
+                            onSearch = {},
+                            modifier = Modifier.weight(1f),
+                            requestFocusSignal = searchRequestFocusSignal,
+                            onClear = {
+                                onSearchTextChange("")
+                            },
+                        )
+                    }
+                }
+            }
+
+            content()
+
+            item("MusicDetailBottomInset") {
+                Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+            }
+        }
+
+        MusicDetailTopBar(
+            title = title,
+            collapseProgress = collapseProgress,
+            showSortButton = showSortButton,
+            showSearchButton = showSearchButton,
+            searchModeActive = searchModeActive,
+            onBack = if (searchModeActive) {
+                onSearchDismiss
+            } else {
+                onBack
+            },
+            onSort = onSort,
+            onSearchClick = if (searchModeActive) {
+                onSearchDismiss
+            } else {
+                onSearchClick
+            },
+            topBarFirstActionIconRes = topBarFirstActionIconRes,
+            topBarFirstActionContentDescription = topBarFirstActionContentDescription,
+            topBarFirstActionSelected = topBarFirstActionSelected,
+            onTopBarFirstActionClick = onTopBarFirstActionClick,
+            onTopBarFirstActionPositioned = onTopBarFirstActionPositioned,
+            topBarSecondActionIconRes = topBarSecondActionIconRes,
+            topBarSecondActionContentDescription = topBarSecondActionContentDescription,
+            topBarSecondActionSelected = topBarSecondActionSelected,
+            onTopBarSecondActionClick = onTopBarSecondActionClick,
+            onTopBarSecondActionPositioned = onTopBarSecondActionPositioned,
+        )
+    }
+}
+
+@Composable
+fun MusicDetailCircleButton(
+    painter: Painter,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    accent: Boolean = false,
+    selected: Boolean = false,
+    showBackground: Boolean = true,
+    iconSize: Dp = 22.dp,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val backgroundColor = if (!showBackground) {
+        Color.Transparent
+    } else if (accent) {
+        Color.White.copy(alpha = 0.14f)
+    } else {
+        Color.Black.copy(alpha = 0.36f)
+    }
+    val tint = if (selected || accent) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        Color.White
+    }
+
+    Box(
+        modifier = modifier
+            .alpha(if (enabled) 1f else 0.42f)
+            .size(56.dp)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    Vibrator.click(context)
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(iconSize),
+        )
+    }
+}
+
+@Composable
+fun MusicDetailActionPill(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .height(56.dp)
+            .clip(YosRoundedCornerShape(18.dp))
+            .background(Color.Black.copy(alpha = 0.36f))
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+fun RowScope.MusicDetailPillButton(
+    painter: Painter,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val tint = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        Color.White
+    }
+
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .then(modifier)
+            .alpha(if (enabled) 1f else 0.42f)
+            .fillMaxSize()
+            .clip(YosRoundedCornerShape(14.dp))
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    Vibrator.click(context)
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+@Composable
+fun MusicDetailPillDivider() {
+    Spacer(
+        modifier = Modifier
+            .width(1.dp)
+            .height(22.dp)
+            .alpha(0.18f)
+            .background(Color.White),
+    )
+}
+
+@Composable
+private fun MusicDetailTopBar(
+    title: String,
+    collapseProgress: Float,
+    showSortButton: Boolean,
+    showSearchButton: Boolean,
+    searchModeActive: Boolean,
+    onBack: () -> Unit,
+    onSort: () -> Unit,
+    onSearchClick: () -> Unit,
+    topBarFirstActionIconRes: Int?,
+    topBarFirstActionContentDescription: String?,
+    topBarFirstActionSelected: Boolean,
+    onTopBarFirstActionClick: (() -> Unit)?,
+    onTopBarFirstActionPositioned: (Offset) -> Unit,
+    topBarSecondActionIconRes: Int?,
+    topBarSecondActionContentDescription: String?,
+    topBarSecondActionSelected: Boolean,
+    onTopBarSecondActionClick: (() -> Unit)?,
+    onTopBarSecondActionPositioned: (Offset) -> Unit,
+) {
+    val surfaceColor = lerp(
+        start = Color.Black.copy(alpha = 0.34f),
+        stop = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+        fraction = collapseProgress,
+    )
+    val iconTint = lerp(
+        start = Color.White,
+        stop = MaterialTheme.colorScheme.onBackground,
+        fraction = collapseProgress,
+    )
+    val firstCustomActionIconRes = topBarFirstActionIconRes
+    val secondCustomActionIconRes = topBarSecondActionIconRes
+    val firstCustomActionIsMore = firstCustomActionIconRes == R.drawable.ic_action_more
+    val secondCustomActionIsMore = secondCustomActionIconRes == R.drawable.ic_action_more
+    val firstCustomActionIsFavorite = firstCustomActionIconRes == R.drawable.ic_action_favorite || firstCustomActionIconRes == R.drawable.ic_action_favorited
+    val secondCustomActionIsFavorite = secondCustomActionIconRes == R.drawable.ic_action_favorite || secondCustomActionIconRes == R.drawable.ic_action_favorited
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background.copy(alpha = collapseProgress * 0.96f))
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                MusicDetailTopBarButton(
+                    painter = painterResource(id = R.drawable.ic_back),
+                    contentDescription = null,
+                    surfaceColor = surfaceColor,
+                    iconTint = iconTint,
+                    onClick = onBack,
+                )
+
+                if (firstCustomActionIconRes != null && secondCustomActionIconRes != null) {
+                    MusicDetailTopBarActionPill(
+                        surfaceColor = surfaceColor,
+                    ) {
+                        MusicDetailTopBarInlineButton(
+                            painter = painterResource(id = firstCustomActionIconRes),
+                            contentDescription = topBarFirstActionContentDescription,
+                            iconTint = if (topBarFirstActionSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                iconTint
+                            },
+                            iconSize = if (firstCustomActionIsMore) {
+                                32.dp
+                            } else if (firstCustomActionIsFavorite) {
+                                24.dp
+                            } else {
+                                18.dp
+                            },
+                            modifier = if (firstCustomActionIsMore) {
+                                Modifier.onGloballyPositioned {
+                                    onTopBarFirstActionPositioned(it.localToRoot(Offset.Zero))
+                                }
+                            } else {
+                                Modifier
+                            },
+                            onClick = onTopBarFirstActionClick ?: {},
+                        )
+
+                        MusicDetailTopBarPillDivider(iconTint = iconTint)
+
+                        MusicDetailTopBarInlineButton(
+                            painter = painterResource(id = secondCustomActionIconRes),
+                            contentDescription = topBarSecondActionContentDescription,
+                            iconTint = if (topBarSecondActionSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                iconTint
+                            },
+                            iconSize = if (secondCustomActionIsMore) {
+                                32.dp
+                            } else if (secondCustomActionIsFavorite) {
+                                24.dp
+                            } else {
+                                18.dp
+                            },
+                            modifier = if (secondCustomActionIsMore) {
+                                Modifier.onGloballyPositioned {
+                                    onTopBarSecondActionPositioned(it.localToRoot(Offset.Zero))
+                                }
+                            } else {
+                                Modifier
+                            },
+                            onClick = onTopBarSecondActionClick ?: {},
+                        )
+                    }
+                } else if (firstCustomActionIconRes != null) {
+                    MusicDetailTopBarButton(
+                        painter = painterResource(id = firstCustomActionIconRes),
+                        contentDescription = topBarFirstActionContentDescription,
+                        surfaceColor = if (firstCustomActionIsMore) {
+                            Color.Transparent
+                        } else {
+                            surfaceColor
+                        },
+                        iconTint = if (topBarFirstActionSelected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            iconTint
+                        },
+                        iconSize = if (firstCustomActionIsMore) {
+                            38.dp
+                        } else if (firstCustomActionIsFavorite) {
+                            28.dp
+                        } else {
+                            18.dp
+                        },
+                        modifier = if (firstCustomActionIsMore) {
+                            Modifier.onGloballyPositioned {
+                                onTopBarFirstActionPositioned(it.localToRoot(Offset.Zero))
+                            }
+                        } else {
+                            Modifier
+                        },
+                        onClick = onTopBarFirstActionClick ?: {},
+                    )
+                } else if (showSortButton && showSearchButton) {
+                    MusicDetailTopBarActionPill(
+                        surfaceColor = surfaceColor,
+                    ) {
+                        MusicDetailTopBarInlineButton(
+                            painter = painterResource(id = R.drawable.ic_action_sort),
+                            contentDescription = stringResource(R.string.playlist_sort_title),
+                            iconTint = iconTint,
+                            onClick = onSort,
+                        )
+
+                        MusicDetailTopBarPillDivider(iconTint = iconTint)
+
+                        MusicDetailTopBarInlineButton(
+                            painter = painterResource(
+                                id = if (searchModeActive) {
+                                    R.drawable.ic_action_close
+                                } else {
+                                    R.drawable.ic_action_search
+                                },
+                            ),
+                            contentDescription = if (searchModeActive) {
+                                stringResource(R.string.playlist_search_clear_cd)
+                            } else {
+                                searchTitle(title)
+                            },
+                            iconTint = iconTint,
+                            onClick = onSearchClick,
+                        )
+                    }
+                } else if (showSortButton) {
+                    MusicDetailTopBarButton(
+                        painter = painterResource(id = R.drawable.ic_action_sort),
+                        contentDescription = stringResource(R.string.playlist_sort_title),
+                        surfaceColor = surfaceColor,
+                        iconTint = iconTint,
+                        onClick = onSort,
+                    )
+                } else if (showSearchButton) {
+                    MusicDetailTopBarButton(
+                        painter = painterResource(
+                            id = if (searchModeActive) {
+                                R.drawable.ic_action_close
+                            } else {
+                                R.drawable.ic_action_search
+                            },
+                        ),
+                        contentDescription = if (searchModeActive) {
+                            stringResource(R.string.playlist_search_clear_cd)
+                        } else {
+                            searchTitle(title)
+                        },
+                        surfaceColor = surfaceColor,
+                        iconTint = iconTint,
+                        onClick = onSearchClick,
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 84.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = collapseProgress >= 0.74f,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    androidx.compose.material3.Text(
+                        text = title,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = collapseProgress >= 0.94f,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .alpha(0.12f)
+                    .background(Color.Black withNight Color.White),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MusicDetailTopBarActionPill(
+    surfaceColor: Color,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .height(44.dp)
+            .clip(YosRoundedCornerShape(18.dp))
+            .background(surfaceColor)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+@Composable
+private fun MusicDetailTopBarPillDivider(iconTint: Color) {
+    Spacer(
+        modifier = Modifier
+            .padding(vertical = 6.dp)
+            .width(1.dp)
+            .fillMaxHeight()
+            .alpha(0.12f)
+            .background(iconTint),
+    )
+}
+
+@Composable
+private fun searchTitle(title: String): String {
+    return stringResource(R.string.music_detail_search_cd, title)
+}
+
+@Composable
+private fun MusicDetailTopBarButton(
+    painter: Painter,
+    contentDescription: String?,
+    surfaceColor: Color,
+    iconTint: Color,
+    iconSize: Dp = 18.dp,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .then(modifier)
+            .clip(CircleShape)
+            .background(surfaceColor)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    Vibrator.click(context)
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(iconSize),
+        )
+    }
+}
+
+@Composable
+private fun MusicDetailTopBarInlineButton(
+    painter: Painter,
+    contentDescription: String?,
+    iconTint: Color,
+    iconSize: Dp = 18.dp,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .then(modifier)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    Vibrator.click(context)
+                    onClick()
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(iconSize),
+        )
+    }
+}

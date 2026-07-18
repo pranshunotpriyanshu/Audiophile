@@ -1,11 +1,54 @@
 package com.pryvn.audiophile.data.libraries
 
 import androidx.compose.runtime.Stable
+import com.funny.data_saver.core.mutableDataSaverListStateOf
 import com.funny.data_saver.core.mutableDataSaverStateOf
 import com.pryvn.audiophile.data.SettingsSaver
 
 @Stable
 object SettingsLibrary {
+
+    /**
+     * 关注的歌手列表
+     */
+    @Stable
+    var FollowedArtists by mutableDataSaverListStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_followed_artists",
+        initialValue = emptyList<String>(),
+    )
+
+    fun isArtistFollowed(artistName: String): Boolean {
+        return FollowedArtists.contains(artistName)
+    }
+
+    fun followArtist(artistName: String)
+    {
+        if (!isArtistFollowed(artistName)) {
+            FollowedArtists = FollowedArtists + artistName
+        }
+    }
+
+    fun unfollowArtist(artistName: String)
+    {
+        FollowedArtists = FollowedArtists - artistName
+    }
+
+    fun toggleArtistFollowed(artistName: String)
+    {
+        if (isArtistFollowed(artistName)) {
+            unfollowArtist(artistName)
+        } else {
+            followArtist(artistName)
+        }
+    }
+
+    @Stable
+    var ArtistSplitSeparators by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_artist_split_separators",
+        initialValue = ""
+    )
 
     /**
      * 是否显示音量条

@@ -1,12 +1,5 @@
 package com.pryvn.audiophile.ui.widgets.sleeptimer
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -14,7 +7,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,26 +54,50 @@ import com.pryvn.audiophile.code.player.SleepTimerOption
 import com.pryvn.audiophile.code.player.SleepTimerState
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuScreenTransition
-import com.pryvn.audiophile.ui.pages.library.SheetNavigationBackward
-import com.pryvn.audiophile.ui.pages.library.SheetNavigationForward
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.widgets.basic.SheetAnimatedContent
+import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationBackward
+import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationForward
 import com.pryvn.audiophile.ui.widgets.basic.YosBottomSheetDialog
 
+/**
+ * Sleep timer bottom sheet. Three internal screens:
+ *
+ * 1. **Preset list** (default) — radio-style preset choices, active status row
+ *    on top if a timer is running, fade selector at the bottom.
+ * 2. **Custom duration** — two hour/minute wheel pickers + Start.
+ * 3. **Fade selector** — four fade duration options (Off / 5s / 10s / 30s).
+ *
+ * Per PRD §5.6.5 FR-ST-11 through FR-ST-13.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepTimerSheet(isOpen: MutableState<Boolean>) {
     if (!isOpen.value) return
 
-    YosBottomSheetDialog(
-        properties = androidx.compose.material3.ModalBottomSheetDefaults.properties(),
-        onDismissRequest = { isOpen.value = false },
-        cornerRadius = { SettingsLibrary.ScreenCorner.toInt().dp },
-    ) {
+    YosBottomSheetDialog(onDismissRequest = { isOpen.value = false }) {
         SleepTimerContent(onDone = { isOpen.value = false })
     }
 }
 
+/**
+ * Bare sleep-timer content — the body of [SleepTimerSheet] without its
+ * surrounding [YosBottomSheetDialog]. Use this when you want to render the
+ * sleep timer inside another bottom sheet (e.g. the NowPlaying overflow
+ * menu swaps its content to this composable when the user picks
+ * "Sleep Timer", so the sub-screen appears without a close + reopen
+ * animation).
+ *
+ * @param onDone called when the timer flow should terminate — either after
+ *   the user starts/cancels a timer, or when the host should dismiss its
+ *   containing sheet.
+ * @param onBack optional callback for hosts that embed the sleep timer
+ *   inside their own navigation stack (e.g. the NowPlaying overflow menu
+ *   passes a callback that returns to the overflow Menu screen). When
+ *   non-null, the Preset screen renders a back arrow before its title;
+ *   tapping it invokes [onBack]. The internal Custom and Fade sub-screens
+ *   pop back to Preset on their own (existing behavior).
+ */
 @Composable
 fun SleepTimerContent(
     onDone: () -> Unit,
@@ -92,7 +108,7 @@ fun SleepTimerContent(
         mutableIntStateOf(SheetNavigationForward)
     }
 
-    FloatingMenuScreenTransition(
+    SheetAnimatedContent(
         targetState = screen,
         navigationDirection = navigationDirection.intValue,
         modifier = Modifier.fillMaxWidth(),
@@ -139,6 +155,10 @@ fun SleepTimerContent(
 
 private enum class Screen { Presets, Custom, Fade }
 
+// ---------------------------------------------------------------------------
+// Preset list screen
+// ---------------------------------------------------------------------------
+
 @Composable
 private fun PresetScreen(
     onPicked: () -> Unit,
@@ -167,15 +187,18 @@ private fun PresetScreen(
 
     SheetTitle(text = stringResource(R.string.sleep_timer_title), onBack = onBack)
 
+    // Active status row: only shown when a timer is running.
     if (timerState is SleepTimerState.Active) {
         ActiveStatusRow(onCancel = {
             SleepTimer.cancel()
+            // Don't dismiss — let the user pick a new option if they want.
         })
         Spacer(modifier = Modifier.height(8.dp))
         Divider()
         Spacer(modifier = Modifier.height(8.dp))
     }
 
+    // Preset options.
     PresetRow(
         label = stringResource(R.string.sleep_timer_end_of_track),
         selected = activeOption is SleepTimerOption.EndOfTrack,
@@ -350,6 +373,9 @@ private fun PresetRow(
 @Composable
 private fun FadeSelectorRow(onClick: () -> Unit) {
     val context = LocalContext.current
+    // SettingsLibrary.SleepTimerFadeDurationMs is a delegated property backed
+    // by `mutableDataSaverStateOf`, which is Compose-observable — reading it
+    // here directly triggers recomposition when it changes.
     val fadeMs = SettingsLibrary.SleepTimerFadeDurationMs
 
     Row(
@@ -389,6 +415,10 @@ private fun FadeSelectorRow(onClick: () -> Unit) {
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// Custom duration screen
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun CustomScreen(onCancel: () -> Unit, onConfirm: () -> Unit) {
@@ -479,6 +509,15 @@ private fun CustomScreen(onCancel: () -> Unit, onConfirm: () -> Unit) {
     }
 }
 
+/**
+ * Simple LazyColumn-based wheel picker. The centered item is the "selected"
+ * value. Three rows visible at a time (one above + selected + one below);
+ * neighbors are dimmed.
+ *
+ * Hand-rolled per PRD §10 OQ-3 — adding a wheel-picker library would have
+ * inflated the dep tree for a single use case. This is the "serviceable"
+ * implementation noted in the PRD as a candidate for polish.
+ */
 @Composable
 private fun WheelColumn(
     label: String,
@@ -488,12 +527,13 @@ private fun WheelColumn(
 ) {
     val items = remember(range) { range.toList() }
     val itemHeight = 40.dp
-    val visibleCount = 3
+    val visibleCount = 3 // 1 above + centered + 1 below
     val state = rememberLazyListState(
         initialFirstVisibleItemIndex = (initial - range.first).coerceAtLeast(0),
     )
     val flingBehavior = rememberSnapFlingBehavior(state)
 
+    // Derived current value = whichever item is sitting at the center slot.
     val centered by remember {
         derivedStateOf {
             val first = state.firstVisibleItemIndex
@@ -520,6 +560,7 @@ private fun WheelColumn(
                 .width(72.dp)
                 .height(itemHeight * visibleCount),
         ) {
+            // Center selection band (subtle background).
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -535,7 +576,9 @@ private fun WheelColumn(
                 state = state,
                 flingBehavior = flingBehavior,
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(
+                // Top/bottom padding so first and last items can sit at the
+                // center band when fully scrolled to either extreme.
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     vertical = itemHeight,
                 ),
             ) {
@@ -560,6 +603,10 @@ private fun WheelColumn(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Fade selector screen
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun FadeScreen(onBack: () -> Unit) {
@@ -607,6 +654,10 @@ private fun FadeScreen(onBack: () -> Unit) {
         )
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared bits
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun SheetTitle(text: String, onBack: (() -> Unit)? = null) {
@@ -668,6 +719,7 @@ private fun fadeLabel(ms: Long): String = when (ms) {
     else -> "${ms / 1000}s"
 }
 
+/** Format milliseconds as `H:MM:SS` (or `MM:SS` when under an hour). */
 private fun formatRemaining(ms: Long): String {
     val totalSec = (ms / 1000L).coerceAtLeast(0L)
     val h = totalSec / 3600

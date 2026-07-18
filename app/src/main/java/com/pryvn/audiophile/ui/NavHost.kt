@@ -2,6 +2,7 @@ package com.pryvn.audiophile.ui
 
 import androidx.compose.runtime.Stable
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 
 @Stable
 interface UI {
@@ -14,7 +15,10 @@ interface UI {
         const val LocalArtists = "LocalArtists"
         const val LocalAlbums = "LocalAlbums"
 
+        const val ArtistInfo = "ArtistInfo"
         const val AlbumInfo = "AlbumInfo"
+
+        const val ArtistSongs = "ArtistSongs"
 
         
 
@@ -66,5 +70,28 @@ fun getNavUri(route: String, data: String? = null): String {
         route
     } else {
         "$route/$data"
+    }
+}
+
+fun NavController.markNextNavigationFromNowPlaying() {
+    currentBackStackEntry?.savedStateHandle?.set(ReturnToNowPlayingOnBackKey, true)
+}
+
+private const val ReturnToNowPlayingOnBackKey = "ReturnToNowPlayingOnBackKey"
+
+fun NavController.consumeNowPlayingNavigationMarker(): Boolean
+{
+    return previousBackStackEntry?.savedStateHandle?.remove<Boolean>(ReturnToNowPlayingOnBackKey) == true
+}
+
+fun NavController.returnToLibraryFromNowPlaying()
+{
+    if (popBackStack(UI.Library, false)) {
+        return
+    }
+
+    navigate(UI.Library) {
+        popUpTo(graph.findStartDestination().id)
+        launchSingleTop = true
     }
 }

@@ -143,6 +143,8 @@ import com.pryvn.audiophile.ui.pages.library.Library
 import com.pryvn.audiophile.ui.pages.library.NormalMusic
 import com.pryvn.audiophile.ui.pages.library.albums.AlbumInfo
 import com.pryvn.audiophile.ui.pages.library.albums.LocalAlbums
+import com.pryvn.audiophile.ui.pages.library.artists.ArtistInfo
+import com.pryvn.audiophile.ui.pages.library.artists.ArtistSongs
 import com.pryvn.audiophile.ui.pages.library.artists.LocalArtists
 import com.pryvn.audiophile.ui.pages.library.playlists.PlayLists
 import com.pryvn.audiophile.ui.pages.settings.Settings
@@ -539,6 +541,14 @@ class MainActivity : BaseActivity() {
                                                     this@SharedTransitionLayout,
                                                     this@composable
                                                 )
+                                            }
+
+                                            composable(UI.ArtistInfo) {
+                                                ArtistInfo(navController)
+                                            }
+
+                                            composable(UI.ArtistSongs) {
+                                                ArtistSongs(navController)
                                             }
 
                                             composable(UI.Settings.Main) {
