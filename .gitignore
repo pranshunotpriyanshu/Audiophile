@@ -16,3 +16,4 @@ local.properties
 /app/debug/
 /app/release/
 /innertube/
+/lyrics/*/build
