@@ -409,7 +409,8 @@ fun YTMusicSearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp),
+                            .statusBarsPadding()
+                            .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (showBackButton || isMoodGenreBrowse) {
@@ -442,7 +443,7 @@ fun YTMusicSearchScreen(
                             modifier = Modifier.weight(1f)
                         )
                         ProfileButton(
-                            size = 24.dp,
+                            size = 32.dp,
                             onClick = { navController?.toUI(UI.Settings.Main) },
                         )
                     }

@@ -35,7 +35,7 @@ fun Library(navController: NavController) =
             title = stringResource(id = R.string.page_library_title),
             rightBarIcon = {
                 ProfileButton(
-                    size = 24.dp,
+                    size = 32.dp,
                     onClick = { navController.toUI(UI.Settings.Main) },
                 )
             }

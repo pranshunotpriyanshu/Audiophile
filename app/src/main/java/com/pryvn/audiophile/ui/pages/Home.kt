@@ -160,9 +160,11 @@ fun Home(
         loadRecentlyPlayed()
     }
 
-    // ── Initial load ──
+    // ── Initial load: only if cache is empty (first visit) ──
     LaunchedEffect(Unit) {
-        loadHome()
+        if (sections.isEmpty()) {
+            loadHome()
+        }
     }
 
     // ── Try These: pick a few online songs from the home sections ──
