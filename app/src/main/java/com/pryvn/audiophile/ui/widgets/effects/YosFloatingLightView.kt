@@ -37,7 +37,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import androidx.palette.graphics.Palette
 import com.flaviofaria.kenburnsview.KenBurnsView
 import com.flaviofaria.kenburnsview.RandomTransitionGenerator
 import com.google.android.renderscript.Toolkit
@@ -84,16 +83,6 @@ fun YosFloatingLight(
                     BitmapResolver.bitmapCompress(this)
                 }
                 if (thisBitmap != null) {
-                    try {
-                        val palette = Palette.from(thisBitmap).generate()
-                        MediaViewModelObject.paletteVibrantColor.value =
-                            palette?.vibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
-                        MediaViewModelObject.paletteDarkVibrantColor.value =
-                            palette?.darkVibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
-                        MediaViewModelObject.paletteDarkMutedColor.value =
-                            palette?.darkMutedSwatch?.rgb?.let { Color(it) } ?: Color.Black
-                    } catch (_: Exception) { }
-
                     drawable.value = imageResolve(
                         thisBitmap
                     ).toDrawable(context.resources)
@@ -234,6 +223,6 @@ fun imageResolve(image: Bitmap, moreLight: Boolean = false): Bitmap {
             drawColor((0x40000000).toInt())
         }
     }
-    resizedBitmap = Toolkit.blur(resizedBitmap, 25)
+        resizedBitmap = Toolkit.blur(resizedBitmap, 12)
     return resizedBitmap
 }

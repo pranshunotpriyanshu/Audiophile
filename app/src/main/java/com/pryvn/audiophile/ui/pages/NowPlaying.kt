@@ -116,8 +116,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
@@ -148,8 +146,13 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastMap
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.toDrawable
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.pryvn.audiophile.code.utils.others.BitmapResolver
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -338,6 +341,37 @@ fun NowPlaying(
             MediaViewModelObject.lrcEntries
         val bitmap: MutableState<Uri?> = MediaViewModelObject.bitmap
 
+        // 全局统一提取专辑主色调（Solid 背景渐变依赖此数据，与是否渲染模糊层解耦）
+        val paletteContext = LocalContext.current
+        LaunchedEffect(bitmap.value) {
+            if (bitmap.value == null) return@LaunchedEffect
+            withContext(Dispatchers.IO) {
+                val loader = ImageLoader(paletteContext)
+                try {
+                    val request = ImageRequest.Builder(paletteContext)
+                        .data(bitmap.value)
+                        .build()
+                    val thisBitmap = loader.execute(request).drawable?.toBitmap()?.run {
+                        BitmapResolver.bitmapCompress(this)
+                    }
+                    if (thisBitmap != null) {
+                        try {
+                            val palette = Palette.from(thisBitmap).generate()
+                            MediaViewModelObject.paletteVibrantColor.value =
+                                palette?.vibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                            MediaViewModelObject.paletteDarkVibrantColor.value =
+                                palette?.darkVibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                            MediaViewModelObject.paletteDarkMutedColor.value =
+                                palette?.darkMutedSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                        } catch (_: Exception) { }
+                        thisBitmap.recycle()
+                    }
+                } finally {
+                    loader.shutdown()
+                }
+            }
+        }
+
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
             musicPlaying
         }
@@ -399,51 +433,90 @@ fun NowPlaying(
         }
 
 
-        // 背景流光
-        YosWrapper {
-            println("重组：背景")
+        // ── 背景层（始终位于所有内容之下）──────────────────────────────
+        // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
+        // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
+        val bgMode = SettingsLibrary.NowPlayingBackground
 
-            YosFloatingLight(
-                album = { bitmap.value },
-                isPlaying = isPlayingStatusLambda,
-                modifier = Modifier.fillMaxSize(),
-                nowPage = { nowPageLambda() },
-                showMiniPlayer = showMiniPlayer
-            )
-        }
+        if (bgMode == "Blurred") {
+            // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
+            YosWrapper {
+                YosFloatingLight(
+                    album = { bitmap.value },
+                    isPlaying = isPlayingStatusLambda,
+                    modifier = Modifier.fillMaxSize(),
+                    nowPage = { nowPageLambda() },
+                    showMiniPlayer = showMiniPlayer
+                )
+            }
 
-        // 动态专辑艺术颜色渐变
-        YosWrapper {
-            val vibrant = MediaViewModelObject.paletteVibrantColor.value
-            val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
-            val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
+            // 动态专辑艺术颜色渐变（叠在模糊背景之上，低透明度着色，与最初版本一致）
+            YosWrapper {
+                val vibrant = MediaViewModelObject.paletteVibrantColor.value
+                val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
+                val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
-            val animatedVibrant = animateColorAsState(
-                targetValue = vibrant,
-                animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
-            ).value
-            val animatedDarkVibrant = animateColorAsState(
-                targetValue = darkVibrant,
-                animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
-            ).value
-            val animatedDarkMuted = animateColorAsState(
-                targetValue = darkMuted,
-                animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
-            ).value
+                val animatedVibrant = animateColorAsState(
+                    targetValue = vibrant,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
+                val animatedDarkVibrant = animateColorAsState(
+                    targetValue = darkVibrant,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
+                val animatedDarkMuted = animateColorAsState(
+                    targetValue = darkMuted,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                animatedVibrant.copy(alpha = 0.3f),
-                                animatedDarkVibrant.copy(alpha = 0.2f),
-                                animatedDarkMuted.copy(alpha = 0.15f)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    animatedVibrant.copy(alpha = 0.3f),
+                                    animatedDarkVibrant.copy(alpha = 0.2f),
+                                    animatedDarkMuted.copy(alpha = 0.15f)
+                                )
                             )
                         )
-                    )
-            )
+                )
+            }
+        } else {
+            // 纯色背景：取专辑封面的主色调（由上方全局 LaunchedEffect 提取）
+            YosWrapper {
+                val vibrant = MediaViewModelObject.paletteVibrantColor.value
+                val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
+                val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
+
+                val animatedVibrant = animateColorAsState(
+                    targetValue = vibrant,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
+                val animatedDarkVibrant = animateColorAsState(
+                    targetValue = darkVibrant,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
+                val animatedDarkMuted = animateColorAsState(
+                    targetValue = darkMuted,
+                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                ).value
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    animatedVibrant.copy(alpha = 0.9f),
+                                    animatedDarkVibrant.copy(alpha = 0.95f),
+                                    animatedDarkMuted
+                                )
+                            )
+                        )
+                )
+            }
         }
 
         // 实际显示区
@@ -461,12 +534,6 @@ fun NowPlaying(
         val translationButtonEnabled = remember("NowPlaying_translationButtonEnabled") {
             derivedStateOf { buttonEnabled.value && alpha.value != 0f }
         }*/
-
-            // 沉浸式封面背景层：播放时淡入并铺满全屏模糊，统辖把手/歌词/队列/控件
-            ImmersiveArtwork(
-                isPlaying = isPlayingStatusLambda,
-                albumUrl = { thisMusicPlaying.value?.thumb }
-            )
 
             val scope = rememberCoroutineScope()
 
@@ -489,18 +556,13 @@ fun NowPlaying(
 
             if (!isLandscape) {
 
-            // 歌词
-            YosWrapper {
-
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            compositingStrategy =
-                                CompositingStrategy.ModulateAlpha
-                            this.alpha = alphaAnim.value
-                        }
-                ) {
+            // 歌词：仅在当前页为 Lyric 时组合进树，隐藏时彻底移出组合以避免拦截手势
+            AnimatedVisibility(
+                visible = nowPageLambda() == Lyric,
+                enter = fadeIn(animationSpec = tween(320, easing = FastOutSlowInEasing)),
+                exit = fadeOut(animationSpec = tween(320, easing = FastOutSlowInEasing))
+            ) {
+                YosWrapper {
                     println("重组：YosLyricView 外层 3")
 
                     Lyric(
@@ -625,8 +687,8 @@ fun NowPlaying(
                                                 }
                                             }
                                          }
-                             }
-                              Lyric ->
+                              }
+                               Lyric ->
                                 Column(Modifier.fillMaxSize()) {
                                     YosWrapper {
                                         val isVisible = nowPageLambda() == Lyric
@@ -1244,86 +1306,6 @@ private fun ColumnScope.Album(
         )
     }
 }
-
-/**
- * 沉浸式封面背景层：播放时将同一封面重度模糊并铺满全屏，作为前景封面的延续；
- * 底部以长渐变缓慢加深（承载控件），顶部轻量压暗（把手/状态栏可读）。
- * 暂停时整体淡出，恢复为原本居中的方形封面。
- * 复用相同 URL 的 Coil 缓存，不重新解码 bitmap。
- */
-@Composable
-private fun ImmersiveArtwork(
-    isPlaying: () -> Boolean,
-    albumUrl: () -> Uri?
-) {
-    val appear = animateFloatAsState(
-        targetValue = if (isPlaying()) 1f else 0f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "immersiveAppear"
-    )
-    val blur = animateDpAsState(
-        targetValue = if (isPlaying()) 60.dp else 0.dp,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "immersiveBlur"
-    )
-    val scale = animateFloatAsState(
-        targetValue = if (isPlaying()) 1.08f else 1f,
-        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        label = "immersiveScale"
-    )
-    if (appear.value > 0.001f) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { this.alpha = appear.value }
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(albumUrl())
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = scale.value
-                        scaleY = scale.value
-                    }
-                    .blur(blur.value, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.35f * appear.value),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(340.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.5f * appear.value),
-                                Color.Black.copy(alpha = 0.92f * appear.value)
-                            )
-                        )
-                    )
-            )
-        }
-    }
-}
-
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable

@@ -109,6 +109,18 @@ fun ExoPlayerSettings(navController: NavController) =
                                 },
                                 checkedLambda = { SettingsLibrary.FullScreenAlbumArtwork }
                             )
+
+                            Divider()
+
+                            SelectItem(
+                                title = stringResource(id = R.string.settings_audio_exoplayer_background),
+                                desc = stringResource(id = R.string.settings_audio_exoplayer_background_desc),
+                                items = listOf("Solid", "Blurred"),
+                                value = SettingsLibrary.NowPlayingBackground,
+                                onValueChange = {
+                                    SettingsLibrary.NowPlayingBackground = it
+                                }
+                            )
                         }
 
                         GroupSpacer()

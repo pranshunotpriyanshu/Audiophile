@@ -306,6 +306,17 @@ object SettingsLibrary {
     )
 
     /**
+     * 播放界面背景样式：Solid（取专辑封面主色调的纯色）或 Blurred（模糊专辑封面）。
+     * 该选择在所有状态下保持：暂停、播放（全屏关闭时）、歌词、队列。
+     */
+    @Stable
+    var NowPlayingBackground by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_audio_exoplayer_nowplaying_background",
+        initialValue = "Blurred"
+    )
+
+    /**
      * 排除一分钟以内的歌曲
      */
     @Stable

@@ -7,7 +7,7 @@ import com.pryvn.audiophile.data.libraries.SettingsLibrary.NowplayingBackgroundE
 @Stable
 object BitmapResolver {
     fun bitmapCompress(bitmap: Bitmap, lowQuality: Boolean = false): Bitmap {
-        val px = if (lowQuality) 4 else (if (NowplayingBackgroundEffect) 96 else 32)
+        val px = if (lowQuality) 4 else (if (NowplayingBackgroundEffect) 96 else 64)
         val originalWidth = bitmap.width
         val originalHeight = bitmap.height
         var compressedBitmap = bitmap
