@@ -146,6 +146,16 @@ object SettingsLibrary {
     )
 
     /**
+     * 歌词字体大小 (sp)
+     */
+    @Stable
+    var LyricFontSize by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_performance_lyric_font_size",
+        initialValue = 26f
+    )
+
+    /**
      * 歌词平衡行模式
      */
     @Stable

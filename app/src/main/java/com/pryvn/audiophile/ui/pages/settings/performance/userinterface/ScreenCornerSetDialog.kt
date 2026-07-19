@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -44,9 +45,8 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenCornerSetDialog(modifier: Modifier = Modifier, onDismiss: () -> Unit) {
-    val dialogProperties = ModalBottomSheetProperties(
+    val dialogProperties = ModalBottomSheetDefaults.properties(
         securePolicy = SecureFlagPolicy.Inherit,
-        isFocusable = true,
         shouldDismissOnBackPress = false
     )
     val bottomSheetState = rememberModalBottomSheetState()

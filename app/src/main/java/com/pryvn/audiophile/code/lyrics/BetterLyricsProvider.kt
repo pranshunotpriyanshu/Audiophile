@@ -18,18 +18,5 @@ object BetterLyricsProvider : LyricsProvider {
         artist: String,
         album: String?,
         durationSeconds: Int,
-    ): Result<String> {
-        val result = BetterLyrics.getLyrics(title, artist, album, durationSeconds)
-        return result.fold(
-            onSuccess = { text ->
-                val trimmed = text.trimStart()
-                if (trimmed.startsWith("<tt") || trimmed.contains("w3.org/ns/ttml")) {
-                    result
-                } else {
-                    Result.failure(IllegalStateException("Not TTML"))
-                }
-            },
-            onFailure = { result }
-        )
-    }
+    ): Result<String> = BetterLyrics.getLyrics(title, artist, album, durationSeconds)
 }

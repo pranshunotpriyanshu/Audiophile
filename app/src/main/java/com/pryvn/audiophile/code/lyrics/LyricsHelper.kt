@@ -1,24 +1,30 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 /*
  * ArchiveTune (2026)
  * © Rukamori — github.com/rukamori
  * GPL-3.0 License | Contributors: see git history
  * Do not remove or alter this notice. - Per GPL-3.0 Section 4 & Section 5
  *
- * Ported lyrics provider orchestration. Mirrors ArchiveTune's LyricsHelper
- * fallback chain (first provider tried synchronously, the rest raced via
- * select{}) but adapted to Audiophile: no Hilt, no DataStore ordering,
- * no GlobalLog. Returns the existing AudiophileLyrics? contract so the
- * rest of the app (LyricsProcessor, MediaController) is unchanged.
+ * Ported lyrics provider orchestration. Runs all providers in parallel,
+ * scores results (TTML > synced LRC > plain text), returns the best.
+ * Isolated from parent cancellation via NonCancellable so fetch continues
+ * even if the UI exits NowPlaying. Each provider has a 10s timeout;
+ * overall fetch capped at 15s.
  */
 
 package com.pryvn.audiophile.code.lyrics
 
 import com.pryvn.audiophile.code.api.AudiophileLyrics
-import kotlinx.coroutines.Deferred
+import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 interface LyricsProvider {
     val name: String
@@ -33,30 +39,36 @@ interface LyricsProvider {
 }
 
 object LyricsHelper {
+    /* TTML-capable providers first, then synced-LRC, then plain-text fallbacks */
     private val baseProviders =
         listOf(
             BetterLyricsProvider,
+            PaxsenixAppleMusicLyricsProvider,
+            PaxsenixNeteaseLyricsProvider,
+            PaxsenixSpotifyLyricsProvider,
             YouLyPlusLyricsProvider,
             LrcLibLyricsProvider,
             KuGouLyricsProvider,
             SimpMusicLyricsProvider,
             UnisonLyricsProvider,
-            PaxsenixAppleMusicLyricsProvider,
-            PaxsenixNeteaseLyricsProvider,
-            PaxsenixSpotifyLyricsProvider,
             PaxsenixMusixmatchLyricsProvider,
             PaxsenixYouTubeLyricsProvider,
         )
 
+    private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
+    private const val TOTAL_TIMEOUT_MS = 15_000L
+
     /**
-     * Fetches lyrics for a song by racing every provider in [baseProviders]
-     * order and returning the first non-empty result, exactly like
-     * ArchiveTune's LyricsHelper: the first provider is awaited
-     * synchronously, then the remainder are launched concurrently and the
-     * first meaningful result wins (cancelling the rest).
+     * Fetches lyrics for a song by running every provider in [baseProviders]
+     * in parallel, collecting all results within 15s, and returning the
+     * highest-scored one (TTML > synced LRC > plain text).
      *
-     * @return the resolved [AudiophileLyrics], or null if no provider
-     * returned usable lyrics.
+     * Runs on [NonCancellable] so the fetch is not interrupted when the
+     * calling UI scope cancels (e.g. user exits NowPlaying). The best
+     * result is cached in [MediaViewModelObject.lyricsCache] by the caller.
+     *
+     * @return the best [AudiophileLyrics], or null if every provider failed
+     * or timed out.
      */
     suspend fun getLyrics(
         title: String,
@@ -64,65 +76,76 @@ object LyricsHelper {
         album: String?,
         durationMs: Long,
         videoId: String?,
-    ): AudiophileLyrics? {
+    ): AudiophileLyrics? = withContext(NonCancellable + Dispatchers.IO) {
         val durationSeconds = if (durationMs > 0) (durationMs / 1000L).toInt() else -1
-        val providers = baseProviders
-        val lyrics = fetchPriorityLyrics(providers, videoId, title, artist, album, durationSeconds)
-        return lyrics
+        fetchAllWithScoring(baseProviders, videoId, title, artist, album, durationSeconds)
     }
 
-    private suspend fun fetchPriorityLyrics(
+    /**
+     * Launches every provider as a separate async (10s per-provider timeout),
+     * collects results with a 15s total ceiling, then returns the winner
+     * via [score].
+     */
+    private suspend fun fetchAllWithScoring(
         providers: List<LyricsProvider>,
         videoId: String?,
         title: String,
         artist: String,
         album: String?,
         durationSeconds: Int,
-    ): AudiophileLyrics? {
-        if (providers.isEmpty()) return null
-
-        fetchProviderLyrics(providers.first(), videoId, title, artist, album, durationSeconds)?.let {
-            return it
-        }
-
-        return fetchFirstMeaningfulLyrics(providers.drop(1), videoId, title, artist, album, durationSeconds)
-    }
-
-    private suspend fun fetchFirstMeaningfulLyrics(
-        providers: List<LyricsProvider>,
-        videoId: String?,
-        title: String,
-        artist: String,
-        album: String?,
-        durationSeconds: Int,
-    ): AudiophileLyrics? =
-        supervisorScope {
-            val requests =
-                providers.map { provider ->
-                    async(Dispatchers.IO) {
-                        fetchProviderLyrics(provider, videoId, title, artist, album, durationSeconds)
-                    }
-                }
-
-            if (requests.isEmpty()) return@supervisorScope null
-
-            val pending = requests.toMutableSet()
-            while (pending.isNotEmpty()) {
-                val (request, lyrics) =
-                    select<Pair<Deferred<AudiophileLyrics?>, AudiophileLyrics?>> {
-                        pending.forEach { deferred ->
-                            deferred.onAwait { result -> deferred to result }
+    ): AudiophileLyrics? = supervisorScope {
+        val deferreds =
+            providers.map { provider ->
+                async(Dispatchers.IO) {
+                    try {
+                        withTimeout(PER_PROVIDER_TIMEOUT_MS) {
+                            fetchProviderLyrics(
+                                provider, videoId, title, artist, album, durationSeconds,
+                            )
                         }
+                    } catch (_: Exception) {
+                        null
                     }
-                pending.remove(request)
-                if (lyrics != null) {
-                    pending.forEach { it.cancel() }
-                    return@supervisorScope lyrics
                 }
             }
 
-            null
+        if (deferreds.isEmpty()) return@supervisorScope null
+
+        val allResults: List<AudiophileLyrics?> =
+            try {
+                withTimeout(TOTAL_TIMEOUT_MS) {
+                    deferreds.map { it.await() }
+                }
+            } catch (_: TimeoutCancellationException) {
+                deferreds.mapNotNull { deferred ->
+                    if (deferred.isCompleted) {
+                        try { deferred.getCompleted() } catch (_: Exception) { null }
+                    } else {
+                        deferred.cancel()
+                        null
+                    }
+                }
+            }
+
+        allResults.maxByOrNull { score(it) }
+    }
+
+    /**
+     * Scoring:
+     * 100  — TTML / word-synced (either flagged by provider or detected)
+     *  50  — line-synced LRC (has [mm:ss.xx] timestamps)
+     *  10  — plain text (no timestamps, no XML)
+     *   0  — null / blank
+     */
+    private fun score(lyrics: AudiophileLyrics?): Int {
+        if (lyrics == null || lyrics.text.isBlank()) return 0
+        return when {
+            lyrics.isWordSynced -> 100
+            TTMLParser.isTtml(lyrics.text) -> 100
+            TTMLParser.isLineSyncedLrc(lyrics.text) -> 50
+            else -> 10
         }
+    }
 
     private suspend fun fetchProviderLyrics(
         provider: LyricsProvider,
@@ -146,20 +169,13 @@ object LyricsHelper {
                             AudiophileLyrics(
                                 provider = provider.name,
                                 text = it,
-                                isWordSynced = isTtml(it),
+                                isWordSynced = TTMLParser.isTtml(it),
                             )
                         }
                     },
                     onFailure = { null },
                 )
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            throw ce
         } catch (_: Exception) {
             null
         }
-
-    private fun isTtml(lyrics: String): Boolean {
-        val trimmed = lyrics.trimStart()
-        return trimmed.startsWith("<tt") || trimmed.contains("w3.org/ns/ttml")
-    }
 }

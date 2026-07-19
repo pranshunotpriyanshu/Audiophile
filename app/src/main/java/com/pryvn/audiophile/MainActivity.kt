@@ -1315,9 +1315,8 @@ class MainActivity : BaseActivity() {
         }
 
         if (showDialog.value) {
-            val dialogProperties = ModalBottomSheetProperties(
+            val dialogProperties = ModalBottomSheetDefaults.properties(
                 securePolicy = SecureFlagPolicy.Inherit,
-                isFocusable = true,
                 shouldDismissOnBackPress = false
             )
 
