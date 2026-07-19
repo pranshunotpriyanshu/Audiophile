@@ -161,6 +161,7 @@ fun Title(
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
     content: LazyListScope.() -> Unit
 ) =
@@ -171,6 +172,7 @@ fun Title(
         rightIcon = rightIcon,
         onRightIcon = onRightIcon,
         rightBarIcon = rightBarIcon,
+        rightHeaderIcon = rightHeaderIcon,
         grid = false,
         bottomPadding = bottomPadding,
         content = content
@@ -184,6 +186,7 @@ fun TitleWithLazyVerticalGrid(
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
     content: LazyGridScope.() -> Unit
 ) =
@@ -194,6 +197,7 @@ fun TitleWithLazyVerticalGrid(
         rightIcon = rightIcon,
         onRightIcon = onRightIcon,
         rightBarIcon = rightBarIcon,
+        rightHeaderIcon = rightHeaderIcon,
         columns = columns,
         grid = true,
         content = content
@@ -207,6 +211,7 @@ private fun BaseTitle(
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
     grid: Boolean,
     bottomPadding: Dp = 134.dp,
@@ -220,6 +225,7 @@ private fun BaseTitle(
             rightIcon = rightIcon,
             onRightIcon = onRightIcon,
             rightBarIcon = rightBarIcon,
+            rightHeaderIcon = rightHeaderIcon,
             columns = columns,
             content = content as LazyGridScope.() -> Unit
         )
@@ -231,6 +237,7 @@ private fun BaseTitle(
             rightIcon = rightIcon,
             onRightIcon = onRightIcon,
             rightBarIcon = rightBarIcon,
+            rightHeaderIcon = rightHeaderIcon,
             bottomPadding = bottomPadding,
             content = content as LazyListScope.() -> Unit
         )
@@ -245,6 +252,7 @@ private fun BaseTitleGrid(
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
     content: LazyGridScope.() -> Unit
 ) {
@@ -283,7 +291,8 @@ private fun BaseTitleGrid(
                         rightIcon,
                         onRightIcon,
                         alpha,
-                        true
+                        true,
+                        rightHeaderIcon
                     )
                 }
             }
@@ -311,6 +320,7 @@ private fun BaseTitleList(
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
     content: LazyListScope.() -> Unit
 ) {
@@ -342,7 +352,8 @@ private fun BaseTitleList(
                         rightIcon,
                         onRightIcon,
                         alpha,
-                        false
+                        false,
+                        rightHeaderIcon,
                     )
                 }
             }
@@ -572,7 +583,8 @@ private fun TitleItem(
     rightIcon: ImageVector?,
     onRightIcon: (() -> Unit)?,
     alpha: State<Float>,
-    grid: Boolean = false
+    grid: Boolean = false,
+    rightHeaderIcon: @Composable (RowScope.() -> Unit)? = null,
 ) {
     Row(
         Modifier
@@ -581,7 +593,9 @@ private fun TitleItem(
             .graphicsLayer {
                 //compositingStrategy = CompositingStrategy.Offscreen
                 this.alpha = alpha.value
-            }) {
+            },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -631,6 +645,10 @@ private fun TitleItem(
                     )
                 }
             }
+        }
+
+        if (rightHeaderIcon != null) {
+            rightHeaderIcon()
         }
     }
 }

@@ -67,20 +67,8 @@ class YosBasicApplication : Application() {
         // 恢复持久化的认证状态 (visitorData, cookie, dataSyncId)
         ArchiveTuneAdapter.restorePersistedAuth()
 
-        val atScope = CoroutineScope(Dispatchers.IO)
-
-        // 预缓存 visitorData (如果未持久化则触发首次网络请求)
-        atScope.launch { runCatching { ArchiveTuneAdapter.ensureVisitorData() } }
-
-        // 预热 BotGuard Webview (避免首次播放时冷启动)
-        atScope.launch {
-            runCatching {
-                val visitor = YouTube.currentPlaybackAuthState().visitorData
-                if (!visitor.isNullOrBlank()) {
-                    BotGuardTokenGenerator.preWarm(visitor)
-                }
-            }
-        }
+        // Initialize ArchiveTuneAdapter with persistent cache and BotGuard pre-warm
+        ArchiveTuneAdapter.initialize(applicationContext)
 
         val gson =
             GsonBuilder()

@@ -192,7 +192,9 @@ dependencies {
 
     implementation 'com.tencent:mmkv-static:1.3.5'
 
-    implementation 'com.google.code.gson:gson:2.10.1'
+implementation 'com.google.code.gson:gson:2.10.1'
+
+    // Removed Room - using simple file-based cache instead (Kotlin 2.3 compatibility)
 
     implementation 'com.github.xiaowine:Lyric-Getter-Api:6.0.0'
 

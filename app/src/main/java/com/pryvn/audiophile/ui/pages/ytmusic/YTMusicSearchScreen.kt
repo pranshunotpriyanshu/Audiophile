@@ -398,8 +398,6 @@ fun YTMusicSearchScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 20.dp)
         ) {
-            Spacer(Modifier.height(if (showTitle) 40.dp else 12.dp))
-
             AnimatedVisibility(
                 visible = showTitle,
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
@@ -410,7 +408,7 @@ fun YTMusicSearchScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(top = 40.dp, bottom = 12.dp, start = 20.dp, end = 20.dp),
+                            .padding(top = 40.dp, bottom = 12.dp, start = 0.dp, end = 0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (showBackButton || isMoodGenreBrowse) {
