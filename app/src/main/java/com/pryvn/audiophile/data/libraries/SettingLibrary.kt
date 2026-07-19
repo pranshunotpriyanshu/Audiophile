@@ -296,6 +296,16 @@ object SettingsLibrary {
     )
 
     /**
+     * ExoPlayer播放界面 - 全屏专辑封面（模糊背景融合）
+     */
+    @Stable
+    var FullScreenAlbumArtwork by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_audio_exoplayer_full_screen_album_artwork",
+        initialValue = false
+    )
+
+    /**
      * 排除一分钟以内的歌曲
      */
     @Stable

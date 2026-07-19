@@ -48,6 +48,9 @@
     <string name="settings_audio_exoplayer_decode">Decode Output</string>
     <string name="settings_audio_exoplayer_decode_audio_float_output">Floating Point Audio Output</string>
     <string name="settings_audio_exoplayer_decode_audio_float_output_desc">Output floating point audio as much as possible.</string>
+    <string name="settings_audio_exoplayer_ui">Now Playing UI</string>
+    <string name="settings_audio_exoplayer_full_screen_album_artwork">Full Screen Album Artwork</string>
+    <string name="settings_audio_exoplayer_full_screen_album_artwork_desc">Blend the cover into the whole Now Playing screen with a beautiful blur.</string>
     <string name="settings_audio_exoplayer_decode_codec">Audio Decoder</string>
     <string name="settings_audio_exoplayer_behaviors">Behaviors</string>
     <string name="settings_audio_exoplayer_behaviors_audio_attributes">Audio Focus</string>

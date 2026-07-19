@@ -28,6 +28,7 @@ import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -115,6 +116,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
@@ -125,6 +128,7 @@ import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PointMode
@@ -457,6 +461,12 @@ fun NowPlaying(
         val translationButtonEnabled = remember("NowPlaying_translationButtonEnabled") {
             derivedStateOf { buttonEnabled.value && alpha.value != 0f }
         }*/
+
+            // 沉浸式封面背景层：播放时淡入并铺满全屏模糊，统辖把手/歌词/队列/控件
+            ImmersiveArtwork(
+                isPlaying = isPlayingStatusLambda,
+                albumUrl = { thisMusicPlaying.value?.thumb }
+            )
 
             val scope = rememberCoroutineScope()
 
@@ -1232,6 +1242,85 @@ private fun ColumnScope.Album(
                 AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
             }
         )
+    }
+}
+
+/**
+ * 沉浸式封面背景层：播放时将同一封面重度模糊并铺满全屏，作为前景封面的延续；
+ * 底部以长渐变缓慢加深（承载控件），顶部轻量压暗（把手/状态栏可读）。
+ * 暂停时整体淡出，恢复为原本居中的方形封面。
+ * 复用相同 URL 的 Coil 缓存，不重新解码 bitmap。
+ */
+@Composable
+private fun ImmersiveArtwork(
+    isPlaying: () -> Boolean,
+    albumUrl: () -> Uri?
+) {
+    val appear = animateFloatAsState(
+        targetValue = if (isPlaying()) 1f else 0f,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "immersiveAppear"
+    )
+    val blur = animateDpAsState(
+        targetValue = if (isPlaying()) 60.dp else 0.dp,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "immersiveBlur"
+    )
+    val scale = animateFloatAsState(
+        targetValue = if (isPlaying()) 1.08f else 1f,
+        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+        label = "immersiveScale"
+    )
+    if (appear.value > 0.001f) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { this.alpha = appear.value }
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(albumUrl())
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = scale.value
+                        scaleY = scale.value
+                    }
+                    .blur(blur.value, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.35f * appear.value),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(340.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.5f * appear.value),
+                                Color.Black.copy(alpha = 0.92f * appear.value)
+                            )
+                        )
+                    )
+            )
+        }
     }
 }
 

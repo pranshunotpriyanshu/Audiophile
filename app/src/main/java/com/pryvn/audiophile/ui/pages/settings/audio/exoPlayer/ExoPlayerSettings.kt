@@ -96,6 +96,21 @@ fun ExoPlayerSettings(navController: NavController) =
                         }
                         ListHeader(content = stringResource(id = R.string.settings_audio_exoplayer_decode_audio_float_output_desc))
 
+                        GroupSpacerMedium()
+
+                        ListHeader(stringResource(id = R.string.settings_audio_exoplayer_ui))
+                        RoundColumn {
+                            SwitchItem(
+                                title = stringResource(id = R.string.settings_audio_exoplayer_full_screen_album_artwork),
+                                desc = stringResource(id = R.string.settings_audio_exoplayer_full_screen_album_artwork_desc),
+                                onClick = {
+                                    SettingsLibrary.FullScreenAlbumArtwork =
+                                        !SettingsLibrary.FullScreenAlbumArtwork
+                                },
+                                checkedLambda = { SettingsLibrary.FullScreenAlbumArtwork }
+                            )
+                        }
+
                         GroupSpacer()
                     }
 
