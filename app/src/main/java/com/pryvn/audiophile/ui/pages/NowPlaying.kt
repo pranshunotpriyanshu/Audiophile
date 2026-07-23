@@ -82,9 +82,13 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderPositions
 import androidx.compose.material3.Surface
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.animation.core.animate
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.Job
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -316,9 +320,11 @@ fun NowPlaying(
     mainViewModel: MainViewModel,
     mediaViewModel: MediaViewModel,
     navController: NavController,
+    onMinimizeNowPlaying: suspend () -> Unit,
     isPlayingStatusLambda: () -> Boolean,
     isPlayingOnChanged: (Boolean) -> Unit,
     nowPageLambda: () -> String,
+    showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
     nowPageOnChanged: (String) -> Unit
 ) =
@@ -556,15 +562,16 @@ fun NowPlaying(
 
             if (!isLandscape) {
 
-            // 歌词：仅在当前页为 Lyric 时组合进树，隐藏时彻底移出组合以避免拦截手势
-            AnimatedVisibility(
-                visible = nowPageLambda() == Lyric,
-                enter = fadeIn(animationSpec = tween(320, easing = FastOutSlowInEasing)),
-                exit = fadeOut(animationSpec = tween(320, easing = FastOutSlowInEasing))
-            ) {
-                YosWrapper {
-                    println("重组：YosLyricView 外层 3")
-
+            // 歌词：始终组合在树中，通过 alpha 控制显隐，避免拦截手势
+            YosWrapper {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                            this.alpha = alphaAnim.value
+                        }
+                ) {
                     Lyric(
                         lrcEntries = { displayLrcEntries.value },
                         weightLambda = { showControl.value },
@@ -576,7 +583,8 @@ fun NowPlaying(
                         },
                         mainViewModel = mainViewModel,
                         mediaViewModel = mediaViewModel,
-                        wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value }
+                        wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                        active = nowPageLambda() == Lyric,
                     )
                 }
             }
@@ -639,6 +647,7 @@ fun NowPlaying(
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
                                                     active = nowPageLambda() == Album &&
+                                                        showNowPlaying() &&
                                                         animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
                                                 )
                                                 Row(
@@ -678,34 +687,37 @@ fun NowPlaying(
                                                             musicPlayingLambda = { thisMusicPlaying.value },
                                                             navController = navController,
                                                             albumUrlLambda = { thisMusicPlaying.value?.thumb },
+                                                            onMinimizeNowPlaying = onMinimizeNowPlaying,
+                                                            isMenuOpen = overflowSheetOpen.value,
                                                             onShowMenu = {
-                            snapshotSong.value = thisMusicPlaying.value
-                            overflowSheetOpen.value = true
-                        },
+                                                                snapshotSong.value = thisMusicPlaying.value
+                                                                overflowSheetOpen.value = true
+                                                            },
                                                         )
                                                     }
                                                 }
                                             }
                                          }
                               }
-                               Lyric ->
-                                Column(Modifier.fillMaxSize()) {
-                                    YosWrapper {
-                                        val isVisible = nowPageLambda() == Lyric
-                                        PlayingBar(
-                                            modifier = Modifier.sharedElementWithCallerManagedVisibility(
-                                                sharedContentState = rememberSharedContentState(
-                                                    key = ShareAlbumKey
-                                                ),
-                                                visible = isVisible
-                                            ),
-                                            albumUrlLambda = {
-                                                thisMusicPlaying.value?.thumb
-                                            },
-                                            musicPlayingLambda = { thisMusicPlaying.value },
-                                            navController = navController,
-                                            isLyricsView = true,
-                                            onRefetchLyrics = {
+                                Lyric ->
+                                 Column(Modifier.fillMaxSize()) {
+                                     YosWrapper {
+                                         val isVisible = nowPageLambda() == Lyric
+                                         PlayingBar(
+                                             modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = ShareAlbumKey
+                                                 ),
+                                                 visible = isVisible
+                                             ),
+                                             albumUrlLambda = {
+                                                 thisMusicPlaying.value?.thumb
+                                             },
+                                             musicPlayingLambda = { thisMusicPlaying.value },
+                                             navController = navController,
+                                             onMinimizeNowPlaying = onMinimizeNowPlaying,
+                                             isLyricsView = true,
+                                             onRefetchLyrics = {
                                                 scope.launch(Dispatchers.IO) {
                                                     val track = thisMusicPlaying.value ?: return@launch
                                                     MediaViewModelObject.isLoadingLyrics.value = true
@@ -726,10 +738,11 @@ fun NowPlaying(
                                                 }
                                             },
                                             onAlbumClick = { nowPageOnChanged(Album) },
+                                            isMenuOpen = overflowSheetOpen.value,
                                             onShowMenu = {
-                            snapshotSong.value = thisMusicPlaying.value
-                            overflowSheetOpen.value = true
-                        })
+                                                snapshotSong.value = thisMusicPlaying.value
+                                                overflowSheetOpen.value = true
+                                            })
                                     }
                                 }
 
@@ -740,35 +753,43 @@ fun NowPlaying(
                                             .fillMaxSize()
                                     ) {
                                         val isVisible = nowPageLambda() == PlayingList
-                                        PlayingBar(
-                                            modifier = Modifier.sharedElementWithCallerManagedVisibility(
-                                                sharedContentState = rememberSharedContentState(
-                                                    key = ShareAlbumKey
-                                                ),
-                                                visible = isVisible
-                                            ),
-                                            albumUrlLambda = {
-                                                thisMusicPlaying.value?.thumb
-                                            },
-                                            musicPlayingLambda = { thisMusicPlaying.value },
-                                            navController = navController,
-                                            onAlbumClick = { nowPageOnChanged(Album) },
-                                            onShowMenu = {
-                            snapshotSong.value = thisMusicPlaying.value
-                            overflowSheetOpen.value = true
-                        })
+                                         PlayingBar(
+                                             modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = ShareAlbumKey
+                                                 ),
+                                                 visible = isVisible
+                                             ),
+                                             albumUrlLambda = {
+                                                 thisMusicPlaying.value?.thumb
+                                             },
+                                             musicPlayingLambda = { thisMusicPlaying.value },
+                                             navController = navController,
+                                             onMinimizeNowPlaying = onMinimizeNowPlaying,
+                                             onAlbumClick = { nowPageOnChanged(Album) },
+                                             isMenuOpen = overflowSheetOpen.value,
+                                             onShowMenu = {
+                                                 snapshotSong.value = thisMusicPlaying.value
+                                                 overflowSheetOpen.value = true
+                                             })
                                         YosWrapper {
-                                            PlayingList(
-                                                shuffleModeEnabledLambda = { shuffleModeEnabled.value },
-                                                shuffleModeOnChanged = { shuffleModeSet ->
-                                                    shuffleModeEnabled.value = shuffleModeSet
-                                                },
-                                                repeatModeLambda = { repeatMode.intValue },
-                                                repeatModeOnChanged = { repeatModeSet ->
-                                                    repeatMode.intValue = repeatModeSet
-                                                },
-                                                thisMusicPlayingLambda = { thisMusicPlaying.value }
-                                            )
+                                            AnimatedVisibility(
+                                                visible = nowPageLambda() == PlayingList,
+                                                enter = fadeIn(tween(AnimDurationMillis)),
+                                                exit = fadeOut(tween(AnimDurationMillis))
+                                            ) {
+                                                PlayingList(
+                                                    shuffleModeEnabledLambda = { shuffleModeEnabled.value },
+                                                    shuffleModeOnChanged = { shuffleModeSet ->
+                                                        shuffleModeEnabled.value = shuffleModeSet
+                                                    },
+                                                    repeatModeLambda = { repeatMode.intValue },
+                                                    repeatModeOnChanged = { repeatModeSet ->
+                                                        repeatMode.intValue = repeatModeSet
+                                                    },
+                                                    thisMusicPlayingLambda = { thisMusicPlaying.value }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1014,22 +1035,29 @@ fun NowPlaying(
                                                 isPlaying = isPlayingStatusLambda,
                                                 music = { thisMusicPlaying.value },
                                                 active = nowPageLambda() == Album &&
+                                                    showNowPlaying() &&
                                                     animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
                                             )
                                         }
                                         }
                                         PlayingList -> {
-                                            PlayingList(
-                                                shuffleModeEnabledLambda = { shuffleModeEnabled.value },
-                                                shuffleModeOnChanged = { shuffleModeSet ->
-                                                    shuffleModeEnabled.value = shuffleModeSet
-                                                },
-                                                repeatModeLambda = { repeatMode.intValue },
-                                                repeatModeOnChanged = { repeatModeSet ->
-                                                    repeatMode.intValue = repeatModeSet
-                                                },
-                                                thisMusicPlayingLambda = { thisMusicPlaying.value }
-                                            )
+                                            AnimatedVisibility(
+                                                visible = nowPageLambda() == PlayingList,
+                                                enter = fadeIn(tween(AnimDurationMillis)),
+                                                exit = fadeOut(tween(AnimDurationMillis))
+                                            ) {
+                                                PlayingList(
+                                                    shuffleModeEnabledLambda = { shuffleModeEnabled.value },
+                                                    shuffleModeOnChanged = { shuffleModeSet ->
+                                                        shuffleModeEnabled.value = shuffleModeSet
+                                                    },
+                                                    repeatModeLambda = { repeatMode.intValue },
+                                                    repeatModeOnChanged = { repeatModeSet ->
+                                                        repeatMode.intValue = repeatModeSet
+                                                    },
+                                                    thisMusicPlayingLambda = { thisMusicPlaying.value }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1244,6 +1272,7 @@ fun NowPlaying(
             isOpen = overflowSheetOpen,
             song = snapshotSong.value,
             navController = navController,
+            onMinimizeNowPlaying = onMinimizeNowPlaying,
             onOpenLibraryTarget = {
                 navController.markNextNavigationFromNowPlaying()
                 navController.toUI(it.route)
@@ -1581,7 +1610,6 @@ private fun PlayingList(
                                 item("niq_header") {
                                     QueueSectionHeader(
                                         title = stringResource(R.string.queue_next_in_queue),
-                                        itemCount = nextInQueue.size,
                                         onClear = {
                                             scope.launch(Dispatchers.IO) {
                                                 MediaController.clearNextInQueue()
@@ -1597,72 +1625,30 @@ private fun PlayingList(
                                         reorderableState,
                                         key = "niq_${song.mediaId ?: song.title}"
                                     ) { isDragging ->
-                                        val swipeState = rememberSwipeToDismissBoxState(
-                                            confirmValueChange = {
-                                                if (it == SwipeToDismissBoxValue.StartToEnd) {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        if (index != 0) {
-                                                            MediaController.moveNextInQueueItem(index, 0)
-                                                        }
-                                                    }
-                                                    true
-                                                } else if (it == SwipeToDismissBoxValue.EndToStart) {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        MediaController.removeNextInQueueItem(index)
-                                                    }
-                                                    true
-                                                } else {
-                                                    false
+                                        QueueMusicListItem(
+                                            music = song,
+                                            isCurrentItem = false,
+                                            reorderHandleModifier = Modifier
+                                                .draggableHandle()
+                                                .alpha(if (isDragging) 0.85f else 0.4f),
+                                            onMoveToNextQueue = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    if (index != 0) MediaController.moveNextInQueueItem(index, 0)
                                                 }
-                                            }
+                                                true
+                                            },
+                                            onRemove = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.removeNextInQueueItem(index)
+                                                }
+                                                true
+                                            },
+                                            itemClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.skipToNextInQueueItem(index)
+                                                }
+                                            },
                                         )
-                                        SwipeToDismissBox(
-                                            state = swipeState,
-                                            enableDismissFromStartToEnd = true,
-                                            enableDismissFromEndToStart = true,
-                                            backgroundContent = {
-                                                val direction = swipeState.dismissDirection
-                                                val color by animateColorAsState(
-                                                    targetValue = when (direction) {
-                                                        SwipeToDismissBoxValue.StartToEnd -> Color(0xFF34C759)
-                                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFE8453C)
-                                                        else -> Color.Transparent
-                                                    },
-                                                    label = "swipeBg"
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(color)
-                                                )
-                                            }
-                                        ) {
-                                            QueueMusicListItem(
-                                                music = song,
-                                                isCurrentItem = false,
-                                                itemClick = {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        MediaController.skipToNextInQueueItem(index)
-                                                    }
-                                                },
-                                                trailing = {
-                                                    IconButton(
-                                                        onClick = {
-                                                            scope.launch(Dispatchers.IO) {
-                                                                MediaController.removeNextInQueueItem(index)
-                                                            }
-                                                        },
-                                                        modifier = Modifier.size(36.dp)
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.Clear,
-                                                            contentDescription = "Remove from queue",
-                                                            modifier = Modifier.alpha(0.5f)
-                                                        )
-                                                    }
-                                                }
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -1671,7 +1657,6 @@ private fun PlayingList(
                                 item("upnext_header") {
                                     QueueSectionHeader(
                                         title = stringResource(R.string.queue_up_next),
-                                        itemCount = upNext.size,
                                         onClear = null
                                     )
                                 }
@@ -1683,86 +1668,31 @@ private fun PlayingList(
                                         reorderableState,
                                         key = "upnext_${song.mediaId ?: song.title}"
                                     ) { isDragging ->
-                                        val swipeState = rememberSwipeToDismissBoxState(
-                                            confirmValueChange = {
-                                                if (it == SwipeToDismissBoxValue.StartToEnd) {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        MediaController.moveUpNextToNextQueue(index)
-                                                    }
-                                                    true
-                                                } else if (it == SwipeToDismissBoxValue.EndToStart) {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        MediaController.removeUpNextItem(index)
-                                                    }
-                                                    true
-                                                } else {
-                                                    false
+                                        val dragModifier = Modifier
+                                            .draggableHandle()
+                                            .alpha(if (isDragging) 0.85f else 0.4f)
+                                        QueueMusicListItem(
+                                            music = song,
+                                            isCurrentItem = song.mediaId != null && song.mediaId == currentPlaying?.mediaId,
+                                            reorderHandleModifier = dragModifier,
+                                            onMoveToNextQueue = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.moveUpNextToNextQueue(index)
                                                 }
-                                            }
+                                                true
+                                            },
+                                            onRemove = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.removeUpNextItem(index)
+                                                }
+                                                true
+                                            },
+                                            itemClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.prepare(song, upNext)
+                                                }
+                                            },
                                         )
-                                        SwipeToDismissBox(
-                                            state = swipeState,
-                                            enableDismissFromStartToEnd = true,
-                                            enableDismissFromEndToStart = true,
-                                            backgroundContent = {
-                                                val direction = swipeState.dismissDirection
-                                                val color by animateColorAsState(
-                                                    targetValue = when (direction) {
-                                                        SwipeToDismissBoxValue.StartToEnd -> Color(0xFF34C759)
-                                                        SwipeToDismissBoxValue.EndToStart -> Color(0xFFE8453C)
-                                                        else -> Color.Transparent
-                                                    },
-                                                    label = "swipeBg"
-                                                )
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .background(color)
-                                                )
-                                            }
-                                        ) {
-                                            val dragModifier = Modifier
-                                                .draggableHandle()
-                                                .alpha(if (isDragging) 0.85f else 0.4f)
-                                                .size(36.dp)
-                                            QueueMusicListItem(
-                                                music = song,
-                                                isCurrentItem = song.mediaId != null && song.mediaId == currentPlaying?.mediaId,
-                                                itemClick = {
-                                                    scope.launch(Dispatchers.IO) {
-                                                        MediaController.prepare(
-                                                            song,
-                                                            upNext
-                                                        )
-                                                    }
-                                                },
-                                                trailing = {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.DragHandle,
-                                                            contentDescription = "Drag to reorder",
-                                                            modifier = dragModifier
-                                                        )
-                                                        IconButton(
-                                                            onClick = {
-                                                                scope.launch(Dispatchers.IO) {
-                                                                    MediaController.removeUpNextItem(index)
-                                                                }
-                                                            },
-                                                            modifier = Modifier.size(36.dp)
-                                                        ) {
-                                                            Icon(
-                                                                Icons.Default.Clear,
-                                                                contentDescription = "Remove from queue",
-                                                                modifier = Modifier.alpha(0.5f)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -1782,7 +1712,6 @@ private fun PlayingList(
 @Composable
 private fun LazyItemScope.QueueSectionHeader(
     title: String,
-    itemCount: Int,
     onClear: (() -> Unit)?
 ) {
     Row(
@@ -1796,13 +1725,6 @@ private fun LazyItemScope.QueueSectionHeader(
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.overlayEffect().alpha(0.5f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "· $itemCount",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            modifier = Modifier.overlayEffect().alpha(0.35f)
         )
         if (onClear != null) {
             Spacer(modifier = Modifier.weight(1f))
@@ -1820,68 +1742,180 @@ private fun LazyItemScope.QueueSectionHeader(
     }
 }
 
+private val QueueRowHeight = 64.dp
+
 @Composable
 private fun LazyItemScope.QueueMusicListItem(
     music: YosMediaItem,
     isCurrentItem: Boolean = false,
+    reorderHandleModifier: Modifier,
+    onMoveToNextQueue: (suspend () -> Boolean)?,
+    onRemove: (suspend () -> Boolean)?,
     itemClick: () -> Unit,
-    trailing: @Composable RowScope.() -> Unit
 ) {
-    val bgColor by animateColorAsState(
-        targetValue = if (isCurrentItem)
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        else
-            Color.Transparent,
-        animationSpec = tween(250),
-        label = "nowPlayingItemBg"
-    )
-    Row(
-        modifier = Modifier
-            .height(64.dp)
-            .fillMaxWidth()
-            .clickable { itemClick() }
-            .then(
-                if (isCurrentItem) {
-                    Modifier
-                        .padding(horizontal = 20.dp)
-                        .background(bgColor, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp)
-                } else {
-                    Modifier.padding(start = 30.dp, end = 12.dp)
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
+    var rowWidthPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
+    var rowHeightPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
+    var swipeOffsetPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
+    var deleteHeightPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
+    var resetAnimationJob by remember(music.uri, music.mediaId) { mutableStateOf<Job?>(null) }
+    var deleteAnimating by remember(music.uri, music.mediaId) { mutableStateOf(false) }
+    var deleteCollapsing by remember(music.uri, music.mediaId) { mutableStateOf(false) }
+
+    val swipeRightEnabled = onMoveToNextQueue != null
+    val swipeLeftEnabled = onRemove != null
+    val triggerOffsetPx = rowWidthPx * 0.20f
+    val minSwipeOffsetPx = if (swipeLeftEnabled) -rowWidthPx else 0f
+    val maxSwipeOffsetPx = if (swipeRightEnabled) rowWidthPx else 0f
+    val absoluteSwipeOffsetPx = if (swipeOffsetPx < 0f) -swipeOffsetPx else swipeOffsetPx
+    val swipeProgress = if (rowWidthPx > 0f) (absoluteSwipeOffsetPx / rowWidthPx).coerceIn(0f, 1f) else 0f
+    val rowHeight = with(density) { rowHeightPx.toDp() }
+    val swipeRevealWidth = with(density) { absoluteSwipeOffsetPx.toDp() }
+    val deleteHeight = with(density) { deleteHeightPx.coerceAtLeast(0f).toDp() }
+
+    val swipeModifier = if ((swipeRightEnabled || swipeLeftEnabled) && !deleteAnimating) {
+        Modifier.draggable(
+            orientation = Orientation.Horizontal,
+            state = rememberDraggableState { delta ->
+                if (rowWidthPx <= 0f || deleteAnimating) return@rememberDraggableState
+                resetAnimationJob?.cancel()
+                swipeOffsetPx = (swipeOffsetPx + delta).coerceIn(minSwipeOffsetPx, maxSwipeOffsetPx)
+            },
+            onDragStopped = {
+                val shouldMoveToNextQueue = triggerOffsetPx > 0f && swipeOffsetPx >= triggerOffsetPx
+                val shouldRemove = triggerOffsetPx > 0f && swipeOffsetPx <= -triggerOffsetPx
+
+                resetAnimationJob?.cancel()
+                resetAnimationJob = coroutineScope.launch {
+                    if (shouldRemove && onRemove != null) {
+                        deleteAnimating = true
+                        deleteHeightPx = if (rowHeightPx > 0f) rowHeightPx else with(density) { QueueRowHeight.toPx() }
+                        animate(
+                            initialValue = swipeOffsetPx, targetValue = -rowWidthPx,
+                            animationSpec = tween(110, easing = EaseOutQuart),
+                        ) { value, _ -> swipeOffsetPx = value }
+                        swipeOffsetPx = 0f
+                        deleteCollapsing = true
+                        animate(
+                            initialValue = deleteHeightPx, targetValue = 0f,
+                            animationSpec = tween(170, easing = EaseOutQuart),
+                        ) { value, _ -> deleteHeightPx = value }
+                        onRemove.invoke()
+                        return@launch
+                    }
+                    if (shouldMoveToNextQueue && onMoveToNextQueue?.invoke() == true) { }
+                    animate(
+                        initialValue = swipeOffsetPx, targetValue = 0f,
+                        animationSpec = SpringSpec(dampingRatio = 0.72f, stiffness = 420f, visibilityThreshold = 0.5f),
+                    ) { value, _ -> swipeOffsetPx = value }
                 }
-            ),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ShadowImageWithCache(
-            dataLambda = { music.thumb },
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            cornerRadius = 4.dp,
-            shadowAlpha = 0f,
-            imageQuality = ImageQuality.LOW
+            },
         )
+    } else {
+        Modifier
+    }
 
-        Column(Modifier.padding(start = 14.dp).weight(1f)) {
-            Text(
-                text = music.title ?: defaultTitle,
-                modifier = Modifier.padding(bottom = 1.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 16.sp,
-                lineHeight = 16.sp,
-            )
-
-            Text(
-                text = music.artistsName ?: defaultArtistsName,
-                modifier = Modifier.alpha(0.5f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 11.5.sp,
-                lineHeight = 11.5.sp,
-            )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .zIndex(if (deleteAnimating) 1f else 0f)
+            .then(if (deleteCollapsing) Modifier.height(deleteHeight) else Modifier)
+            .onSizeChanged {
+                rowWidthPx = it.width.toFloat()
+                if (!deleteCollapsing) rowHeightPx = it.height.toFloat()
+            }
+    ) {
+        if (deleteCollapsing) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(deleteHeight).background(Color(0xFFD32F2F)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_swipe_delete),
+                    contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp),
+                )
+            }
+        } else if (swipeRightEnabled && swipeOffsetPx > 0f) {
+            Box(
+                modifier = Modifier.width(swipeRevealWidth).height(rowHeight)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_swipe_queue),
+                    contentDescription = null, tint = Color.Black,
+                    modifier = Modifier.size(28.dp).graphicsLayer {
+                        val iconScale = 0.82f + (swipeProgress * 0.18f)
+                        scaleX = iconScale; scaleY = iconScale
+                    },
+                )
+            }
         }
-
-        trailing()
+        if (!deleteCollapsing && swipeLeftEnabled && swipeOffsetPx < 0f) {
+            Box(
+                modifier = Modifier.align(Alignment.CenterEnd).width(swipeRevealWidth).height(rowHeight)
+                    .background(Color(0xFFD32F2F)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_swipe_delete),
+                    contentDescription = null, tint = Color.White,
+                    modifier = Modifier.size(28.dp).graphicsLayer {
+                        val iconScale = 0.82f + (swipeProgress * 0.18f)
+                        scaleX = iconScale; scaleY = iconScale
+                    },
+                )
+            }
+        }
+        if (!deleteCollapsing) {
+            val draggedItemBackground by animateColorAsState(
+                targetValue = if (isCurrentItem) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+                label = "nowPlayingItemBg",
+            )
+            Row(
+                modifier = Modifier
+                    .height(QueueRowHeight).fillMaxWidth()
+                    .graphicsLayer { translationX = swipeOffsetPx }
+                    .then(swipeModifier)
+                    .clickable { itemClick() }
+                    .then(
+                        if (isCurrentItem) Modifier.padding(horizontal = 20.dp).background(draggedItemBackground, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp)
+                        else Modifier.padding(start = 30.dp, end = 12.dp)
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ShadowImageWithCache(
+                    dataLambda = { music.thumb }, contentDescription = null,
+                    modifier = Modifier.size(48.dp), cornerRadius = 4.dp, shadowAlpha = 0f,
+                    imageQuality = ImageQuality.LOW,
+                )
+                Column(Modifier.padding(start = 14.dp).weight(1f)) {
+                    Text(
+                        text = music.title ?: defaultTitle,
+                        modifier = Modifier.padding(bottom = 1.dp), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, fontSize = 16.sp, lineHeight = 16.sp,
+                    )
+                    Text(
+                        text = music.artistsName ?: defaultArtistsName,
+                        modifier = Modifier.alpha(0.5f), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, fontSize = 11.5.sp, lineHeight = 11.5.sp,
+                    )
+                }
+                Box(
+                    modifier = Modifier.size(36.dp).then(reorderHandleModifier),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_queue_reorder),
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.34f),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1893,7 +1927,8 @@ private fun Lyric(
     mainViewModel: MainViewModel,
     mediaViewModel: MediaViewModel,
     onBackClick: () -> Unit,
-    wordSyncedLambda: () -> Boolean = { false }
+    wordSyncedLambda: () -> Boolean = { false },
+    active: Boolean = true,
 ) = YosWrapper {
 
     val context = LocalContext.current
@@ -1902,117 +1937,119 @@ private fun Lyric(
 
     println("重组：YosLyricView 外层 2")
 
-    Column(
-        Modifier
-            .fillMaxSize()
-    ) {
-        YosWrapper {
-            println("重组：YosLyricView 外层 1")
+    if (active) {
+        Column(
+            Modifier
+                .fillMaxSize()
+        ) {
+            YosWrapper {
+                println("重组：YosLyricView 外层 1")
 
-            Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
+                Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
-            val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
-            val lyricTextColor =
-                if (dominantBackground.luminance() < 0.4f)
-                    Color.White
-                else
-                    Color.Black
-            YosLyricView(
-                //mediaViewModel = mediaViewModel,
-                lrcEntriesLambda = lrcEntries,
-                liveTimeLambda = {
-                    (mediaControl?.currentPosition ?: 0).toInt()
-                },
-                mediaEvent = object : YosMediaEvent {
-                    override fun onSeek(position: Int) {
-                        mediaControl?.seekTo(position.toLong())
-                    }
-                },
-                translationLambda = translationLambda,
-                blurLambda = {
-                    SettingsLibrary.LyricBlurEffect
-                },
-                uiConfig = YosUIConfig(
-                    noLrcText = stringResource(id = R.string.tip_no_lyrics),
-                    mainTextBasicColor = lyricTextColor.toArgb().toLong(),
-                    subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
-                ),
-                weightLambda = weightLambda,
-                wordSyncedLambda = wordSyncedLambda,
-                modifier = Modifier.drawWithCache {
-                    onDrawWithContent {
-                        val overlayPaint = Paint().apply {
-                            blendMode = BlendMode.Plus
+                val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
+                val lyricTextColor =
+                    if (dominantBackground.luminance() < 0.4f)
+                        Color.White
+                    else
+                        Color.Black
+                YosLyricView(
+                    //mediaViewModel = mediaViewModel,
+                    lrcEntriesLambda = lrcEntries,
+                    liveTimeLambda = {
+                        (mediaControl?.currentPosition ?: 0).toInt()
+                    },
+                    mediaEvent = object : YosMediaEvent {
+                        override fun onSeek(position: Int) {
+                            mediaControl?.seekTo(position.toLong())
                         }
-                        val rect = Rect(0f, 0f, size.width, size.height)
-                        val canvas = this.drawContext.canvas
+                    },
+                    translationLambda = translationLambda,
+                    blurLambda = {
+                        SettingsLibrary.LyricBlurEffect
+                    },
+                    uiConfig = YosUIConfig(
+                        noLrcText = stringResource(id = R.string.tip_no_lyrics),
+                        mainTextBasicColor = lyricTextColor.toArgb().toLong(),
+                        subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
+                    ),
+                    weightLambda = weightLambda,
+                    wordSyncedLambda = wordSyncedLambda,
+                    modifier = Modifier.drawWithCache {
+                        onDrawWithContent {
+                            val overlayPaint = Paint().apply {
+                                blendMode = BlendMode.Plus
+                            }
+                            val rect = Rect(0f, 0f, size.width, size.height)
+                            val canvas = this.drawContext.canvas
 
-                        canvas.saveLayer(rect, overlayPaint)
+                            canvas.saveLayer(rect, overlayPaint)
 
-                        val colors = if (weightLambda()) {
-                            listOf(
-                                Color.Transparent,
-                                Color(0x59000000),
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color(0x59000000),
-                                Color(0x21000000),
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent,
-                                Color.Transparent
+                            val colors = if (weightLambda()) {
+                                listOf(
+                                    Color.Transparent,
+                                    Color(0x59000000),
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color(0x59000000),
+                                    Color(0x21000000),
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Transparent
+                                )
+                            } else {
+                                listOf(
+                                    Color.Transparent,
+                                    Color(0x59000000),
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    /*Color(0xD9000000),
+                                    Color(0xA6000000),
+                                    Color(0x73000000),
+                                    Color(0x59000000),
+                                    Color(0x3F000000),
+                                    Color(0x21000000),
+                                    Color(0x0C000000),*/
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black
+                                )
+                            }
+
+                            drawContent()
+
+                            drawRect(
+                                brush = Brush.verticalGradient(colors),
+                                blendMode = BlendMode.DstIn
                             )
-                        } else {
-                            listOf(
-                                Color.Transparent,
-                                Color(0x59000000),
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                /*Color(0xD9000000),
-                                Color(0xA6000000),
-                                Color(0x73000000),
-                                Color(0x59000000),
-                                Color(0x3F000000),
-                                Color(0x21000000),
-                                Color(0x0C000000),*/
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black,
-                                Color.Black
-                            )
+
+                            canvas.restore()
                         }
-
-                        drawContent()
-
-                        drawRect(
-                            brush = Brush.verticalGradient(colors),
-                            blendMode = BlendMode.DstIn
-                        )
-
-                        canvas.restore()
-                    }
-                },
-                onBackClick = onBackClick
-            )
+                    },
+                    onBackClick = onBackClick
+                )
+            }
         }
     }
 }
@@ -2025,7 +2062,9 @@ private fun ActionButtonsRow(
     isLyricsView: Boolean = false,
     onRefetchLyrics: (() -> Unit)? = null,
     albumUrlLambda: () -> Uri? = { null },
+    onMinimizeNowPlaying: suspend () -> Unit = {},
     onShowMenu: () -> Unit = {},
+    isMenuOpen: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -2085,10 +2124,6 @@ private fun ActionButtonsRow(
 
         Box(
             modifier = Modifier
-                .graphicsLayer {
-                    rotationZ = 90f
-                    compositingStrategy = CompositingStrategy.ModulateAlpha
-                }
                 .clickable(
                     onClick = onShowMenu,
                     indication = null,
@@ -2096,11 +2131,26 @@ private fun ActionButtonsRow(
                 .size(dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painterResource(id = R.drawable.ic_nowplaying_more),
-                contentDescription = null,
-                modifier = Modifier.size(dp).overlayEffect(),
-            )
+            AnimatedContent(
+                targetState = isMenuOpen,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
+                        fadeOut(animationSpec = tween(durationMillis = 300))
+                }) {
+                if (it) {
+                    Icon(
+                        painterResource(id = R.drawable.ic_nowplaying_more_fill),
+                        contentDescription = null,
+                        modifier = Modifier.size(dp),
+                    )
+                } else {
+                    Icon(
+                        painterResource(id = R.drawable.ic_nowplaying_more),
+                        contentDescription = null,
+                        modifier = Modifier.size(dp).overlayEffect(),
+                    )
+                }
+            }
         }
     }
 }
@@ -2111,6 +2161,7 @@ private fun NowPlayingOverflowSheet(
     isOpen: MutableState<Boolean>,
     song: YosMediaItem?,
     navController: NavController,
+    onMinimizeNowPlaying: suspend () -> Unit,
     onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
 ) {
     if (!isOpen.value) return
@@ -2143,6 +2194,7 @@ private fun NowPlayingOverflowSheet(
                 OverflowScreen.Menu -> OverflowMenuBody(
                     song = song,
                     navController = navController,
+                    onMinimizeNowPlaying = onMinimizeNowPlaying,
                     onOpenLibraryTarget = onOpenLibraryTarget,
                     onDismiss = onDismiss,
                     onPickPlaylist = {
@@ -2188,6 +2240,7 @@ private enum class OverflowLibraryTarget(val route: String)
 private fun OverflowMenuBody(
     song: YosMediaItem?,
     navController: NavController,
+    onMinimizeNowPlaying: suspend () -> Unit,
     onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
     onDismiss: () -> Unit,
     onPickPlaylist: () -> Unit,
@@ -2254,6 +2307,7 @@ private fun OverflowMenuBody(
                 NowPlayingOverflowHeader(
                     song = song,
                     navController = navController,
+                    onMinimizeNowPlaying = onMinimizeNowPlaying,
                     onOpenLibraryTarget = onOpenLibraryTarget,
                     onDismiss = onDismiss,
                 )
@@ -2267,6 +2321,7 @@ private fun OverflowMenuBody(
 private fun NowPlayingOverflowHeader(
     song: YosMediaItem,
     navController: NavController,
+    onMinimizeNowPlaying: suspend () -> Unit,
     onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -2388,11 +2443,13 @@ private fun PlayingBar(
     modifier: Modifier,
     albumUrlLambda: () -> Uri?,
     musicPlayingLambda: () -> YosMediaItem?,
+    onMinimizeNowPlaying: suspend () -> Unit,
     onAlbumClick: () -> Unit,
     navController: NavController? = null,
     isLyricsView: Boolean = false,
     onRefetchLyrics: (() -> Unit)? = null,
     onShowMenu: () -> Unit = {},
+    isMenuOpen: Boolean = false,
 ) = YosWrapper {
     Row(
         Modifier
@@ -2494,6 +2551,8 @@ private fun PlayingBar(
                 isLyricsView = isLyricsView,
                 onRefetchLyrics = onRefetchLyrics,
                 albumUrlLambda = albumUrlLambda,
+                onMinimizeNowPlaying = onMinimizeNowPlaying,
+                isMenuOpen = isMenuOpen,
                 onShowMenu = onShowMenu,
             )
         }

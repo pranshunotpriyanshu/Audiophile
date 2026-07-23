@@ -296,18 +296,8 @@ object SettingsLibrary {
     )
 
     /**
-     * ExoPlayer播放界面 - 全屏专辑封面（模糊背景融合）
-     */
-    @Stable
-    var FullScreenAlbumArtwork by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "settings_audio_exoplayer_full_screen_album_artwork",
-        initialValue = false
-    )
-
-    /**
      * 播放界面背景样式：Solid（取专辑封面主色调的纯色）或 Blurred（模糊专辑封面）。
-     * 该选择在所有状态下保持：暂停、播放（全屏关闭时）、歌词、队列。
+     * 沉浸式封面为默认行为，此设置不再控制全屏封面（保留以防旧引用）。
      */
     @Stable
     var NowPlayingBackground by mutableDataSaverStateOf(
@@ -324,6 +314,12 @@ object SettingsLibrary {
         dataSaverInterface = SettingsSaver,
         key = "settings_library_enable_exclude_songs_under_one_minute",
         initialValue = true
+    )
+
+    var NowplayingFullScreenStaticArtwork by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_audio_exoplayer_nowplaying_full_screen_static_artwork",
+        initialValue = false
     )
 
     // ---------- YT Music Account ----------

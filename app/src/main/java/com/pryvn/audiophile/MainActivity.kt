@@ -964,11 +964,15 @@ class MainActivity : BaseActivity() {
                                                     mainViewModel = mainViewModel,
                                                     mediaViewModel = mediaViewModel,
                                                     navController = navController,
+                                                    onMinimizeNowPlaying = {
+                                                        offsetY.animateTo(0f, animationSpec = navSpec)
+                                                    },
                                                     isPlayingStatusLambda = { isPlaying.value },
                                                     isPlayingOnChanged = {
                                                         isPlaying.value = it
                                                     },
                                                     nowPageLambda = { nowPageNowPlaying.value },
+                                                    showNowPlaying = { showNowPlaying.value },
                                                     showMiniPlayer = { yosBottomSheetConfig.showMenu }
                                                 ) {
                                                     nowPageNowPlaying.value = it

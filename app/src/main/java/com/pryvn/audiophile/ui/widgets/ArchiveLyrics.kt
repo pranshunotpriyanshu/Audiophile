@@ -20,8 +20,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -196,6 +198,18 @@ fun ArchiveLyrics(
         val l = lyrics
         !l.isNullOrEmpty() && (TTMLParser.isLineSyncedLrc(l) || TTMLParser.isTtml(l))
     }
+
+    val lineEndTimesMs: List<Long> =
+        remember(lines) {
+            lines.map { entry ->
+                val w = entry.words
+                if (!w.isNullOrEmpty()) {
+                    (w.maxOf { it.endTime } * 1000.0).toLong().coerceAtLeast(entry.time)
+                } else {
+                    entry.time
+                }
+            }
+        }
 
     val lyricsBaseColor = if (useDarkTheme || isCustomBackground) Color.White else Color.Black
     val lyricsGlowColor = if (useDarkTheme || isCustomBackground) Color.White else Color.Black
@@ -1425,6 +1439,36 @@ fun ArchiveLyrics(
                                                 FontWeight.Bold
                                             },
                                             lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
+                                        )
+                                    }
+
+                                    // Between-lines gap dots
+                                    val lineEnd = lineEndTimesMs.getOrElse(index) { item.time }
+                                    val nextEntry = lines.getOrNull(index + 1)
+                                    val gapStart = lineEnd
+                                    val gapEnd = nextEntry?.time ?: -1L
+                                    val showGap =
+                                        isSynced &&
+                                        isActiveLine &&
+                                        nextEntry != null &&
+                                        gapEnd > gapStart &&
+                                        (gapEnd - gapStart) >= 5000L &&
+                                        currentPlaybackPosition in gapStart until gapEnd
+                                    AnimatedVisibility(
+                                        visible = showGap,
+                                        enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                                        exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+                                    ) {
+                                        val fill =
+                                            ((currentPlaybackPosition - gapStart).toFloat() / (gapEnd - gapStart).toFloat())
+                                                .coerceIn(0f, 1f)
+                                        GapDots(
+                                            fillFraction = fill,
+                                            textColor = lyricsBaseColor,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 16.dp, bottom = 16.dp),
+                                            textAlign = alignment,
                                         )
                                     }
                                 }

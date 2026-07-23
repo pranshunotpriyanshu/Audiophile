@@ -101,18 +101,19 @@ fun ExoPlayerSettings(navController: NavController) =
                         ListHeader(stringResource(id = R.string.settings_audio_exoplayer_ui))
                         RoundColumn {
                             SwitchItem(
-                                title = stringResource(id = R.string.settings_audio_exoplayer_full_screen_album_artwork),
-                                desc = stringResource(id = R.string.settings_audio_exoplayer_full_screen_album_artwork_desc),
+                                title = stringResource(id = R.string.settings_audio_exoplayer_full_screen_static_artwork),
+                                desc = stringResource(id = R.string.settings_audio_exoplayer_full_screen_static_artwork_desc),
                                 onClick = {
-                                    SettingsLibrary.FullScreenAlbumArtwork =
-                                        !SettingsLibrary.FullScreenAlbumArtwork
+                                    SettingsLibrary.NowplayingFullScreenStaticArtwork =
+                                        !SettingsLibrary.NowplayingFullScreenStaticArtwork
                                 },
-                                checkedLambda = { SettingsLibrary.FullScreenAlbumArtwork }
+                                checkedLambda = { SettingsLibrary.NowplayingFullScreenStaticArtwork }
                             )
 
                             Divider()
 
                             SelectItem(
+                                enabled = !SettingsLibrary.NowplayingFullScreenStaticArtwork,
                                 title = stringResource(id = R.string.settings_audio_exoplayer_background),
                                 desc = stringResource(id = R.string.settings_audio_exoplayer_background_desc),
                                 items = listOf("Solid", "Blurred"),

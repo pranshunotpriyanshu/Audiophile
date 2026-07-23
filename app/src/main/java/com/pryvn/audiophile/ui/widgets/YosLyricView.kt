@@ -56,7 +56,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 
-val yosEasing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f)
+val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
 
 private const val LRC_LEAD_MS = 300L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
@@ -339,9 +339,9 @@ fun YosLyricView(
                 val offset = animateDpAsState(
                     targetValue = thisTargetHeight.value,
                     animationSpec = if (thisTargetHeight.value == 0.dp || thisTargetHeight.value == space) {
-                        spring(stiffness = 180f, dampingRatio = 0.8f, visibilityThreshold = 0.01.dp)
+                        spring(stiffness = 105f, dampingRatio = 1f, visibilityThreshold = 0.0001.dp)
                     } else {
-                        spring(stiffness = 150f, dampingRatio = 0.8f, visibilityThreshold = 0.01.dp)
+                        tween(durationMillis = 550, easing = yosEasing)
                     }
                 )
                 Spacer(modifier = Modifier.height(offset.value))
@@ -366,10 +366,9 @@ fun YosLyricView(
                 if (targetItem.value != null) {
                     scrollState.animateScrollBy(
                         scrollDistance.value,
-                        animationSpec = spring(
-                            dampingRatio = 0.8f,
-                            stiffness = 150f,
-                            visibilityThreshold = 0.01f
+                        animationSpec = tween(
+                            durationMillis = 550,
+                            easing = yosEasing
                         )
                     )
                 } else {
@@ -512,12 +511,12 @@ fun LazyItemScope.LyricItem(
         val otherSideAnimate = if (otherSide) TransformOrigin(1f, 0.25f) else TransformOrigin(0f, 0.25f)
         val otherSideTransformOrigin = if (otherSide) TransformOrigin(1f, 0.5f) else TransformOrigin(0f, 0.5f)
 
-        val springSpecWithDelay = spring(dampingRatio = 0.8f, stiffness = 180f, visibilityThreshold = 0.001f)
-        val springSpecWithoutDelay = spring(dampingRatio = 0.8f, stiffness = 200f, visibilityThreshold = 0.001f)
+        val tweenSpecWithDelay = TweenSpec<Float>(durationMillis = 270, easing = yosEasing, delay = 110)
+        val tweenSpecWithoutDelay = TweenSpec<Float>(durationMillis = 300, easing = yosEasing, delay = 45)
 
         val scale = animateFloatAsState(
             targetValue = if (isCurrentLambda()) 1.005f else 1f,
-            animationSpec = if (isCurrentLambda()) springSpecWithDelay else springSpecWithoutDelay
+            animationSpec = if (isCurrentLambda()) tweenSpecWithDelay else tweenSpecWithoutDelay
         )
 
         val cardPadding = if (otherSide) Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
@@ -553,7 +552,7 @@ fun LazyItemScope.LyricItem(
                             Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 10.dp),
                             horizontalAlignment = viewAlign
                         ) {
-                            CountdownAnimation(progress = { percent.value }, colorLambda = { mainTextBasicColor })
+                            GapDotsAnim(progress = { percent.value }, colorLambda = { mainTextBasicColor })
                         }
                     }
                 }
@@ -584,12 +583,12 @@ fun LazyItemScope.LyricItem(
                 ) {
                     val textAlign = if (otherSide) TextAlign.End else TextAlign.Start
 
-                    val alphaSpringWithDelay = spring(dampingRatio = 0.8f, stiffness = 150f, visibilityThreshold = 0.001f)
-                    val alphaSpringWithoutDelay = spring(dampingRatio = 0.8f, stiffness = 180f, visibilityThreshold = 0.001f)
+                    val alphaTweenWithDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 145)
+                    val alphaTweenWithoutDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 80)
 
                     val thisAlphaAnimated = animateFloatAsState(
                         targetValue = if (isCurrentLambda()) 1f else 0.14f,
-                        animationSpec = if (isCurrentLambda()) alphaSpringWithDelay else alphaSpringWithoutDelay
+                        animationSpec = if (isCurrentLambda()) alphaTweenWithDelay else alphaTweenWithoutDelay
                     )
 
                     val thisAlpha = remember(mainLyric) {
@@ -673,9 +672,6 @@ fun LazyItemScope.LyricItem(
                             val wordEndTime = if (wordSyncedWords.isNotEmpty() && wordIndex < wordSyncedWords.size) {
                                 wordSyncedWords[wordIndex].second
                             } else word.first
-                            val wordIsBackground = if (wordSyncedWords.isNotEmpty() && wordIndex < wordSyncedWords.size) {
-                                wordSyncedWords[wordIndex].third
-                            } else false
 
                             val avgTime = (wordEndTime - wordStartTime) / thisWord.length.coerceAtLeast(1)
 
@@ -707,29 +703,10 @@ fun LazyItemScope.LyricItem(
                                     topLeft = measureResult.getBoundingBox(
                                         sum.coerceAtMost(mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
                                     ).topLeft.minus(Offset(0f, topLeftWeight)),
-                                    brush = { px, percent ->
+                                    brush = { _, percent ->
                                         if (thisWord == " ") return@DrawWord unfocusedSolidBrush
-                                        if (wordIsBackground && (percent < 0f || percent > 1f)) {
-                                            return@DrawWord SolidColor(Color.Transparent)
-                                        }
-                                        val isActive = percent in 0f..1f
-                                        val beforeColor = if (percent <= -0.5f) {
-                                            if (wordIsBackground) Color.Transparent else unfocusedColor
-                                        } else {
-                                            if (isActive) Color.White else focusedColor
-                                        }
-                                        val afterColor = if (percent >= 1f) {
-                                            if (wordIsBackground) Color.Transparent else unfocusedColor
-                                        } else {
-                                            if (isActive) Color.White.copy(alpha = 0.9f) else unfocusedColor
-                                        }
-                                        val glowSize = if (isActive) (px * 2f).coerceIn(0f, 0.3f) else px
-                                        Brush.horizontalGradient(
-                                            0f to beforeColor,
-                                            (percent - glowSize).coerceIn(0f, 1f) to beforeColor,
-                                            (percent + glowSize).coerceIn(0f, 1f) to afterColor,
-                                            1f to afterColor
-                                        )
+                                        val alpha = (0.15f + 0.85f * percent.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+                                        SolidColor(focusedColor.copy(alpha = alpha))
                                     },
                                     percent = { if (thisWord == " ") 0f else currentPercent }
                                 ).also {
@@ -755,7 +732,7 @@ fun LazyItemScope.LyricItem(
                         translation?.let {
                             val translationAlpha = animateFloatAsState(
                                 targetValue = if (isCurrentLambda()) 0.5f else 0.14f,
-                                animationSpec = if (isCurrentLambda()) alphaSpringWithDelay else alphaSpringWithoutDelay
+                                animationSpec = if (isCurrentLambda()) alphaTweenWithDelay else alphaTweenWithoutDelay
                             )
                             Text(
                                 text = it,
@@ -806,42 +783,23 @@ private fun LyricCard(
     }
 }
 
-// ---- Countdown dots ----
+// ---- Gap dots: 3 dots, sequential opacity fill ----
 @Composable
-fun CountdownAnimation(progress: () -> Float, colorLambda: () -> Color) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val scale = infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = yosEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Box(
-        modifier = Modifier.graphicsLayer {
-            scaleX = scale.value
-            scaleY = scale.value
-            alpha = 0.8f
-        },
-        contentAlignment = Alignment.CenterStart
+fun GapDotsAnim(progress: () -> Float, colorLambda: () -> Color) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 5.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 5.dp)
-        ) {
-            for (i in 1..3) {
-                val average = 1f / 3f
-                val beforePadding = (i - 1) * average
-                val thisPercent = (progress() - beforePadding) / ((i * average) - beforePadding)
-                val alpha = 0.2f + (0.8f * thisPercent).coerceIn(0f, 0.8f)
-                Box(
-                    Modifier
-                        .size(11.dp)
-                        .background(colorLambda().copy(alpha = alpha), shape = CircleShape)
-                )
-            }
+        for (i in 0 until 3) {
+            val segmentStart = i / 3f
+            val segmentEnd = (i + 1) / 3f
+            val raw = (progress() - segmentStart) / (segmentEnd - segmentStart)
+            val dotAlpha = (0.2f + 0.8f * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .size(11.dp)
+                    .background(colorLambda().copy(alpha = dotAlpha), shape = CircleShape)
+            )
         }
     }
 }

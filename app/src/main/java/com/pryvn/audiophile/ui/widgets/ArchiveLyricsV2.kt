@@ -13,6 +13,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -324,12 +329,11 @@ fun LyricsV2(
                 0,
             )
         }
-        // Match the native view: anchor the current line near the top
-        // (height * 0.0618, like YosLyricView) and scroll there with a
-        // spring that slightly overshoots -> the subtle bounce.
-        val targetOffset = viewportHeight * 0.0618f
+        // Center the current line in the viewport so it sits nicely
+        // between the song metadata above and player controls below.
         val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
         if (itemInfo != null) {
+            val targetOffset = ((viewportHeight - itemInfo.size) / 2f).coerceAtLeast(0f)
             val scrollDistance = (itemInfo.offset - targetOffset).toFloat()
             if (abs(scrollDistance) > 5f) {
                 listState.animateScrollBy(
@@ -750,6 +754,8 @@ fun LyricsV2(
                             LyricsLineLrcBounce(
                                 text = item.text,
                                 isActive = isActive,
+                                currentPositionMs = currentPositionMs,
+                                lineStartMs = item.time,
                                 textColor = textColor.copy(alpha = if (isActive) 1f else 0.52f),
                                 fontSize = lyricsTextSize,
                                 lineSpacing = lyricsLineSpacing,
@@ -789,7 +795,11 @@ fun LyricsV2(
                                 gapEnd > gapStart &&
                                 (gapEnd - gapStart) >= 5000L &&
                                 currentPositionMs in gapStart until gapEnd
-                        if (showGap) {
+                        AnimatedVisibility(
+                            visible = showGap,
+                            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+                        ) {
                             val fill =
                                 ((currentPositionMs - gapStart).toFloat() / (gapEnd - gapStart).toFloat())
                                     .coerceIn(0f, 1f)
@@ -804,39 +814,8 @@ fun LyricsV2(
                             )
                         }
 
-                        // ── Native-style bounce spacer ──
-                        // Mirrors YosLyricView: the spacer height follows the live
-                        // scroll distance (active line offset - anchor), weighted by
-                        // proximity to the active line. At rest this distance is 0,
-                        // so spacers settle back to 0 (no permanent gaps).
-                        key(index) {
-                            val anchor = listState.layoutInfo.viewportSize.height * 0.0618f
-                            val activeItem = listState.layoutInfo.visibleItemsInfo
-                                .firstOrNull { it.index == currentLineIndex }
-                            val scrollDistance = (activeItem?.offset?.toFloat() ?: anchor) - anchor
-                            val visibleCount = listState.layoutInfo.visibleItemsInfo.size.coerceAtLeast(1)
-                            val firstVisible = listState.firstVisibleItemIndex
-                            val inWindow = index >= currentLineIndex - 1
-                            val weight = if (inWindow) {
-                                1f - ((index - firstVisible).toFloat() / visibleCount.toFloat())
-                            } else {
-                                0f
-                            }
-                            val thisScroll = (scrollDistance / visibleCount).coerceIn(-400f, 400f)
-                            val targetHeight = if (inWindow) thisScroll * weight else 0f
-
-                            val spacerHeight by animateDpAsState(
-                                targetValue = targetHeight.dp,
-                                animationSpec =
-                                    spring(
-                                        dampingRatio = 0.8f,
-                                        stiffness = 180f,
-                                        visibilityThreshold = 0.01.dp,
-                                    ),
-                                label = "v2BounceSpacer",
-                            )
-                            Spacer(modifier = Modifier.height(spacerHeight))
-                        }
+                        // ── Small gutter between lyrics lines ──
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
             }
@@ -992,66 +971,43 @@ AnimatedWordV2(
 // -----------------------------------------------------------------
 
 @Composable
-private fun GapDots(
+fun GapDots(
     fillFraction: Float,
     textColor: Color,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.Start,
 ) {
-    val dotCount = 5
     val arrangement =
         when (textAlign) {
             TextAlign.Center -> Arrangement.Center
             TextAlign.End -> Arrangement.End
             else -> Arrangement.Start
         }
-    val filledColor = textColor.copy(alpha = 0.9f)
-    val emptyColor = textColor.copy(alpha = 0.22f)
-    val dotSize = 15.dp
+    val dimAlpha = 0.22f
+    val brightAlpha = 0.9f
 
     Row(
         modifier = modifier,
         horizontalArrangement = arrangement,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(dotCount) { i ->
-            val dotFill = (fillFraction * dotCount - i).coerceIn(0f, 1f)
+        for (i in 0 until 3) {
+            val segmentStart = i / 3f
+            val segmentEnd = (i + 1) / 3f
+            val raw = (fillFraction - segmentStart) / (segmentEnd - segmentStart)
+            val dotAlpha = (dimAlpha + (brightAlpha - dimAlpha) * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
             Box(
-                modifier =
-                    Modifier
-                        .padding(horizontal = 8.dp)
-                        .size(dotSize),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Empty track
-                Box(
-                    modifier =
-                        Modifier
-                            .size(dotSize)
-                            .background(emptyColor, CircleShape),
-                )
-                // Filled portion (clipped left-to-right)
-                if (dotFill > 0f) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(dotSize)
-                                .clip(CircleShape)
-                                .drawWithContent {
-                                    val w = size.width * dotFill
-                                    clipRect(left = 0f, top = 0f, right = w, bottom = size.height) {
-                                        drawRect(color = filledColor)
-                                    }
-                                },
-                    )
-                }
-            }
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .size(15.dp)
+                    .background(textColor.copy(alpha = dotAlpha), shape = CircleShape)
+            )
         }
     }
 }
 
 // -----------------------------------------------------------------
-// Word-level composable: liquid fill sweep + glow + bounce
+// Word-level composable: alpha per-character fill
 // -----------------------------------------------------------------
 
 @Composable
@@ -1075,114 +1031,39 @@ private fun AnimatedWordV2(
     val wordEndMs = (word.endTime * 1000).toLong()
     val wordDuration = (wordEndMs - wordStartMs).coerceAtLeast(1L)
 
-    val isWordComplete = currentPositionMs >= wordEndMs
-    val isWordActive = currentPositionMs in wordStartMs until wordEndMs
-
     val progress =
         when {
-            isWordComplete -> 1f
+            currentPositionMs >= wordEndMs -> 1f
             currentPositionMs <= wordStartMs -> 0f
             else -> ((currentPositionMs - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
         }
 
-    // The whole word glows continuously while it is being sung or has been
-    // sung (no per-letter gaps in the glow). The lift stays local (see wave),
-    // but shine + whitening travel together with the sung boundary so a letter
-    // brightens and glows at the same instant.
-    // Glow stays only on the currently-sung word; it disappears as the word
-    // passes, so the line doesn't accumulate a glow as it progresses.
-    val wordGlowing = isWordActive
-    val wordGlowAlpha = if (wordGlowing) 0.5f * glowFactor else 0f
-    val wordGlowRadius = if (wordGlowing) 14f * glowFactor else 0f
-
-val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
+    val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
 
     Row(
-        modifier =
-            Modifier
-                .graphicsLayer { clip = false },
+        modifier = Modifier.graphicsLayer { clip = false },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val chars = word.text.toList()
         if (chars.isEmpty()) return@Row
 
-        val len = chars.size
-        val sungCount =
-            when {
-                isWordComplete || isLinePast -> len
-                isWordActive -> ((progress * len) + 0.0001f).toInt().coerceIn(0, len)
-                else -> 0
-            }
-
-        // Continuous sing position (in letter units). A broad, soft raised-cosine
-        // wave (half-width ~1.6 letters) makes several neighbours lift together
-        // as one gentle swell, so letters blend smoothly instead of snapping.
-        val singPos = progress * len
-        val waveHalfWidth = 1.6f
+        val len = chars.size.coerceAtLeast(1)
 
         chars.forEachIndexed { c, ch ->
-            val isBright = c < sungCount
-            val isActiveLetter = isWordActive
-
-            val d = singPos - c
-            val wave = if (isActiveLetter && kotlin.math.abs(d) <= waveHalfWidth) {
-                val bump = 0.5f * (1f + kotlin.math.cos(kotlin.math.PI * d / waveHalfWidth).toFloat())
-                bump * bump
-            } else {
-                0f
-            }
-
-            val liftPx = 3f * bounceFactor * wave
-            val scale = 1f + 0.03f * bounceFactor * wave
-
-            // Shine and whitening travel together with the sung boundary.
-            // Sung letters are full white AND carry the (continuous) word glow;
-            // unsung letters of a glowing word stay dim but still part of the
-            // same continuous glow, so the word reads as one lit unit.
-            val brightAlpha = if (isBackground) 0.75f else 1f
-            val dimAlpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha
-            val letterColor =
-                if (isBright) {
-                    textColor.copy(alpha = brightAlpha)
-                } else {
-                    textColor.copy(alpha = dimAlpha)
-                }
-
-            // Brighten the glow on the letters that are actually being sung,
-            // but never drop to zero mid-word so the glow stays continuous.
-            val singBoundary = (progress * len)
-            val boundaryDist = (singBoundary - c).coerceIn(-1f, 1f)
-            val boundaryGlow = 0.55f + 0.45f * (0.5f * (1f + boundaryDist))
-            val letterGlowAlpha = wordGlowAlpha * if (wordGlowing) boundaryGlow else 0f
-            val letterGlowRadius = wordGlowRadius
+            val charProgress = ((progress * len) - c).coerceIn(0f, 1f)
+            val charAlpha = (inactiveAlpha + (1f - inactiveAlpha) * charProgress).coerceIn(0f, 1f)
+            val alpha = if (isLinePast || currentPositionMs >= wordEndMs) 1f else charAlpha
 
             Text(
                 text = ch.toString(),
-                style =
-                    TextStyle(
-                        fontFamily = SfProFontFamily,
-                        fontSize = actualFontSize.sp,
-                        fontWeight = fontWeight,
-                        fontStyle = FontStyle.Normal,
-                        lineHeight = (actualFontSize * 1.35f).sp,
-                        shadow =
-                            if (letterGlowAlpha > 0f) {
-                                Shadow(
-                                    color = textColor.copy(alpha = letterGlowAlpha),
-                                    offset = Offset.Zero,
-                                    blurRadius = letterGlowRadius.coerceAtLeast(1f),
-                                )
-                            } else {
-                                null
-                            },
-                    ),
-                color = letterColor,
-                modifier =
-                    Modifier.graphicsLayer {
-                        translationY = liftPx * density
-                        scaleX = scale
-                        scaleY = scale
-                    },
+                style = TextStyle(
+                    fontFamily = SfProFontFamily,
+                    fontSize = actualFontSize.sp,
+                    fontWeight = fontWeight,
+                    fontStyle = FontStyle.Normal,
+                    lineHeight = (actualFontSize * 1.35f).sp,
+                ),
+                color = textColor.copy(alpha = alpha),
             )
         }
     }
@@ -1197,6 +1078,8 @@ val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
 private fun LyricsLineLrcBounce(
     text: String,
     isActive: Boolean,
+    currentPositionMs: Long,
+    lineStartMs: Long,
     textColor: Color,
     fontSize: Float,
     lineSpacing: Float,
@@ -1204,64 +1087,10 @@ private fun LyricsLineLrcBounce(
     textAlign: TextAlign,
     bounceFactor: Float,
 ) {
-    val words = remember(text) { text.toLyricsWrappingUnits() }
     val effectiveFontSize = if (isAllBackground) fontSize * 0.82f else fontSize
-    val fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold
-    val fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal
-    val scaleAnimatables = remember(words.size) { List(words.size) { Animatable(1f) } }
-    val floatAnimatables = remember(words.size) { List(words.size) { Animatable(0f) } }
-
-    LaunchedEffect(isActive) {
-        if (!isActive || bounceFactor == 0f) return@LaunchedEffect
-        words.indices.forEach { i ->
-            launch {
-                delay(i * 40L)
-                try {
-                    scaleAnimatables[i].animateTo(
-                        targetValue = 1f + 0.045f * bounceFactor,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessHigh,
-                            ),
-                    )
-                    scaleAnimatables[i].animateTo(
-                        targetValue = 1f,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                    )
-                } finally {
-                    withContext(NonCancellable) { scaleAnimatables[i].snapTo(1f) }
-                }
-            }
-            launch {
-                delay(i * 40L)
-                try {
-                    floatAnimatables[i].animateTo(
-                        targetValue = -5f * bounceFactor,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessHigh,
-                            ),
-                    )
-                    floatAnimatables[i].animateTo(
-                        targetValue = 0f,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                    )
-                } finally {
-                    withContext(NonCancellable) { floatAnimatables[i].snapTo(0f) }
-                }
-            }
-        }
-    }
+    val chars = remember(text) { text.toList() }
+    val len = chars.size.coerceAtLeast(1)
+    val lineProgress = ((currentPositionMs - lineStartMs).toFloat() / 3000f).coerceIn(0f, 1f)
 
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -1272,50 +1101,22 @@ private fun LyricsLineLrcBounce(
                 else -> Arrangement.Start
             },
     ) {
-        words.forEachIndexed { i, word ->
-            LrcBouncingWord(
-                text = word,
-                scaleAnim = scaleAnimatables[i],
-                floatAnim = floatAnimatables[i],
-                color = textColor,
-                fontSize = effectiveFontSize,
-                lineSpacing = lineSpacing,
-                fontWeight = fontWeight,
-                fontStyle = fontStyle,
+        chars.forEachIndexed { c, ch ->
+            val charProgress = ((lineProgress * len) - c).coerceIn(0f, 1f)
+            val alpha = if (!isActive) 0.52f else (0.15f + 0.85f * charProgress).coerceIn(0f, 1f)
+            Text(
+                text = ch.toString(),
+                style = TextStyle(
+                    fontFamily = SfProFontFamily,
+                    fontSize = effectiveFontSize.sp,
+                    fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
+                    lineHeight = (effectiveFontSize * lineSpacing).sp,
+                ),
+                color = textColor.copy(alpha = alpha),
             )
         }
     }
-}
-
-@Composable
-private fun LrcBouncingWord(
-    text: String,
-    scaleAnim: Animatable<Float, AnimationVector1D>,
-    floatAnim: Animatable<Float, AnimationVector1D>,
-    color: Color,
-    fontSize: Float,
-    lineSpacing: Float,
-    fontWeight: FontWeight,
-    fontStyle: FontStyle,
-) {
-    Text(
-        text = text,
-        style =
-            TextStyle(
-                fontFamily = SfProFontFamily,
-                fontSize = fontSize.sp,
-                fontWeight = fontWeight,
-                fontStyle = fontStyle,
-                lineHeight = (fontSize * lineSpacing).sp,
-            ),
-        color = color,
-        modifier =
-            Modifier.graphicsLayer {
-                scaleX = scaleAnim.value
-                scaleY = scaleAnim.value
-                translationY = floatAnim.value
-            },
-    )
 }
 
 // -----------------------------------------------------------------
