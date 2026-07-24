@@ -120,6 +120,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
@@ -442,7 +444,7 @@ fun NowPlaying(
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
-        val bgMode = SettingsLibrary.NowPlayingBackground
+        val bgMode = if (SettingsLibrary.NowplayingFullScreenStaticArtwork) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
             // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
@@ -1317,22 +1319,71 @@ private fun ColumnScope.Album(
         active = active
     )
 
+    if (SettingsLibrary.NowplayingFullScreenStaticArtwork) {
+        // ── Blurred continuation ────────────────────────────────────
+        // The exact same artwork, cropped/scaled to fill this whole area and
+        // heavily blurred, sitting directly beneath the sharp copy. Because it
+        // shares the same source image and is scaled in lockstep with the sharp
+        // copy below, the two are perceived as one continuous surface rather
+        // than a card floating over a separate background.
+        YosWrapper {
+            val continuationScale = 1f + 0.12f * scale.value
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(albumUrl())
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = continuationScale
+                        scaleY = continuationScale
+                    }
+                    .blur(radius = 60.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            )
+        }
+    }
+
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
-        ShadowImageWithCache(
-            dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+        Box(
+            modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                    compositingStrategy = CompositingStrategy.Offscreen
                 }
-                .padding(start = dp, end = dp, bottom = dp)
-                .then(modifier),
-            imageQuality = ImageQuality.RAW,
-            shadowOverlay = true,
-            overlayContent = {
-                AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
-            }
-        )
+                .drawWithCache {
+                    // Feather the sharp copy's outer edge into transparency so the
+                    // blurred continuation underneath bleeds through gradually —
+                    // no ring, no visible mask, no hard edge.
+                    val feather = Brush.radialGradient(
+                        0.78f to Color.Black,
+                        1f to Color.Transparent,
+                        center = Offset(size.width / 2f, size.height / 2f),
+                        radius = size.maxDimension * 0.6f
+                    )
+                    onDrawWithContent {
+                        drawContent()
+                        drawRect(brush = feather, blendMode = BlendMode.DstIn)
+                    }
+                }
+        ) {
+            ShadowImageWithCache(
+                dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    .padding(start = dp, end = dp, bottom = dp)
+                    .then(modifier),
+                imageQuality = ImageQuality.RAW,
+                shadowOverlay = true,
+                overlayContent = {
+                    AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
+                }
+            )
+        }
     }
 }
 
