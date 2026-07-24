@@ -63,4 +63,9 @@ object MediaViewModelObject {
     val hasWordSyncedLyrics: MutableState<Boolean> = mutableStateOf(false)
 
     val playbackLoadingState: MutableState<PlaybackLoadingState> = mutableStateOf(PlaybackLoadingState.Idle)
+
+    fun clearWordSync() {
+        hasWordSyncedLyrics.value = false
+        wordSyncedLines.value = emptyList()
+    }
 }

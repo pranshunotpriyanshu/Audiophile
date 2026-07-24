@@ -343,7 +343,7 @@ fun ArchiveLyrics(
                 val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
                 if (itemInfo != null) {
                     val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2f)
                     val itemCenter = itemInfo.offset + itemInfo.size / 2
                     val offset = itemCenter - center
 
@@ -351,9 +351,9 @@ fun ArchiveLyrics(
                         lazyListState.animateScrollBy(
                             value = offset.toFloat(),
                             animationSpec = if (isSeek) {
-                                spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium)
+                                tween(durationMillis = 300, easing = FastOutSlowInEasing)
                             } else {
-                                spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+                                tween(durationMillis = 400, easing = FastOutSlowInEasing)
                             },
                         )
                     }
@@ -524,11 +524,11 @@ fun ArchiveLyrics(
                             label = "lyricAlpha",
                         )
 
-                        val targetScale = 1f
+                        val targetScale = if (index == displayedCurrentLineIndex) 1.2f else 1f
 
                         val animatedScale by animateFloatAsState(
                             targetValue = targetScale,
-                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow),
+                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
                             label = "lyricScale",
                         )
 
@@ -540,11 +540,7 @@ fun ArchiveLyrics(
                             else -> 12f
                         }
 
-                        val animatedBlur by animateFloatAsState(
-                            targetValue = targetBlur,
-                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-                            label = "lyricBlur",
-                        )
+                        val animatedBlur = targetBlur
 
                         val itemModifier = Modifier
                             .fillMaxWidth()
@@ -610,7 +606,7 @@ fun ArchiveLyrics(
                                 shape = RoundedCornerShape(8.dp),
                             ).padding(horizontal = 24.dp, vertical = 8.dp)
                             .then(
-                                if (lyricsLineBlur) {
+                                if (lyricsLineBlur && animatedBlur > 0f) {
                                     Modifier.blur(
                                         radiusX = animatedBlur.dp,
                                         radiusY = animatedBlur.dp,
@@ -674,7 +670,7 @@ fun ArchiveLyrics(
                                             item.words, item.text, item.time, lines.size, index, lineIsRtl, isCjk,
                                         ) {
                                             if (hasWordTimings && item.words != null) {
-                                                val baseWords = item.words.filter { it.text.isNotBlank() }
+                                                val baseWords = item.words.filter { it.text.isNotBlank() && !it.startTime.isNaN() && !it.endTime.isNaN() }
                                                 baseWords.flatMapIndexed { idx, word ->
                                                     val prevText = baseWords.getOrNull(idx - 1)?.text
                                                     val nextText = baseWords.getOrNull(idx + 1)?.text
@@ -1467,7 +1463,7 @@ fun ArchiveLyrics(
                                             textColor = lyricsBaseColor,
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(top = 16.dp, bottom = 16.dp),
+                                                .padding(top = 20.dp, bottom = 20.dp),
                                             textAlign = alignment,
                                         )
                                     }

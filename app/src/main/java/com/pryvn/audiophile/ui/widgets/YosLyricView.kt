@@ -315,19 +315,16 @@ fun YosLyricView(
             // ---- Spacer animation for each item ----
             key(index) {
                 val show = derivedStateOf { !isLyricEmpty.value || isCurrent.value }
-                val thisScrollDistance = if (targetItem.value != null) {
-                    (scrollDistance.value / visibleItems.value.size.coerceAtLeast(1)).toDp()
-                } else 0.dp
 
                 val thisTargetHeight = remember { mutableStateOf(space) }
 
                 LaunchedEffect(currentLyricIndex.intValue) {
                     if (visibleItems.value.isEmpty()) return@LaunchedEffect
                     if (index >= currentLyricIndex.intValue - 1 && showStateAnimation.value && show.value) {
-                        val weight = 1f - ((index - nowFirst.value).toFloat() / visibleItems.value.size.toFloat())
-                        delay((550 * (1f - weight)).toLong())
-                        thisTargetHeight.value = (thisScrollDistance * weight) + space
-                        delay((550 / 1.95f * weight).toLong())
+                        val segment = 1f - ((index - nowFirst.value).toFloat() / visibleItems.value.size.toFloat())
+                        delay((350 * (1f - segment)).toLong())
+                        thisTargetHeight.value = (3.dp * segment) + space
+                        delay(100)
                         thisTargetHeight.value = space
                     } else if (show.value) {
                         thisTargetHeight.value = space
@@ -338,11 +335,7 @@ fun YosLyricView(
 
                 val offset = animateDpAsState(
                     targetValue = thisTargetHeight.value,
-                    animationSpec = if (thisTargetHeight.value == 0.dp || thisTargetHeight.value == space) {
-                        spring(stiffness = 105f, dampingRatio = 1f, visibilityThreshold = 0.0001.dp)
-                    } else {
-                        tween(durationMillis = 550, easing = yosEasing)
-                    }
+                    animationSpec = tween(durationMillis = 250, easing = yosEasing)
                 )
                 Spacer(modifier = Modifier.height(offset.value))
             }
@@ -355,34 +348,42 @@ fun YosLyricView(
     // ---- Auto‑scroll to current line ----
     LaunchedEffect(currentLyricIndex.intValue, translationLambda()) {
         try {
-            if (enableLyricScroll.value) {
-                // Skip if previous line is blank (special case)
-                val skip = try {
-                    currentLyricIndex.intValue - 1 >= 0 &&
-                            lrcEntries[currentLyricIndex.intValue - 1][1].second.isBlank()
-                } catch (_: Exception) { false }
-                if (skip) return@LaunchedEffect
+            if (!enableLyricScroll.value) return@LaunchedEffect
+            val targetIdx = currentLyricIndex.intValue
 
-                if (targetItem.value != null) {
-                    scrollState.animateScrollBy(
-                        scrollDistance.value,
-                        animationSpec = tween(
-                            durationMillis = 550,
-                            easing = yosEasing
-                        )
+            // Skip if previous line is blank
+            val skip = try {
+                targetIdx - 1 >= 0 &&
+                        lrcEntries[targetIdx - 1][1].second.isBlank()
+            } catch (_: Exception) { false }
+            if (skip) return@LaunchedEffect
+
+            delay(30)
+
+            // Bail if a newer index change superseded this one
+            if (currentLyricIndex.intValue != targetIdx) return@LaunchedEffect
+
+            if (targetItem.value != null) {
+                scrollState.animateScrollBy(
+                    scrollDistance.value,
+                    animationSpec = tween(
+                        durationMillis = 550,
+                        easing = yosEasing
                     )
-                } else {
-                    scrollState.animateScrollToItem(
-                        index = (currentLyricIndex.intValue + 1).coerceAtLeast(0),
-                        scrollOffset = -targetOffset.toInt()
-                    )
-                }
+                )
+            } else {
+                scrollState.animateScrollToItem(
+                    index = (targetIdx + 1).coerceAtLeast(0),
+                    scrollOffset = -targetOffset.toInt()
+                )
             }
         } catch (_: Exception) { }
     }
 
     // ---- Live time updater for current index ----
     LaunchedEffect(Unit) {
+        var stableIdx = currentLyricIndex.intValue
+        var stableCount = 0
         while (isActive) {
             val liveTime = liveTimeLambda()
             val targetPos = liveTime + LRC_LEAD_MS + LYRIC_VISUAL_TUNING_OFFSET_MS
@@ -392,8 +393,14 @@ fun YosLyricView(
                 nextIdx == 0 -> 0
                 else -> nextIdx - 1
             }
-            if (newIdx != currentLyricIndex.intValue) {
-                currentLyricIndex.intValue = newIdx
+            if (newIdx == stableIdx) {
+                stableCount++
+                if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
+                    currentLyricIndex.intValue = newIdx
+                }
+            } else {
+                stableIdx = newIdx
+                stableCount = 0
             }
             delay(100)
         }

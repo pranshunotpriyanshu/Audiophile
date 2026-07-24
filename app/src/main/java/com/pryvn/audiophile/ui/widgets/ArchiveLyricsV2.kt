@@ -14,6 +14,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
@@ -329,8 +335,8 @@ fun LyricsV2(
                 0,
             )
         }
-        // Center the current line in the viewport so it sits nicely
-        // between the song metadata above and player controls below.
+        // Center the current line in the viewport so large lines fit evenly
+        // with equal breathing room above and below.
         val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
         if (itemInfo != null) {
             val targetOffset = ((viewportHeight - itemInfo.size) / 2f).coerceAtLeast(0f)
@@ -339,10 +345,9 @@ fun LyricsV2(
                 listState.animateScrollBy(
                     scrollDistance,
                     animationSpec =
-                        spring(
-                            dampingRatio = 0.8f,
-                            stiffness = 150f,
-                            visibilityThreshold = 0.01f,
+                        tween(
+                            durationMillis = 400,
+                            easing = FastOutSlowInEasing,
                         ),
                 )
             }
@@ -614,32 +619,16 @@ fun LyricsV2(
                         distanceFromActive == 2 -> 5f
                         else -> 12f
                     }
-                val animatedBlur by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = targetBlur,
-                    animationSpec =
-                        androidx.compose.animation.core.tween(
-                            durationMillis = 300,
-                            easing = androidx.compose.animation.core.FastOutSlowInEasing,
-                        ),
-                    label = "v2LyricBlur",
-                )
+                val animatedBlur = targetBlur
+                val targetLineScale = if (isActive) 1.2f else 1f
                 val animatedLineScale by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = 1f,
+                    targetValue = targetLineScale,
                     animationSpec =
                         androidx.compose.animation.core.tween(
-                            durationMillis = 166,
+                            durationMillis = 400,
                             easing = androidx.compose.animation.core.FastOutSlowInEasing,
                         ),
                     label = "v2LineScale",
-                )
-                val animatedLineAlpha by androidx.compose.animation.core.animateFloatAsState(
-                    targetValue = lineAlpha,
-                    animationSpec =
-                        androidx.compose.animation.core.tween(
-                            durationMillis = if (isActive) 330 else 500,
-                            easing = androidx.compose.animation.core.FastOutSlowInEasing,
-                        ),
-                    label = "v2LineAlpha",
                 )
                 val isRightSide = item.agent?.lowercase() == "v2"
 
@@ -694,7 +683,7 @@ fun LyricsV2(
                                         },
                                     bottom = 9.dp,
                                 ).then(
-                                    if (lyricsLineBlur) {
+                                    if (lyricsLineBlur && animatedBlur > 0f) {
                                         Modifier.blur(
                                             radiusX = animatedBlur.dp,
                                             radiusY = animatedBlur.dp,
@@ -706,7 +695,7 @@ fun LyricsV2(
                                 ).graphicsLayer {
                                     scaleX = animatedLineScale
                                     scaleY = animatedLineScale
-                                    alpha = animatedLineAlpha
+                                    alpha = lineAlpha
                                     transformOrigin = lineTransformOrigin
                                 }.combinedClickable(
                                     enabled = lyricsClick && isSynced && item.time > 0,
@@ -809,7 +798,7 @@ fun LyricsV2(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 16.dp, bottom = 16.dp),
+                                        .padding(top = 20.dp, bottom = 20.dp),
                                 textAlign = textAlign,
                             )
                         }
@@ -860,8 +849,8 @@ private fun LyricsLineV2(
             else -> Arrangement.Start
         }
 
-    val mainWords = words.filter { !it.isBackground }
-    val bgWords = words.filter { it.isBackground }
+    val mainWords = words.filter { !it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
+    val bgWords = words.filter { it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
 
     if (mainWords.isNotEmpty()) {
         FlowRow(
@@ -986,6 +975,17 @@ fun GapDots(
     val dimAlpha = 0.22f
     val brightAlpha = 0.9f
 
+    val infiniteTransition = rememberInfiniteTransition(label = "gapDotsPulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 0.43f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "gapDotsScale",
+    )
+
     Row(
         modifier = modifier,
         horizontalArrangement = arrangement,
@@ -998,8 +998,12 @@ fun GapDots(
             val dotAlpha = (dimAlpha + (brightAlpha - dimAlpha) * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .size(15.dp)
+                    .padding(horizontal = 6.dp)
+                    .size(7.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
                     .background(textColor.copy(alpha = dotAlpha), shape = CircleShape)
             )
         }
@@ -1027,15 +1031,21 @@ private fun AnimatedWordV2(
     fillTransitionWidth: Float,
     fontWeight: FontWeight,
 ) {
-    val wordStartMs = (word.startTime * 1000).toLong()
-    val wordEndMs = (word.endTime * 1000).toLong()
-    val wordDuration = (wordEndMs - wordStartMs).coerceAtLeast(1L)
+    val startTime = word.startTime
+    val endTime = word.endTime
+    val wordStartMs = (startTime * 1000).toLong()
+    val wordEndMs = (endTime * 1000).toLong()
+
+    val wordStartSafe = wordStartMs.coerceAtLeast(0L)
+    val wordEndSafe = wordEndMs.coerceAtLeast(wordStartSafe)
+    val wordDuration = (wordEndSafe - wordStartSafe).coerceAtLeast(1L)
 
     val progress =
         when {
-            currentPositionMs >= wordEndMs -> 1f
-            currentPositionMs <= wordStartMs -> 0f
-            else -> ((currentPositionMs - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
+            startTime.isNaN() || endTime.isNaN() -> 1f
+            currentPositionMs >= wordEndSafe -> 1f
+            currentPositionMs <= wordStartSafe -> 0f
+            else -> ((currentPositionMs - wordStartSafe).toFloat() / wordDuration).coerceIn(0f, 1f)
         }
 
     val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
@@ -1052,7 +1062,7 @@ private fun AnimatedWordV2(
         chars.forEachIndexed { c, ch ->
             val charProgress = ((progress * len) - c).coerceIn(0f, 1f)
             val charAlpha = (inactiveAlpha + (1f - inactiveAlpha) * charProgress).coerceIn(0f, 1f)
-            val alpha = if (isLinePast || currentPositionMs >= wordEndMs) 1f else charAlpha
+            val alpha = if (currentPositionMs >= wordEndSafe) 1f else charAlpha
 
             Text(
                 text = ch.toString(),
@@ -1103,7 +1113,7 @@ private fun LyricsLineLrcBounce(
     ) {
         chars.forEachIndexed { c, ch ->
             val charProgress = ((lineProgress * len) - c).coerceIn(0f, 1f)
-            val alpha = if (!isActive) 0.52f else (0.15f + 0.85f * charProgress).coerceIn(0f, 1f)
+            val alpha = (0.15f + 0.85f * charProgress).coerceIn(0f, 1f)
             Text(
                 text = ch.toString(),
                 style = TextStyle(

@@ -1337,42 +1337,63 @@ class YosPlaybackService : MediaSessionService() {
                         CoroutineScope(Dispatchers.IO + lyricsJob).launch {
                             val currentTrack = musicPlaying.value
                             val videoIdAtFetch = currentTrack?.mediaId
-                            if (currentTrack != null) {
-                                val cacheKey = videoIdAtFetch ?: (currentTrack.title ?: "unknown")
-                                val cached = MediaViewModelObject.lyricsCache[cacheKey]
-                                if (cached != null) {
-                                    if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
-                                    ensureActive()
-                                    LyricsProcessor.applyLyrics(
-                                        AudiophileLyrics("Cache", cached, isWordSynced = TTMLParser.isTtml(cached)),
-                                        { lrcEntries.value = it }
-                                    )
-                                    if (musicPlaying.value?.mediaId == videoIdAtFetch) {
-                                        MediaViewModelObject.isLoadingLyrics.value = false
-                                    }
-                                } else {
-                                    val onlineLyrics = ArchiveTuneApis.fetchLyrics(
-                                        title = currentTrack.title,
-                                        artist = currentTrack.artists,
-                                        album = currentTrack.album,
-                                        durationMs = currentTrack.duration,
-                                        videoId = currentTrack.mediaId,
-                                    )
-                                    if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
-                                    ensureActive()
-                                    if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
-                                        MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
-                                        if (MediaViewModelObject.lyricsCache.size > 20) {
-                                            val keys = MediaViewModelObject.lyricsCache.keys.toList()
-                                            for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
-                                                MediaViewModelObject.lyricsCache.remove(keys[i])
+                            try {
+                                if (currentTrack != null) {
+                                    val cacheKey = videoIdAtFetch ?: (currentTrack.title ?: "unknown")
+                                    val cached = MediaViewModelObject.lyricsCache[cacheKey]
+                                    if (cached != null) {
+                                        if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
+                                        ensureActive()
+                                        LyricsProcessor.applyLyrics(
+                                            AudiophileLyrics("Cache", cached, isWordSynced = TTMLParser.isTtml(cached)),
+                                            { lrcEntries.value = it }
+                                        )
+                                        if (musicPlaying.value?.mediaId == videoIdAtFetch) {
+                                            MediaViewModelObject.isLoadingLyrics.value = false
+                                        }
+                                    } else {
+                                        val onlineLyrics = try {
+                                            ArchiveTuneApis.fetchLyrics(
+                                                title = currentTrack.title,
+                                                artist = currentTrack.artists,
+                                                album = currentTrack.album,
+                                                durationMs = currentTrack.duration,
+                                                videoId = currentTrack.mediaId,
+                                            )
+                                        } catch (e: Exception) {
+                                            println("Lyrics fetch failed: ${e.message}")
+                                            null
+                                        }
+                                        if (musicPlaying.value?.mediaId != videoIdAtFetch) {
+                                            MediaViewModelObject.isLoadingLyrics.value = false
+                                            return@launch
+                                        }
+                                        ensureActive()
+                                        if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
+                                            MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
+                                            if (MediaViewModelObject.lyricsCache.size > 20) {
+                                                val keys = MediaViewModelObject.lyricsCache.keys.toList()
+                                                for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
+                                                    MediaViewModelObject.lyricsCache.remove(keys[i])
+                                                }
+                                            }
+                                            LyricsProcessor.applyLyrics(onlineLyrics, { lrcEntries.value = it })
+                                        } else {
+                                            println("Lyrics fetch returned null or blank for: ${currentTrack.title}")
+                                            // Set empty lyrics state to show "not found" UI
+                                            if (musicPlaying.value?.mediaId == videoIdAtFetch) {
+                                                lrcEntries.value = emptyList()
                                             }
                                         }
-                                        LyricsProcessor.applyLyrics(onlineLyrics, { lrcEntries.value = it })
+                                        if (musicPlaying.value?.mediaId == videoIdAtFetch) {
+                                            MediaViewModelObject.isLoadingLyrics.value = false
+                                        }
                                     }
-                                    if (musicPlaying.value?.mediaId == videoIdAtFetch) {
-                                        MediaViewModelObject.isLoadingLyrics.value = false
-                                    }
+                                }
+                            } finally {
+                                // Ensure loading is always cleared even if coroutine is cancelled
+                                if (musicPlaying.value?.mediaId == videoIdAtFetch) {
+                                    MediaViewModelObject.isLoadingLyrics.value = false
                                 }
                             }
                         }

@@ -81,13 +81,16 @@ object ArchiveTuneApis {
     ): AudiophileLyrics? = withContext(Dispatchers.IO) {
         val cleanTitle = title?.takeIf { it.isNotBlank() } ?: return@withContext null
         val cleanArtist = artist?.takeIf { it.isNotBlank() } ?: ""
-        LyricsHelper.getLyrics(
+        println("ArchiveTuneApis: Fetching lyrics for [$cleanTitle] by [$cleanArtist] (durationMs=$durationMs, videoId=$videoId)")
+        val result = LyricsHelper.getLyrics(
             title = cleanTitle,
             artist = cleanArtist,
             album = album,
             durationMs = durationMs,
             videoId = videoId,
         )
+        println("ArchiveTuneApis: Fetch result = ${result?.provider ?: "null"}, text length = ${result?.text?.length ?: 0}, isWordSynced = ${result?.isWordSynced}")
+        result
     }
 
     suspend fun fetchTranslation(

@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.drawable.Drawable
 import android.net.Uri
-import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,33 +26,18 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.flaviofaria.kenburnsview.KenBurnsView
-import com.flaviofaria.kenburnsview.RandomTransitionGenerator
 import com.google.android.renderscript.Toolkit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
-import com.pryvn.audiophile.data.libraries.SettingsLibrary.NowplayingBackgroundEffect
-import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.pages.NowPlayingPage
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
-
-@Stable
-private enum class Option {
-    Set,
-    Pause,
-    Resume,
-    Init
-}
 
 @Composable
 fun YosFloatingLight(
@@ -67,8 +50,6 @@ fun YosFloatingLight(
     val drawable = remember(album) {
         mutableStateOf<Drawable?>(null)
     }
-
-    println("封面：" + drawable.value)
 
     val context = LocalContext.current
     val imageLoader = ImageLoader(context)
@@ -94,90 +75,43 @@ fun YosFloatingLight(
     }
 
     YosWrapper {
-        val lossEffect = remember("YosFloatingLight_lossEffect") {
-            derivedStateOf {
-                nowPage() != NowPlayingPage.Lyric
-            }
-        }
-
         val useBackground = remember("YosFloatingLight_useBackground") {
             derivedStateOf {
                 album() == null
             }
         }
 
-        if (NowplayingBackgroundEffect) {
-            val lastOption = remember("YosFloatingLight_lastOption") {
-                mutableStateOf(Option.Init.name)
-            }
-            YosWrapper {
-                val lifecycleState =
-                    LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-                val active = lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)&&!showMiniPlayer()
-                AndroidView(factory = {
-                    KenBurnsView(it).apply {
-                        setTransitionGenerator(
-                            RandomTransitionGenerator(
-                                12000,
-                                AccelerateDecelerateInterpolator()
-                            )
-                        )
+        // Static background image (no Ken Burns animation)
+        YosWrapper {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(data = drawable.value)
+                    .crossfade(true).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = modifier
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
                     }
-                }, modifier = modifier.drawWithCache {
-                    onDrawBehind {
-                        if (useBackground.value) {
-                        drawRect(Color.Black)
-                            }
-                    }
-                }) {
-                    if (drawable.value != null) {
-                        if (it.drawable != drawable.value) {
-                            val thisOptionType = Option.Set.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：设置背景")
-                            it.setImageDrawable(drawable.value!!)
-                            lastOption.value = thisOptionType
-                        } else if (!isPlaying() || !active) {
-                            val thisOptionType = Option.Pause.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：暂停")
-                            it.pause()
-                            lastOption.value = thisOptionType
-                        } else {
-                            val thisOptionType = Option.Resume.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：恢复")
-                            it.resume()
-                            lastOption.value = thisOptionType
-                        }
-                    }
-                }
-            }
-        } else {
-            YosWrapper {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current).data(data = drawable.value)
-                        .crossfade(true).build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = modifier
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
-                        .drawWithCache {
-                            onDrawBehind {
-                                if (useBackground.value) {
-                                    drawRect(Color.Black)
-                                }
+                    .drawWithCache {
+                        onDrawBehind {
+                            if (useBackground.value) {
+                                drawRect(Color.Black)
                             }
                         }
-                )
-            }
+                    }
+            )
         }
 
+        // Dimming overlay: visible when on Lyrics page
         YosWrapper {
+            val dimmed = remember("YosFloatingLight_dimmed") {
+                derivedStateOf {
+                    nowPage() == NowPlayingPage.Lyric
+                }
+            }
+
             val alpha = animateFloatAsState(
-                targetValue = if (lossEffect.value) 0.618f else 0f, animationSpec = tween(
+                targetValue = if (dimmed.value) 0.618f else 0f, animationSpec = tween(
                     durationMillis = 300,
                     easing = FastOutSlowInEasing
                 )
