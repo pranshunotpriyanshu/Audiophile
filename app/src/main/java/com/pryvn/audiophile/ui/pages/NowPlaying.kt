@@ -40,16 +40,21 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -86,6 +91,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.animation.core.animate
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
@@ -138,6 +144,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -157,6 +164,7 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
 import androidx.core.app.ActivityCompat
@@ -344,6 +352,8 @@ fun NowPlaying(
 
         val overflowSheetOpen = remember { mutableStateOf(false) }
         val snapshotSong = remember { mutableStateOf<YosMediaItem?>(null) }
+        val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
+        val fsAlbum = fsEnabled && nowPageLambda() == Album
 
         val lrcEntries: MutableState<List<List<Pair<Float, String>>>> =
             MediaViewModelObject.lrcEntries
@@ -444,7 +454,7 @@ fun NowPlaying(
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
-        val bgMode = if (SettingsLibrary.NowplayingFullScreenStaticArtwork) "Solid" else SettingsLibrary.NowPlayingBackground
+        val bgMode = if (fsAlbum) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
             // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
@@ -527,6 +537,29 @@ fun NowPlaying(
             }
         }
 
+        // ── 全屏静态封面：页面级英雄层 ─────────────────
+        var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
+        val topSpacingPx = with(density) { (statusBarHeight + 40.dp).toPx() }
+        val artworkBottomGapPx = with(density) { 32.dp.toPx() }
+        val artworkMaxHeightDp = with(density) {
+            if (titleRowYPx >= Float.MAX_VALUE) 0.dp
+            else (titleRowYPx - topSpacingPx - artworkBottomGapPx).toDp().coerceAtLeast(0.dp)
+        }
+        if (fsAlbum) {
+            val heroTopSpacingDp = statusBarHeight + 20.dp
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(heroTopSpacingDp + artworkMaxHeightDp)
+            ) {
+                HeroArtworkLayer(
+                    albumUrl = { thisMusicPlaying.value?.thumb },
+                    topSpacingDp = heroTopSpacingDp,
+                    artworkMaxHeightDp = artworkMaxHeightDp
+                )
+            }
+        }
+
         // 实际显示区
         YosWrapper {
             /*
@@ -592,7 +625,7 @@ fun NowPlaying(
             }
 
             // 这是小把手
-            YosWrapper {
+            if (!fsAlbum) YosWrapper {
                 Column(Modifier.fillMaxWidth()) {
                     Box(
                         Modifier
@@ -627,17 +660,23 @@ fun NowPlaying(
                         //println("nowPage: ${nowPageLambda()}")
                         //println("nowPageIt: $it")
                         when (it) {
-                            Album ->
-                                    Column(
-                                        Modifier
-                                            .fillMaxSize()
-                                    ) {
-                                        YosWrapper {
-                                            Column(Modifier.fillMaxHeight(0.595f)) {
-                                                val isVisible = nowPageLambda() == Album
-                                                val animatedAlbumLifecycleState =
-                                                    LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+Album ->
+                                Column(
+                                    Modifier
+                                        .fillMaxSize()
+                                ) {
+                                    YosWrapper {
+                                        Column(Modifier.fillMaxHeight(0.595f)) {
+                                            val isVisible = nowPageLambda() == Album
+                                            val animatedAlbumLifecycleState =
+                                                LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+                                            val active = nowPageLambda() == Album &&
+                                                showNowPlaying() &&
+                                                animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
+                                            if (fsEnabled) {
+                                                Box(Modifier.weight(1f)) { }
+                                            } else {
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
                                                         sharedContentState = rememberSharedContentState(
@@ -648,59 +687,61 @@ fun NowPlaying(
                                                     albumUrl = { thisMusicPlaying.value?.thumb },
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
-                                                    active = nowPageLambda() == Album &&
-                                                        showNowPlaying() &&
-                                                        animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
+                                                    active = active
                                                 )
-                                                Row(
+                                            }
+                                            Row(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 32.dp)
+                                                    .onGloballyPositioned { coords ->
+                                                        titleRowYPx = coords.localToRoot(Offset.Zero).y
+                                                    },
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(
                                                     Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 32.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
+                                                        .weight(1f)
+                                                        .padding(end = 15.dp)
                                                 ) {
-                                                    Column(
-                                                        Modifier
-                                                            .weight(1f)
-                                                            .padding(end = 15.dp)
-                                                    ) {
-                                                        val song = thisMusicPlaying.value
-                                                        Text(
-                                                            text = song?.title
-                                                                ?: defaultTitle,
-                                                            fontSize = 19.5.sp,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = Color.White,
-                                                        )
-                                                        Text(
-                                                            text = song?.artistsName
-                                                                ?: defaultArtistsName,
-                                                            fontSize = 18.5.sp,
-                                                            modifier = Modifier.overlayEffect(),
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            color = Color.White.copy(alpha = 0.35f)
-                                                        )
-                                                    }
+                                                    val song = thisMusicPlaying.value
+                                                    Text(
+                                                        text = song?.title
+                                                            ?: defaultTitle,
+                                                        fontSize = 19.5.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color.White,
+                                                    )
+                                                    Text(
+                                                        text = song?.artistsName
+                                                            ?: defaultArtistsName,
+                                                        fontSize = 18.5.sp,
+                                                        modifier = Modifier.overlayEffect(),
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = Color.White.copy(alpha = 0.35f)
+                                                    )
+                                                }
 
-                                                    YosWrapper {
-                                                        ActionButtonsRow(
-                                                            musicPlayingLambda = { thisMusicPlaying.value },
-                                                            navController = navController,
-                                                            albumUrlLambda = { thisMusicPlaying.value?.thumb },
-                                                            onMinimizeNowPlaying = onMinimizeNowPlaying,
-                                                            isMenuOpen = overflowSheetOpen.value,
-                                                            onShowMenu = {
-                                                                snapshotSong.value = thisMusicPlaying.value
-                                                                overflowSheetOpen.value = true
-                                                            },
-                                                        )
-                                                    }
+                                                YosWrapper {
+                                                    ActionButtonsRow(
+                                                        musicPlayingLambda = { thisMusicPlaying.value },
+                                                        navController = navController,
+                                                        albumUrlLambda = { thisMusicPlaying.value?.thumb },
+                                                        onMinimizeNowPlaying = onMinimizeNowPlaying,
+                                                        isMenuOpen = overflowSheetOpen.value,
+                                                        onShowMenu = {
+                                                            snapshotSong.value = thisMusicPlaying.value
+                                                            overflowSheetOpen.value = true
+                                                        },
+                                                    )
                                                 }
                                             }
-                                         }
-                              }
+                                        }
+                                     }
+                               }
                                 Lyric ->
                                  Column(Modifier.fillMaxSize()) {
                                      YosWrapper {
@@ -984,11 +1025,6 @@ fun NowPlaying(
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
                                         modifier = Modifier
-                                            /*.graphicsLayer {
-                                                compositingStrategy =
-                                                    CompositingStrategy.Offscreen
-                                                //this.alpha = controlAlpha.value
-                                            }*/
                                             .padding(top = 52.dp),
                                         onWhile = {
                                             shuffleModeEnabled.value =
@@ -1327,7 +1363,7 @@ private fun ColumnScope.Album(
         // copy below, the two are perceived as one continuous surface rather
         // than a card floating over a separate background.
         YosWrapper {
-            val continuationScale = 1f + 0.12f * scale.value
+            val continuationScale = 1f + 0.18f * scale.value
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(albumUrl())
@@ -1340,13 +1376,16 @@ private fun ColumnScope.Album(
                         scaleX = continuationScale
                         scaleY = continuationScale
                     }
-                    .blur(radius = 60.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
             )
         }
     }
 
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
+        val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
+        val shadowOverlayEnabled = !fsEnabled
+        val featherStart = if (fsEnabled) 0.4f else 0.78f
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1358,7 +1397,7 @@ private fun ColumnScope.Album(
                     // blurred continuation underneath bleeds through gradually —
                     // no ring, no visible mask, no hard edge.
                     val feather = Brush.radialGradient(
-                        0.78f to Color.Black,
+                        featherStart to Color.Black,
                         1f to Color.Transparent,
                         center = Offset(size.width / 2f, size.height / 2f),
                         radius = size.maxDimension * 0.6f
@@ -1378,12 +1417,108 @@ private fun ColumnScope.Album(
                     .padding(start = dp, end = dp, bottom = dp)
                     .then(modifier),
                 imageQuality = ImageQuality.RAW,
-                shadowOverlay = true,
+                shadowOverlay = shadowOverlayEnabled,
                 overlayContent = {
                     AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun HeroArtworkLayer(
+    albumUrl: () -> Uri?,
+    modifier: Modifier = Modifier,
+    topSpacingDp: Dp = 0.dp,
+    artworkMaxHeightDp: Dp = Dp.Unspecified
+) {
+    val url = albumUrl()
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // The artwork is square, same as it is during the shared-element
+        // transition. Width is the source of truth: the square always
+        // fills the full available width with no side gap, and the height
+        // simply follows from that — it never gets capped down to fit a
+        // separate height budget, which is what was leaving space at the
+        // sides.
+        val artworkSide = maxWidth
+
+        // How deep the blur reaches inward from each edge, and how strong
+        // it gets right at the edge. Purely internal to the artwork's own
+        // rectangle — the rectangle itself never changes size.
+        val edgeBlurZoneDp = 10.dp
+        val edgeBlurRadiusDp = 40.dp
+
+        val edgeFraction = with(LocalDensity.current) {
+            (edgeBlurZoneDp.toPx() / artworkSide.toPx()).coerceIn(0f, 1f)
+        }
+
+        // Exactly one artwork source, one visible node.
+        val painter = rememberAsyncImagePainter(model = url, contentScale = ContentScale.Crop)
+
+        // A single offscreen layer used purely as an internal render pass
+        // to obtain a blurred version of the same pixels this Image is
+        // already drawing — it is never itself placed in the layout, never
+        // positioned, and never visible on its own; it only exists inside
+        // this one Image's draw phase.
+        val blurLayer = rememberGraphicsLayer()
+
+        Image(
+            painter = painter,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .padding(top = topSpacingDp)
+                .size(artworkSide)
+                .align(Alignment.TopCenter)
+                .drawWithCache {
+                    // Vertical-only mask: fully opaque (blur visible) in the
+                    // eased top/bottom 10dp zones, fully transparent (blur
+                    // invisible, sharp pixels show through) everywhere else,
+                    // including the entire left/right extent since this is
+                    // a single-axis vertical gradient.
+                    val steps = 8
+                    val topStops = (0..steps).map { i ->
+                        val t = i / steps.toFloat()
+                        val a = 1f - FastOutSlowInEasing.transform(t)
+                        (t * edgeFraction) to Color.Black.copy(alpha = a)
+                    }
+                    val bottomStart = 1f - edgeFraction
+                    val bottomStops = (0..steps).map { i ->
+                        val t = i / steps.toFloat()
+                        val a = FastOutSlowInEasing.transform(t)
+                        (bottomStart + t * edgeFraction) to Color.Black.copy(alpha = a)
+                    }
+                    val maskBrush = Brush.verticalGradient(
+                        colorStops = *(topStops + bottomStops).toTypedArray()
+                    )
+                    val blurRadiusPx = edgeBlurRadiusDp.toPx()
+
+                    onDrawWithContent {
+                        // Pass 1: the sharp artwork, exactly as it already
+                        // renders — this IS the artwork, unmodified.
+                        drawContent()
+
+                        // Pass 2 (internal only): record the SAME content
+                        // into the offscreen layer, blur that layer, then
+                        // paint it back on top through the vertical mask.
+                        // The saveLayer scopes the DstIn blend to only this
+                        // blurred pass, leaving the sharp pixels beneath
+                        // (already drawn above) untouched everywhere the
+                        // mask is transparent.
+                        blurLayer.record { this@onDrawWithContent.drawContent() }
+                        blurLayer.renderEffect = BlurEffect(blurRadiusPx, blurRadiusPx, TileMode.Decal)
+                        blurLayer.alpha = 1f
+
+                        val canvas = drawContext.canvas
+                        canvas.saveLayer(Rect(Offset.Zero, size), Paint())
+                        drawLayer(blurLayer)
+                        drawRect(brush = maskBrush, blendMode = BlendMode.DstIn)
+                        canvas.restore()
+                    }
+                }
+        )
     }
 }
 
