@@ -682,7 +682,16 @@ Album ->
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
                                             if (fsEnabled) {
-                                                Box(Modifier.weight(1f)) { }
+                                                Box(
+                                                    Modifier
+                                                        .weight(1f)
+                                                        .sharedElementWithCallerManagedVisibility(
+                                                            sharedContentState = rememberSharedContentState(
+                                                                key = ShareAlbumKey
+                                                            ),
+                                                            visible = isVisible
+                                                        )
+                                                ) { }
                                             } else {
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
