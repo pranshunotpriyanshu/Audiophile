@@ -548,11 +548,16 @@ fun NowPlaying(
             if (titleRowYPx >= Float.MAX_VALUE || contentWrapperTopY >= Float.MAX_VALUE) 0.dp
             else (titleRowYPx - contentWrapperTopY).toDp().coerceAtLeast(0.dp)
         }
-        if (fsAlbum) {
+        val heroAlpha by animateFloatAsState(
+            targetValue = if (fsAlbum) 1f else 0f,
+            animationSpec = tween(250)
+        )
+        if (fsAlbum || heroAlpha > 0f) {
             Box(
                 Modifier
                     .fillMaxWidth()
                     .height(artworkMaxHeightDp)
+                    .alpha(heroAlpha)
             ) {
                 HeroArtworkLayer(
                     albumUrl = { thisMusicPlaying.value?.thumb },
@@ -682,16 +687,7 @@ Album ->
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
                                             if (fsEnabled) {
-                                                Box(
-                                                    Modifier
-                                                        .weight(1f)
-                                                        .sharedElementWithCallerManagedVisibility(
-                                                            sharedContentState = rememberSharedContentState(
-                                                                key = ShareAlbumKey
-                                                            ),
-                                                            visible = isVisible
-                                                        )
-                                                ) { }
+                                                Box(Modifier.weight(1f)) { }
                                             } else {
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
