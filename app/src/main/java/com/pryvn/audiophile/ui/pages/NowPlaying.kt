@@ -504,44 +504,18 @@ fun NowPlaying(
         } else {
             // 纯色背景：取专辑封面的主色调（由上方全局 LaunchedEffect 提取）
             YosWrapper {
-                val vibrant = MediaViewModelObject.paletteVibrantColor.value
-                val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
-                val animatedVibrant = animateColorAsState(
-                    targetValue = vibrant,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
-                ).value
-                val animatedDarkVibrant = animateColorAsState(
-                    targetValue = darkVibrant,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
-                ).value
                 val animatedDarkMuted = animateColorAsState(
                     targetValue = darkMuted,
                     animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
                 ).value
 
-                if (fsAlbum) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(animatedDarkMuted)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        animatedVibrant.copy(alpha = 0.9f),
-                                        animatedDarkVibrant.copy(alpha = 0.95f),
-                                        animatedDarkMuted
-                                    )
-                                )
-                            )
-                    )
-                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(animatedDarkMuted)
+                )
             }
         }
 
@@ -758,19 +732,13 @@ Album ->
                                   Column(Modifier.fillMaxSize()) {
                                       YosWrapper {
                                           val isVisible = nowPageLambda() == Lyric
-                                          val barAlpha by animateFloatAsState(
-                                              targetValue = if (isVisible) 1f else 0f,
-                                              animationSpec = tween(if (fsEnabled) 400 else 0)
-                                          )
                                           PlayingBar(
-                                              modifier = Modifier
-                                                  .sharedElementWithCallerManagedVisibility(
-                                                      sharedContentState = rememberSharedContentState(
-                                                          key = ShareAlbumKey
-                                                      ),
-                                                      visible = isVisible
-                                                  )
-                                                  .then(if (fsEnabled) Modifier.graphicsLayer { alpha = barAlpha } else Modifier),
+                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                  sharedContentState = rememberSharedContentState(
+                                                      key = ShareAlbumKey
+                                                  ),
+                                                  visible = isVisible
+                                              ),
                                              albumUrlLambda = {
                                                  thisMusicPlaying.value?.thumb
                                              },
@@ -814,19 +782,13 @@ Album ->
                                             .fillMaxSize()
                                     ) {
                                         val isVisible = nowPageLambda() == PlayingList
-                                         val barAlpha by animateFloatAsState(
-                                             targetValue = if (isVisible) 1f else 0f,
-                                             animationSpec = tween(if (fsEnabled) 400 else 0)
-                                         )
                                           PlayingBar(
-                                              modifier = Modifier
-                                                  .sharedElementWithCallerManagedVisibility(
-                                                      sharedContentState = rememberSharedContentState(
-                                                          key = ShareAlbumKey
-                                                      ),
-                                                      visible = isVisible
-                                                  )
-                                                  .then(if (fsEnabled) Modifier.graphicsLayer { alpha = barAlpha } else Modifier),
+                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                  sharedContentState = rememberSharedContentState(
+                                                      key = ShareAlbumKey
+                                                  ),
+                                                  visible = isVisible
+                                              ),
                                              albumUrlLambda = {
                                                  thisMusicPlaying.value?.thumb
                                              },
