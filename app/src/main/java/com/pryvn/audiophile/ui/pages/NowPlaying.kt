@@ -542,10 +542,11 @@ fun NowPlaying(
         }
 
         // ── 全屏静态封面：页面级英雄层 ─────────────────
+        var contentWrapperTopY by remember { mutableStateOf(Float.MAX_VALUE) }
         var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
         val artworkMaxHeightDp = with(density) {
-            if (titleRowYPx >= Float.MAX_VALUE) 0.dp
-            else (titleRowYPx - 32.dp.toPx()).toDp().coerceAtLeast(0.dp)
+            if (titleRowYPx >= Float.MAX_VALUE || contentWrapperTopY >= Float.MAX_VALUE) 0.dp
+            else (titleRowYPx - contentWrapperTopY).toDp().coerceAtLeast(0.dp)
         }
         if (fsAlbum) {
             Box(
@@ -563,6 +564,10 @@ fun NowPlaying(
         }
 
         // 实际显示区
+        // Reference box to track the Surface's root position for artwork sizing
+        Box(Modifier.onGloballyPositioned { coords ->
+            contentWrapperTopY = coords.localToRoot(Offset.Zero).y
+        }) { }
         YosWrapper {
             /*
         val controlAlpha = animateFloatAsState(
