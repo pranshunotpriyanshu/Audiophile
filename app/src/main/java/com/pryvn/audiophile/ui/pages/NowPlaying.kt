@@ -144,7 +144,8 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.layer.rememberGraphicsLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -1384,30 +1385,44 @@ private fun ColumnScope.Album(
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
         val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
-        val shadowOverlayEnabled = !fsEnabled
-        val featherStart = if (fsEnabled) 0.4f else 0.78f
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                }
-                .drawWithCache {
-                    // Feather the sharp copy's outer edge into transparency so the
-                    // blurred continuation underneath bleeds through gradually —
-                    // no ring, no visible mask, no hard edge.
-                    val feather = Brush.radialGradient(
-                        featherStart to Color.Black,
-                        1f to Color.Transparent,
-                        center = Offset(size.width / 2f, size.height / 2f),
-                        radius = size.maxDimension * 0.6f
-                    )
-                    onDrawWithContent {
-                        drawContent()
-                        drawRect(brush = feather, blendMode = BlendMode.DstIn)
+        if (fsEnabled) {
+            val shadowOverlayEnabled = !fsEnabled
+            val featherStart = 0.4f
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
                     }
-                }
-        ) {
+                    .drawWithCache {
+                        val feather = Brush.radialGradient(
+                            featherStart to Color.Black,
+                            1f to Color.Transparent,
+                            center = Offset(size.width / 2f, size.height / 2f),
+                            radius = size.maxDimension * 0.6f
+                        )
+                        onDrawWithContent {
+                            drawContent()
+                            drawRect(brush = feather, blendMode = BlendMode.DstIn)
+                        }
+                    }
+            ) {
+                ShadowImageWithCache(
+                    dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                        }
+                        .padding(start = dp, end = dp, bottom = dp)
+                        .then(modifier),
+                    imageQuality = ImageQuality.RAW,
+                    shadowOverlay = shadowOverlayEnabled,
+                    overlayContent = {
+                        AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
+                    }
+                )
+            }
+        } else {
             ShadowImageWithCache(
                 dataLambda = albumUrl, contentDescription = null, modifier = Modifier
                     .fillMaxWidth()
@@ -1417,7 +1432,7 @@ private fun ColumnScope.Album(
                     .padding(start = dp, end = dp, bottom = dp)
                     .then(modifier),
                 imageQuality = ImageQuality.RAW,
-                shadowOverlay = shadowOverlayEnabled,
+                shadowOverlay = true,
                 overlayContent = {
                     AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
                 }
