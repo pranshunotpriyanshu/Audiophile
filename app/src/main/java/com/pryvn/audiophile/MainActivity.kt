@@ -40,7 +40,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -48,11 +48,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
+
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -839,8 +835,11 @@ class MainActivity : BaseActivity() {
                                     val showNavBar = route.value in listOf(
                                         UI.HomePage,
                                     )
-                                    val seekbarRect = remember { mutableStateOf<Rect>(Rect.Zero) }
-                                    val surfaceInRoot = remember { mutableStateOf<Offset>(Offset.Zero) }
+                                    val dragState = rememberDraggableState { delta ->
+                                        scope.launch {
+                                            offsetY.snapTo(offsetY.value + delta)
+                                        }
+                                    }
                                     Box(
                                         Modifier
                                             .fillMaxSize()
@@ -881,60 +880,21 @@ class MainActivity : BaseActivity() {
                                                     clip = false
                                                 }
                                             }
-                                            .onGloballyPositioned { surfaceInRoot.value = it.localToRoot(Offset.Zero) }
-                                            .pointerInput(Unit) {
-                                                val velocityTracker = VelocityTracker()
-                                                var ignoreDrag = false
-                                                var totalDisplacement = 0f
-                                                detectVerticalDragGestures(
-                                                    onDragStart = { start ->
-                                                        totalDisplacement = 0f
-                                                        velocityTracker.resetTracking()
-                                                        val touchInRoot = surfaceInRoot.value + start
-                                                        ignoreDrag = touchInRoot.x in seekbarRect.value.left..seekbarRect.value.right &&
-                                                            touchInRoot.y in seekbarRect.value.top..seekbarRect.value.bottom
-                                                    },
-                                                    onVerticalDrag = { change, dragAmount ->
-                                                        if (ignoreDrag) return@detectVerticalDragGestures
-                                                        totalDisplacement += abs(dragAmount)
-                                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
-                                                        scope.launch {
-                                                            offsetY.snapTo(
-                                                                (offsetY.value - dragAmount).coerceIn(
-                                                                    0f,
-                                                                    parentHeight.intValue.toFloat()
-                                                                )
-                                                            )
+                                            .draggable(
+                                                reverseDirection = true,
+                                                orientation = Orientation.Vertical,
+                                                state = dragState,
+                                                onDragStopped = { velocity ->
+                                                    offsetY.updateBounds(0f, parentHeight.intValue.toFloat())
+                                                    scope.launch {
+                                                        if (velocity < 0f) {
+                                                            offsetY.animateTo(0f, initialVelocity = velocity)
+                                                        } else {
+                                                            offsetY.animateTo(parentHeight.intValue.toFloat(), initialVelocity = velocity)
                                                         }
-                                                    },
-                                                    onDragEnd = {
-                                                        if (ignoreDrag) {
-                                                            velocityTracker.resetTracking()
-                                                            return@detectVerticalDragGestures
-                                                        }
-                                                        val velocity = -velocityTracker.calculateVelocity().y
-                                                        velocityTracker.resetTracking()
-                                                        val max = parentHeight.intValue.toFloat()
-                                                        val midPoint = max * 0.5f
-                                                        offsetY.updateBounds(0f, max)
-                                                        scope.launch {
-                                                            if (totalDisplacement < 20f && offsetY.value < midPoint) {
-                                                                offsetY.animateTo(max)
-                                                            } else if (totalDisplacement >= 20f) {
-                                                                val shouldExpand = if (abs(velocity) > 0.5f) velocity > 0f else offsetY.value > midPoint
-                                                                if (shouldExpand) {
-                                                                    offsetY.animateTo(max, initialVelocity = velocity.coerceAtLeast(0f))
-                                                                } else {
-                                                                    offsetY.animateTo(0f, initialVelocity = velocity.coerceAtMost(0f))
-                                                                }
-                                                            }
-                                                        }
-                                                    },
-                                                    onDragCancel = {
-                                                        velocityTracker.resetTracking()
                                                     }
-                                                )
-                                            }
+                                                }
+                                            )
                                             .layout { measurable, constraints ->
                                                 val placeable = measurable.measure(
                                                     constraints.copy(
