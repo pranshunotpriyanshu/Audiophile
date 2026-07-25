@@ -28,7 +28,6 @@ import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -45,8 +44,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -144,8 +141,6 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -522,41 +517,47 @@ fun NowPlaying(
                     animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
                 ).value
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    animatedVibrant.copy(alpha = 0.9f),
-                                    animatedDarkVibrant.copy(alpha = 0.95f),
-                                    animatedDarkMuted
+                if (fsAlbum) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(animatedDarkMuted)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        animatedVibrant.copy(alpha = 0.9f),
+                                        animatedDarkVibrant.copy(alpha = 0.95f),
+                                        animatedDarkMuted
+                                    )
                                 )
                             )
-                        )
-                )
+                    )
+                }
             }
         }
 
         // ── 全屏静态封面：页面级英雄层 ─────────────────
         var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
-        val topSpacingPx = with(density) { (statusBarHeight + 40.dp).toPx() }
-        val artworkBottomGapPx = with(density) { 32.dp.toPx() }
         val artworkMaxHeightDp = with(density) {
             if (titleRowYPx >= Float.MAX_VALUE) 0.dp
-            else (titleRowYPx - topSpacingPx - artworkBottomGapPx).toDp().coerceAtLeast(0.dp)
+            else (titleRowYPx - 32.dp.toPx()).toDp().coerceAtLeast(0.dp)
         }
         if (fsAlbum) {
-            val heroTopSpacingDp = statusBarHeight + 20.dp
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(heroTopSpacingDp + artworkMaxHeightDp)
+                    .height(artworkMaxHeightDp)
             ) {
                 HeroArtworkLayer(
                     albumUrl = { thisMusicPlaying.value?.thumb },
-                    topSpacingDp = heroTopSpacingDp,
-                    artworkMaxHeightDp = artworkMaxHeightDp
+                    topSpacingDp = 0.dp,
+                    artworkMaxHeightDp = artworkMaxHeightDp,
+                    bottomGradientColor = MediaViewModelObject.paletteDarkMutedColor.value
                 )
             }
         }
@@ -656,7 +657,7 @@ fun NowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .statusBarsPadding()
-                            .padding(top = 22.dp)
+                            .padding(top = if (fsAlbum) 0.dp else 22.dp)
                     ) {
                         //println("nowPage: ${nowPageLambda()}")
                         //println("nowPageIt: $it")
@@ -1327,86 +1328,98 @@ private fun ColumnScope.Album(
     isPlaying: () -> Boolean,
     music: () -> YosMediaItem?,
     active: Boolean
-) = Box(
-    Modifier
-        .weight(1f)
-        .padding(top = 20.dp)
-        .padding(horizontal = 15.dp)
-        .padding(bottom = 33.dp),
-    contentAlignment = Alignment.BottomCenter
 ) {
-    val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
-        SpringSpec(stiffness = 300f, dampingRatio = 0.8f, visibilityThreshold = 0.001f)
-    }
+    val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
 
-    val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
-        SpringSpec(stiffness = 400f, dampingRatio = 0.7f, visibilityThreshold = 0.001f)
-    }
-
-    val isBuffering = MediaViewModelObject.isBuffering.value
-    val scale = animateFloatAsState(
-        targetValue = if (isPlaying() && !isBuffering) 0f else 1f,
-        animationSpec = if (isPlaying()) springSpec else tweenSpec,
-        visibilityThreshold = 0.001f
-    )
-
-    val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
-        music = music(),
-        isPlaying = isPlaying(),
-        active = active
-    )
-
-    if (SettingsLibrary.NowplayingFullScreenStaticArtwork) {
-        // ── Blurred continuation ────────────────────────────────────
-        // The exact same artwork, cropped/scaled to fill this whole area and
-        // heavily blurred, sitting directly beneath the sharp copy. Because it
-        // shares the same source image and is scaled in lockstep with the sharp
-        // copy below, the two are perceived as one continuous surface rather
-        // than a card floating over a separate background.
-        YosWrapper {
-            val continuationScale = 1f + 0.18f * scale.value
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(albumUrl())
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = continuationScale
-                        scaleY = continuationScale
-                    }
-                    .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-            )
+    Box(
+        Modifier
+            .weight(1f)
+            .then(
+                if (fsEnabled) Modifier.padding(bottom = 33.dp)
+                else Modifier
+                    .padding(top = 20.dp)
+                    .padding(horizontal = 15.dp)
+                    .padding(bottom = 33.dp)
+            ),
+        contentAlignment = if (fsEnabled) Alignment.TopCenter else Alignment.BottomCenter
+    ) {
+        val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
+            SpringSpec(stiffness = 300f, dampingRatio = 0.8f, visibilityThreshold = 0.001f)
         }
-    }
 
-    YosWrapper {
-        val dp = (7 + (27 * scale.value)).dp
-        val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
+        val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
+            SpringSpec(stiffness = 400f, dampingRatio = 0.7f, visibilityThreshold = 0.001f)
+        }
+
+        val isBuffering = MediaViewModelObject.isBuffering.value
+        val scale = animateFloatAsState(
+            targetValue = if (isPlaying() && !isBuffering) 0f else 1f,
+            animationSpec = if (isPlaying()) springSpec else tweenSpec,
+            visibilityThreshold = 0.001f
+        )
+
+        val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
+            music = music(),
+            isPlaying = isPlaying(),
+            active = active
+        )
+
         if (fsEnabled) {
-            val shadowOverlayEnabled = !fsEnabled
-            val featherStart = 0.4f
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    }
-                    .drawWithCache {
-                        val feather = Brush.radialGradient(
-                            featherStart to Color.Black,
-                            1f to Color.Transparent,
-                            center = Offset(size.width / 2f, size.height / 2f),
-                            radius = size.maxDimension * 0.6f
-                        )
-                        onDrawWithContent {
-                            drawContent()
-                            drawRect(brush = feather, blendMode = BlendMode.DstIn)
+            YosWrapper {
+                val continuationScale = 1f + 0.18f * scale.value
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(albumUrl())
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = continuationScale
+                            scaleY = continuationScale
                         }
-                    }
-            ) {
+                        .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                )
+            }
+        }
+
+        YosWrapper {
+            val dp = (7 + (27 * scale.value)).dp
+            if (fsEnabled) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
+                        .drawWithCache {
+                            val gradientBrush = Brush.verticalGradient(
+                                0.75f to Color.Black,
+                                1f to Color.Transparent
+                            )
+                            onDrawWithContent {
+                                drawContent()
+                                drawRect(brush = gradientBrush, blendMode = BlendMode.DstIn)
+                            }
+                        }
+                ) {
+                    ShadowImageWithCache(
+                        dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                compositingStrategy = CompositingStrategy.ModulateAlpha
+                            }
+                            .padding(bottom = dp)
+                            .then(modifier),
+                        imageQuality = ImageQuality.RAW,
+                        shadowOverlay = false,
+                        overlayContent = {
+                            AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
+                        }
+                    )
+                }
+            } else {
                 ShadowImageWithCache(
                     dataLambda = albumUrl, contentDescription = null, modifier = Modifier
                         .fillMaxWidth()
@@ -1416,27 +1429,12 @@ private fun ColumnScope.Album(
                         .padding(start = dp, end = dp, bottom = dp)
                         .then(modifier),
                     imageQuality = ImageQuality.RAW,
-                    shadowOverlay = shadowOverlayEnabled,
+                    shadowOverlay = true,
                     overlayContent = {
                         AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
                     }
                 )
             }
-        } else {
-            ShadowImageWithCache(
-                dataLambda = albumUrl, contentDescription = null, modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.ModulateAlpha
-                    }
-                    .padding(start = dp, end = dp, bottom = dp)
-                    .then(modifier),
-                imageQuality = ImageQuality.RAW,
-                shadowOverlay = true,
-                overlayContent = {
-                    AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
-                }
-            )
         }
     }
 }
@@ -1446,93 +1444,42 @@ private fun HeroArtworkLayer(
     albumUrl: () -> Uri?,
     modifier: Modifier = Modifier,
     topSpacingDp: Dp = 0.dp,
-    artworkMaxHeightDp: Dp = Dp.Unspecified
+    artworkMaxHeightDp: Dp = Dp.Unspecified,
+    bottomGradientColor: Color = Color.Black
 ) {
     val url = albumUrl()
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        // The artwork is square, same as it is during the shared-element
-        // transition. Width is the source of truth: the square always
-        // fills the full available width with no side gap, and the height
-        // simply follows from that — it never gets capped down to fit a
-        // separate height budget, which is what was leaving space at the
-        // sides.
-        val artworkSide = maxWidth
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+            val painter = rememberAsyncImagePainter(model = url, contentScale = ContentScale.Crop)
 
-        // How deep the blur reaches inward from each edge, and how strong
-        // it gets right at the edge. Purely internal to the artwork's own
-        // rectangle — the rectangle itself never changes size.
-        val edgeBlurZoneDp = 10.dp
-        val edgeBlurRadiusDp = 40.dp
+            Image(
+                painter = painter,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .padding(top = topSpacingDp)
+                    .fillMaxWidth()
+                    .height(artworkMaxHeightDp)
+                    .align(Alignment.TopCenter)
+            )
 
-        val edgeFraction = with(LocalDensity.current) {
-            (edgeBlurZoneDp.toPx() / artworkSide.toPx()).coerceIn(0f, 1f)
-        }
-
-        // Exactly one artwork source, one visible node.
-        val painter = rememberAsyncImagePainter(model = url, contentScale = ContentScale.Crop)
-
-        // A single offscreen layer used purely as an internal render pass
-        // to obtain a blurred version of the same pixels this Image is
-        // already drawing — it is never itself placed in the layout, never
-        // positioned, and never visible on its own; it only exists inside
-        // this one Image's draw phase.
-        val blurLayer = rememberGraphicsLayer()
-
-        Image(
-            painter = painter,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .padding(top = topSpacingDp)
-                .size(artworkSide)
-                .align(Alignment.TopCenter)
-                .drawWithCache {
-                    // Vertical-only mask: fully opaque (blur visible) in the
-                    // eased top/bottom 10dp zones, fully transparent (blur
-                    // invisible, sharp pixels show through) everywhere else,
-                    // including the entire left/right extent since this is
-                    // a single-axis vertical gradient.
-                    val steps = 8
-                    val topStops = (0..steps).map { i ->
-                        val t = i / steps.toFloat()
-                        val a = 1f - FastOutSlowInEasing.transform(t)
-                        (t * edgeFraction) to Color.Black.copy(alpha = a)
-                    }
-                    val bottomStart = 1f - edgeFraction
-                    val bottomStops = (0..steps).map { i ->
-                        val t = i / steps.toFloat()
-                        val a = FastOutSlowInEasing.transform(t)
-                        (bottomStart + t * edgeFraction) to Color.Black.copy(alpha = a)
-                    }
-                    val maskBrush = Brush.verticalGradient(
-                        colorStops = *(topStops + bottomStops).toTypedArray()
+            Box(
+                modifier = Modifier
+                    .padding(top = topSpacingDp)
+                    .fillMaxWidth()
+                    .height(artworkMaxHeightDp)
+                    .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.45f to Color.Transparent,
+                            0.75f to bottomGradientColor.copy(alpha = 0.5f),
+                            0.9f to bottomGradientColor.copy(alpha = 0.85f),
+                            1.0f to bottomGradientColor
+                        )
                     )
-                    val blurRadiusPx = edgeBlurRadiusDp.toPx()
-
-                    onDrawWithContent {
-                        // Pass 1: the sharp artwork, exactly as it already
-                        // renders — this IS the artwork, unmodified.
-                        drawContent()
-
-                        // Pass 2 (internal only): record the SAME content
-                        // into the offscreen layer, blur that layer, then
-                        // paint it back on top through the vertical mask.
-                        // The saveLayer scopes the DstIn blend to only this
-                        // blurred pass, leaving the sharp pixels beneath
-                        // (already drawn above) untouched everywhere the
-                        // mask is transparent.
-                        blurLayer.record { this@onDrawWithContent.drawContent() }
-                        blurLayer.renderEffect = BlurEffect(blurRadiusPx, blurRadiusPx, TileMode.Decal)
-                        blurLayer.alpha = 1f
-
-                        val canvas = drawContext.canvas
-                        canvas.saveLayer(Rect(Offset.Zero, size), Paint())
-                        drawLayer(blurLayer)
-                        drawRect(brush = maskBrush, blendMode = BlendMode.DstIn)
-                        canvas.restore()
-                    }
-                }
+                )
         )
     }
 }
