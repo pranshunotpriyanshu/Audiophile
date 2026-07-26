@@ -25,9 +25,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.FiniteAnimationSpec
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -131,6 +129,7 @@ import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.PlaybackLoadingState
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.UI.Settings.Companion.ExoplayerSetting
+import com.pryvn.audiophile.ui.animation.MotionTokens
 import com.pryvn.audiophile.ui.pages.HomeNav
 
 import com.pryvn.audiophile.ui.pages.NowPlaying
@@ -196,6 +195,7 @@ class MainActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         installSplashScreen()
         enableEdgeToEdge()
+        window.attributes.windowAnimations = 0
         setContent {
             YosMusicTheme {
                     val context = LocalContext.current
@@ -423,21 +423,25 @@ class MainActivity : BaseActivity() {
                                     }
 
                                     YosWrapper {
-                                        val animateSpeed = 280
                                         val animationSpec: FiniteAnimationSpec<IntSize> =
-                                            spring(stiffness = 380f, dampingRatio = 0.86f)
+                                            spring(
+                                                stiffness = MotionTokens.Spring.transitionStiffness,
+                                                dampingRatio = MotionTokens.Spring.transitionDamping,
+                                            )
                                         val fadeAnimationSpec: FiniteAnimationSpec<Float> =
-                                            tween(
-                                                durationMillis = animateSpeed,
-                                        easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f),
-                                        )
+                                            spring(
+                                                stiffness = MotionTokens.Spring.transitionStiffness,
+                                                dampingRatio = MotionTokens.Spring.transitionDamping,
+                                            )
 
                                         val backPressedTime = remember { mutableStateOf(0L) }
 
                                         BackHandler(
                                             enabled = route.value != UI.HomePage && !showNowPlaying.value
                                         ) {
-                                            navController.popBackStack(UI.HomePage, false)
+                                            if (!navController.popBackStack()) {
+                                                navController.popBackStack(UI.HomePage, false)
+                                            }
                                         }
 
                                         BackHandler(
@@ -990,8 +994,8 @@ class MainActivity : BaseActivity() {
                                                                         .height(
                                                                             navHeight
                                                                         ),
-                                                                    enter = fadeIn(tween(100)),
-                                                                    exit = fadeOut(tween(100))
+                                                                    enter = fadeIn(MotionTokens.fastFadeIn()),
+                                                                    exit = fadeOut(MotionTokens.fastFadeIn())
                                                                 ) {
                                                                     Spacer(
                                                                         modifier = Modifier

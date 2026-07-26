@@ -71,9 +71,11 @@ fun YosMusicTheme(
         }
     }
 
+    val appTypography = buildTypography()
+
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = appTypography,
         content = content
     )
 }

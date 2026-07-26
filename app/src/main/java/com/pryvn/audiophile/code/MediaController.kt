@@ -1315,11 +1315,15 @@ class YosPlaybackService : MediaSessionService() {
                             // 改为 JOC 判断
 
                             if (samplingRate == 0 || bitrate == 0) {
-                                val audioInfo = AudioMetadataUtils.getQualityInfos(thisPath)
-                                if (samplingRate == 0) {
-                                    samplingRate = audioInfo.second
-                                } else {
-                                    bitrate = audioInfo.first
+                                try {
+                                    val audioInfo = AudioMetadataUtils.getQualityInfos(thisPath)
+                                    if (samplingRate == 0) {
+                                        samplingRate = audioInfo.second
+                                    } else {
+                                        bitrate = audioInfo.first
+                                    }
+                                } catch (_: Exception) {
+                                    println("质量分析失败（非本地文件），跳过")
                                 }
                             }
                         }

@@ -504,6 +504,21 @@ object SettingsLibrary {
         initialValue = ""
     )
 
+    // ---------- Typography / App Font ----------
+    @Stable
+    var AppFontSize by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_app_font_size",
+        initialValue = 16f
+    )
+
+    @Stable
+    var AppFontWeight by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_app_font_weight",
+        initialValue = "Regular"
+    )
+
     // ---------- Animated Album Covers ----------
     @Stable
     var AnimatedAlbumCovers by mutableDataSaverStateOf(

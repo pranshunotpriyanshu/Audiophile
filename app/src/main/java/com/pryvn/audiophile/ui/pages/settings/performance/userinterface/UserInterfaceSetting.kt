@@ -12,6 +12,22 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.pryvn.audiophile.ui.pages.settings.Divider
 import com.pryvn.audiophile.ui.pages.settings.GroupSpacer
 import com.pryvn.audiophile.ui.pages.settings.GroupSpacerMedium
@@ -30,7 +46,7 @@ fun UserInterfaceSetting(navController: NavController) =
             onBack = {
                 navController.popBackStack()
             },
-            content = {
+        ) {
                 item("settings") {
                     Column(Modifier.fillMaxSize()) {
                         // ListHeader(content = stringResource(id = R.string.settings_performance_ui_basic))
@@ -61,6 +77,33 @@ fun UserInterfaceSetting(navController: NavController) =
                             )
                         }
                         ListHeader(content = stringResource(id = R.string.settings_performance_ui_blur_effect_desc))
+
+                        GroupSpacerMedium()
+
+                        // ---- Typography section ----
+                        ListHeader(content = stringResource(id = R.string.settings_performance_ui_typography))
+
+                        RoundColumn {
+                            SelectItem(
+                                title = stringResource(id = R.string.settings_performance_ui_typography_font_weight),
+                                items = listOf(
+                                    "Thin",
+                                    "ExtraLight",
+                                    "Light",
+                                    "Regular",
+                                    "Medium",
+                                    "SemiBold",
+                                    "Bold",
+                                    "ExtraBold",
+                                    "Black"
+                                ),
+                                value = SettingsLibrary.AppFontWeight,
+                                onValueChange = { SettingsLibrary.AppFontWeight = it }
+                            )
+                            Divider()
+                            AppFontSizeItem()
+                        }
+                        ListHeader(content = stringResource(id = R.string.settings_performance_ui_typography_font_size_desc))
 
                         GroupSpacerMedium()
 
@@ -132,5 +175,69 @@ fun UserInterfaceSetting(navController: NavController) =
                     }
                 }
             }
-        )
+        }
+
+@Composable
+private fun AppFontSizeItem() {
+    var expanded by remember { mutableStateOf(false) }
+    var appFontSize by remember { mutableStateOf(SettingsLibrary.AppFontSize) }
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { expanded = !expanded }
+                )
+                .padding(horizontal = 15.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = R.string.settings_performance_ui_typography_font_size),
+                fontSize = 16.5.sp,
+                lineHeight = 20.5.sp,
+                modifier = Modifier.weight(1f).alpha(0.94f)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${appFontSize.toInt()}sp",
+                    fontSize = 15.sp,
+                    modifier = Modifier.alpha(0.4f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_action_next),
+                    contentDescription = null,
+                    modifier = Modifier.height(11.dp).alpha(0.4f),
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 10.dp)
+            ) {
+                val sizeState = remember { mutableStateOf(appFontSize) }
+                Slider(
+                    value = sizeState.value,
+                    onValueChange = { newValue ->
+                        sizeState.value = newValue
+                        appFontSize = newValue.coerceIn(12f, 32f)
+                        SettingsLibrary.AppFontSize = newValue.coerceIn(12f, 32f)
+                    },
+                    valueRange = 12f..32f,
+                    steps = 14,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.5.dp),
+                )
+                Text(
+                    text = "${appFontSize.toInt()}sp",
+                    fontSize = 13.sp,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.5.dp).padding(top = 4.dp, bottom = 8.dp).graphicsLayer { alpha = 0.5f },
+                )
+            }
+        }
     }
+}

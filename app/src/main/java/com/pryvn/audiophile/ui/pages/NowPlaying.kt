@@ -25,8 +25,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
-import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -207,6 +207,8 @@ import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
+import com.pryvn.audiophile.ui.animation.MotionTokens
+import com.pryvn.audiophile.ui.animation.pressableScale
 import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.artistsName
 import com.pryvn.audiophile.data.libraries.defaultArtistsName
@@ -397,7 +399,6 @@ fun NowPlaying(
         val showControl = rememberSaveable(key = "NowPlaying_showControl") {
             mutableStateOf(true)
         }
-
         val translation = rememberSaveable(key = "NowPlaying_translation") {
             mutableStateOf(SettingsLibrary.NowPlayingTranslation)
         }
@@ -446,13 +447,12 @@ fun NowPlaying(
             }
         }
 
-
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
         val heroAlpha by animateFloatAsState(
             targetValue = if (fsAlbum) 1f else 0f,
-            animationSpec = tween(250)
+            animationSpec = MotionTokens.colorSpring()
         )
         val bgMode = if (fsEnabled) "Solid" else SettingsLibrary.NowPlayingBackground
 
@@ -476,15 +476,15 @@ fun NowPlaying(
 
                 val animatedVibrant = animateColorAsState(
                     targetValue = vibrant,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                    animationSpec = MotionTokens.colorSpring()
                 ).value
                 val animatedDarkVibrant = animateColorAsState(
                     targetValue = darkVibrant,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                    animationSpec = MotionTokens.colorSpring()
                 ).value
                 val animatedDarkMuted = animateColorAsState(
                     targetValue = darkMuted,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                    animationSpec = MotionTokens.colorSpring()
                 ).value
 
                 Box(
@@ -508,7 +508,7 @@ fun NowPlaying(
 
                 val animatedDarkMuted = animateColorAsState(
                     targetValue = darkMuted,
-                    animationSpec = spring(stiffness = 100f, dampingRatio = 0.8f)
+                    animationSpec = MotionTokens.colorSpring()
                 ).value
 
                 Box(
@@ -641,7 +641,7 @@ fun NowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .statusBarsPadding()
-                            .padding(top = if (fsAlbum) 0.dp else 22.dp)
+                            .padding(top = 22.dp)
                     ) {
                         //println("nowPage: ${nowPageLambda()}")
                         //println("nowPageIt: $it")
@@ -733,7 +733,7 @@ Album ->
                                       YosWrapper {
                                           val isVisible = nowPageLambda() == Lyric
                                           PlayingBar(
-                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = if (fsEnabled) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
@@ -783,7 +783,7 @@ Album ->
                                     ) {
                                         val isVisible = nowPageLambda() == PlayingList
                                           PlayingBar(
-                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = if (fsEnabled) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
@@ -804,8 +804,8 @@ Album ->
                                         YosWrapper {
                                             AnimatedVisibility(
                                                 visible = nowPageLambda() == PlayingList,
-                                                enter = fadeIn(tween(AnimDurationMillis)),
-                                                exit = fadeOut(tween(AnimDurationMillis))
+                                                enter = fadeIn(MotionTokens.transitionSpring()),
+                                                exit = fadeOut(MotionTokens.transitionSpring())
                                             ) {
                                                 PlayingList(
                                                     shuffleModeEnabledLambda = { shuffleModeEnabled.value },
@@ -1067,8 +1067,8 @@ Album ->
                                         PlayingList -> {
                                             AnimatedVisibility(
                                                 visible = nowPageLambda() == PlayingList,
-                                                enter = fadeIn(tween(AnimDurationMillis)),
-                                                exit = fadeOut(tween(AnimDurationMillis))
+                                                enter = fadeIn(MotionTokens.transitionSpring()),
+                                                exit = fadeOut(MotionTokens.transitionSpring())
                                             ) {
                                                 PlayingList(
                                                     shuffleModeEnabledLambda = { shuffleModeEnabled.value },
@@ -1328,11 +1328,19 @@ private fun ColumnScope.Album(
         contentAlignment = if (fsEnabled) Alignment.TopCenter else Alignment.BottomCenter
     ) {
         val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
-            SpringSpec(stiffness = 300f, dampingRatio = 0.8f, visibilityThreshold = 0.001f)
+            SpringSpec(
+                dampingRatio = MotionTokens.Spring.transitionDamping,
+                stiffness = MotionTokens.Spring.transitionStiffness,
+                visibilityThreshold = 0.001f,
+            )
         }
 
         val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
-            SpringSpec(stiffness = 400f, dampingRatio = 0.7f, visibilityThreshold = 0.001f)
+            SpringSpec(
+                dampingRatio = MotionTokens.Spring.appearDamping,
+                stiffness = MotionTokens.Spring.appearStiffness,
+                visibilityThreshold = 0.001f,
+            )
         }
 
         val isBuffering = MediaViewModelObject.isBuffering.value
@@ -1354,6 +1362,7 @@ private fun ColumnScope.Album(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(albumUrl())
+                        .crossfade(MotionTokens.Duration.normal)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1537,8 +1546,10 @@ private fun PlayingList(
                     YosWrapper {
                         val shuffleBackgroundAlpha =
                             animateFloatAsState(targetValue = if (shuffleModeEnabledLambda()) 0.9f else 0f)
+                        val shuffleBtnInteractionSource = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
+                                .pressableScale(shuffleBtnInteractionSource)
                                 .clickable(
                                     onClick = {
                                         Vibrator.click(context)
@@ -1548,7 +1559,7 @@ private fun PlayingList(
                                         }
                                     },
                                     indication = null,
-                                    interactionSource = remember { MutableInteractionSource() })
+                                    interactionSource = shuffleBtnInteractionSource)
                                 .size(36.dp)
                                 .background(
                                     Color.White.copy(alpha = shuffleBackgroundAlpha.value),
@@ -1574,8 +1585,10 @@ private fun PlayingList(
                             repeatModeLambda() == REPEAT_MODE_ALL || repeatModeLambda() == REPEAT_MODE_ONE
                         val repeatBackgroundAlpha =
                             animateFloatAsState(targetValue = if (repeatHighlight) 0.9f else 0f)
+                        val repeatBtnInteractionSource = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
+                                .pressableScale(repeatBtnInteractionSource)
                                 .clickable(
                                     onClick = {
                                         Vibrator.click(context)
@@ -1597,7 +1610,7 @@ private fun PlayingList(
                                         repeatModeOnChanged(targetMode)
                                     },
                                     indication = null,
-                                    interactionSource = remember { MutableInteractionSource() })
+                                    interactionSource = repeatBtnInteractionSource)
                                 .padding(start = 10.dp)
                                 .size(36.dp)
                                 .background(
@@ -1926,13 +1939,13 @@ private fun LazyItemScope.QueueMusicListItem(
                         deleteHeightPx = if (rowHeightPx > 0f) rowHeightPx else with(density) { QueueRowHeight.toPx() }
                         animate(
                             initialValue = swipeOffsetPx, targetValue = -rowWidthPx,
-                            animationSpec = tween(110, easing = EaseOutQuart),
+                            animationSpec = MotionTokens.snapSpring(),
                         ) { value, _ -> swipeOffsetPx = value }
                         swipeOffsetPx = 0f
                         deleteCollapsing = true
                         animate(
                             initialValue = deleteHeightPx, targetValue = 0f,
-                            animationSpec = tween(170, easing = EaseOutQuart),
+                            animationSpec = MotionTokens.snapSpring(),
                         ) { value, _ -> deleteHeightPx = value }
                         onRemove.invoke()
                         return@launch
@@ -1940,7 +1953,11 @@ private fun LazyItemScope.QueueMusicListItem(
                     if (shouldMoveToNextQueue && onMoveToNextQueue?.invoke() == true) { }
                     animate(
                         initialValue = swipeOffsetPx, targetValue = 0f,
-                        animationSpec = SpringSpec(dampingRatio = 0.72f, stiffness = 420f, visibilityThreshold = 0.5f),
+                        animationSpec = SpringSpec(
+                            dampingRatio = MotionTokens.Spring.snapDamping,
+                            stiffness = MotionTokens.Spring.snapStiffness,
+                            visibilityThreshold = 0.5f,
+                        ),
                     ) { value, _ -> swipeOffsetPx = value }
                 }
             },
@@ -2069,15 +2086,14 @@ private fun Lyric(
 
     println("重组：YosLyricView 外层 2")
 
-    if (active) {
-        Column(
-            Modifier
-                .fillMaxSize()
-        ) {
-            YosWrapper {
-                println("重组：YosLyricView 外层 1")
+    Column(
+        Modifier
+            .fillMaxSize()
+    ) {
+        YosWrapper {
+            println("重组：YosLyricView 外层 1")
 
-                Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
+            Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
                 val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
                 val lyricTextColor =
@@ -2183,7 +2199,6 @@ private fun Lyric(
                 )
             }
         }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2266,8 +2281,8 @@ private fun ActionButtonsRow(
             AnimatedContent(
                 targetState = isMenuOpen,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(durationMillis = 300)) togetherWith
-                        fadeOut(animationSpec = tween(durationMillis = 300))
+                    fadeIn(animationSpec = MotionTokens.transitionSpring()) togetherWith
+                        fadeOut(animationSpec = MotionTokens.transitionSpring())
                 }) {
                 if (it) {
                     Icon(
@@ -2789,9 +2804,9 @@ fun RowScope.AirPlay() {
         ) {
             Box(modifier = Modifier.height(36.dp), contentAlignment = Alignment.Center) {
                 AnimatedContent(targetState = showName.value, transitionSpec = {
-                    (scaleIn(initialScale = 0.3f) + fadeIn()).togetherWith(
+                    (scaleIn(initialScale = 0.85f) + fadeIn()).togetherWith(
                         scaleOut(
-                            targetScale = 0.3f
+                            targetScale = 0.85f
                         ) + fadeOut()
                     )
                 }, contentAlignment = Alignment.Center) {
@@ -2813,8 +2828,8 @@ fun RowScope.AirPlay() {
                 }
             }
 
-            AnimatedVisibility(showName.value, enter = scaleIn(initialScale = 0.3f) + fadeIn(), exit = scaleOut(
-                targetScale = 0.3f
+            AnimatedVisibility(showName.value, enter = scaleIn(initialScale = 0.85f) + fadeIn(), exit = scaleOut(
+                targetScale = 0.85f
             ) + fadeOut()) {
                 Text(
                     text = audioDeviceName.value,
@@ -2853,7 +2868,7 @@ private fun PlayerControl(
     nowPage: () -> String,
     onSlider: () -> Unit,
     onWhile: suspend () -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
     val playingDuration = rememberSaveable(key = "PlayerControl_playingDuration") {
         mutableLongStateOf(0L)
@@ -2881,11 +2896,11 @@ private fun PlayerControl(
     }
     val timestampFontSize by animateFloatAsState(
         targetValue = if (isPressed.value || isDragging.value) 16f else 12f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
+        animationSpec = MotionTokens.seekbarSpring()
     )
     val seekbarAlpha by animateFloatAsState(
         targetValue = if (isPressed.value || isDragging.value) 1f else 0.85f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
+        animationSpec = MotionTokens.seekbarSpring()
     )
 
     YosWrapper {
@@ -2943,7 +2958,7 @@ private fun PlayerControl(
                 YosWrapper {
                     val seekBarHeight by animateDpAsState(
                         targetValue = if (isPressed.value || isDragging.value) 12.dp else 7.dp,
-                        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
+                        animationSpec = MotionTokens.seekbarSpring()
                     )
 
                     Box(
@@ -3083,11 +3098,13 @@ private fun PlayerControl(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val prevBtnInteractionSource = remember { MutableInteractionSource() }
                             Box(
                                 modifier = Modifier
                                     .size(61.dp)
+                                    .pressableScale(prevBtnInteractionSource)
                                     .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
+                                        interactionSource = prevBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
                                             Vibrator.click(context)
@@ -3106,11 +3123,13 @@ private fun PlayerControl(
 
                             Spacer(modifier = Modifier.width(43.dp))
 
+                            val playBtnInteractionSource = remember { MutableInteractionSource() }
                             Box(
                                 modifier = Modifier
                                     .size(58.5.dp)
+                                    .pressableScale(playBtnInteractionSource)
                                     .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
+                                        interactionSource = playBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
                                             Vibrator.click(context)
@@ -3127,9 +3146,9 @@ private fun PlayerControl(
                                     else -> "play"
                                 }
                                 AnimatedContent(targetState = buttonState, transitionSpec = {
-                                    (scaleIn(initialScale = 0.3f) + fadeIn()).togetherWith(
+                                    (scaleIn(initialScale = 0.85f) + fadeIn()).togetherWith(
                                         scaleOut(
-                                            targetScale = 0.3f
+                                            targetScale = 0.85f
                                         ) + fadeOut()
                                     )
                                 }) {
@@ -3158,11 +3177,13 @@ private fun PlayerControl(
                                 }
                             }
                             Spacer(modifier = Modifier.width(43.dp))
+                            val nextBtnInteractionSource = remember { MutableInteractionSource() }
                             Box(
                                 modifier = Modifier
                                     .size(61.dp)
+                                    .pressableScale(nextBtnInteractionSource)
                                     .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
+                                        interactionSource = nextBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
                                             Vibrator.click(context)
