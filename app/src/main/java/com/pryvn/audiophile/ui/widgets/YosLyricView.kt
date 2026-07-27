@@ -81,6 +81,7 @@ fun YosLyricView(
     uiConfig: YosUIConfig = YosUIConfig(),
     weightLambda: () -> Boolean,
     wordSyncedLambda: () -> Boolean = { false },
+    titleRowBottomDp: Dp = 0.dp,
     modifier: Modifier,
     onBackClick: () -> Unit
 ) {
@@ -115,6 +116,7 @@ fun YosLyricView(
                 player = MediaControlPlayerAdapter,
                 sliderPositionProvider = { null },
                 lyricsSyncOffset = 0,
+                titleRowBottomDp = titleRowBottomDp,
                 modifier = modifier,
                 textColorOverride = lyricTextColor,
                 lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
@@ -175,11 +177,12 @@ fun YosLyricView(
     val enableLyricScroll = remember { mutableStateOf(true) }
 
     val height = rememberSaveable { mutableIntStateOf(0) }
-    val targetWeight = 0.0618f
-    val baseTargetOffset = rememberSaveable(height.intValue) {
-        height.intValue * targetWeight
-    }
     val space = 0.dp
+
+    val density = LocalDensity.current
+    val anchorPx = remember(titleRowBottomDp) {
+        with(density) { (titleRowBottomDp + 20.dp).toPx().roundToInt() }
+    }
 
     val measurer = rememberTextMeasurer(cacheSize = 32)
 
@@ -191,10 +194,10 @@ fun YosLyricView(
         visibleItems.value.find { it.index == currentLyricIndex.intValue }
     }
     val currentOffset = derivedStateOf {
-        targetItem.value?.offset ?: baseTargetOffset.toInt()
+        targetItem.value?.offset ?: anchorPx
     }
     val scrollDistance = derivedStateOf {
-        val baseScroll = baseTargetOffset.toInt()
+        val baseScroll = anchorPx
         val prevSize = prevLineItem.value?.size ?: 0
         val minVisible = (prevSize * 0.2f).toInt()
         val effectiveTarget = baseScroll.coerceAtLeast(minVisible)
@@ -387,7 +390,7 @@ fun YosLyricView(
                     .firstOrNull { it.index == targetIdx }
                 val fallbackPrevSize = prevAfter?.size ?: 0
                 val fallbackMinVisible = fallbackPrevSize * 0.2f
-                val fallbackTarget = baseTargetOffset.coerceAtLeast(fallbackMinVisible).toInt()
+                val fallbackTarget = anchorPx.coerceAtLeast(fallbackMinVisible.toInt())
                 scrollState.animateScrollToItem(
                     index = (targetIdx + 1).coerceAtLeast(0),
                     scrollOffset = -fallbackTarget

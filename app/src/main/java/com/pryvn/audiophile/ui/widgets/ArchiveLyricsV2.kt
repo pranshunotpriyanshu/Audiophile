@@ -103,6 +103,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -179,6 +180,7 @@ fun LyricsV2(
     player: PlayerAdapter,
     sliderPositionProvider: () -> Long?,
     lyricsSyncOffset: Int,
+    titleRowBottomDp: Dp = 0.dp,
     modifier: Modifier = Modifier,
     textColorOverride: Color? = null,
     lyricsLineBlurOverride: Boolean? = null,
@@ -336,15 +338,16 @@ fun LyricsV2(
                 0,
             )
         }
-        // Position the current line near the top (~6.18% from viewport top),
-        // matching the line-synced layout behavior.
-        val targetRatio = 0.0618f
+        // Anchor the active line a consistent distance (20dp gap) below the
+        // bottom edge of the title/header row, while always keeping at least
+        // the bottom 20% of the previous line visible above it.
+        val anchorPx = with(density) { (titleRowBottomDp + 20.dp).toPx() }
         val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
         val prevItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex - 1 }
         val minScrollOffset = if (prevItemInfo != null)
             (prevItemInfo.size * 0.2f).roundToInt() else 0
         if (itemInfo != null) {
-            val targetOffset = (viewportHeight * targetRatio).coerceAtLeast(minScrollOffset.toFloat())
+            val targetOffset = anchorPx.coerceAtLeast(minScrollOffset.toFloat())
             val scrollDistance = (itemInfo.offset - targetOffset).toFloat()
             if (abs(scrollDistance) > 5f) {
                 listState.animateScrollBy(
@@ -367,7 +370,7 @@ fun LyricsV2(
                 (prevAfter.size * 0.2f).roundToInt() else 0
             listState.animateScrollToItem(
                 index = currentLineIndex,
-                scrollOffset = (viewportHeight * targetRatio).roundToInt().coerceAtLeast(minOff),
+                scrollOffset = anchorPx.roundToInt().coerceAtLeast(minOff),
             )
         }
     }

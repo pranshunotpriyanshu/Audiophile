@@ -2319,6 +2319,7 @@ private fun Lyric(
                     ),
                     weightLambda = weightLambda,
                     wordSyncedLambda = wordSyncedLambda,
+                    titleRowBottomDp = statusBarHeight + 110.dp,
                     modifier = Modifier.drawWithCache {
                         onDrawWithContent {
                             val overlayPaint = Paint().apply {
