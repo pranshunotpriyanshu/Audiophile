@@ -103,7 +103,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -180,7 +179,6 @@ fun LyricsV2(
     player: PlayerAdapter,
     sliderPositionProvider: () -> Long?,
     lyricsSyncOffset: Int,
-    titleRowBottomDp: Dp = 0.dp,
     modifier: Modifier = Modifier,
     textColorOverride: Color? = null,
     lyricsLineBlurOverride: Boolean? = null,
@@ -340,14 +338,13 @@ fun LyricsV2(
         }
         // Anchor the active line a consistent distance (20dp gap) below the
         // bottom edge of the title/header row, while always keeping at least
-        // the bottom 20% of the previous line visible above it.
-        val anchorPx = with(density) { (titleRowBottomDp + 20.dp).toPx() }
+        // the bottom 6% of the previous line visible above it.
+        val anchorPx = with(density) { 20.dp.toPx() }
         val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
         val prevItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex - 1 }
-        val minScrollOffset = if (prevItemInfo != null)
-            (prevItemInfo.size * 0.2f).roundToInt() else 0
+        val targetOffset = if (prevItemInfo != null)
+            (prevItemInfo.size * 0.2f).toFloat() else anchorPx
         if (itemInfo != null) {
-            val targetOffset = anchorPx.coerceAtLeast(minScrollOffset.toFloat())
             val scrollDistance = (itemInfo.offset - targetOffset).toFloat()
             if (abs(scrollDistance) > 5f) {
                 listState.animateScrollBy(
@@ -366,11 +363,11 @@ fun LyricsV2(
             )
             val prevAfter = listState.layoutInfo.visibleItemsInfo
                 .firstOrNull { it.index == currentLineIndex - 1 }
-            val minOff = if (prevAfter != null)
-                (prevAfter.size * 0.2f).roundToInt() else 0
+            val scrollOff = if (prevAfter != null)
+                (prevAfter.size * 0.2f).roundToInt() else anchorPx.roundToInt()
             listState.animateScrollToItem(
                 index = currentLineIndex,
-                scrollOffset = anchorPx.roundToInt().coerceAtLeast(minOff),
+                scrollOffset = scrollOff,
             )
         }
     }

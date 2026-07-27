@@ -81,7 +81,6 @@ fun YosLyricView(
     uiConfig: YosUIConfig = YosUIConfig(),
     weightLambda: () -> Boolean,
     wordSyncedLambda: () -> Boolean = { false },
-    titleRowBottomDp: Dp = 0.dp,
     modifier: Modifier,
     onBackClick: () -> Unit
 ) {
@@ -116,7 +115,6 @@ fun YosLyricView(
                 player = MediaControlPlayerAdapter,
                 sliderPositionProvider = { null },
                 lyricsSyncOffset = 0,
-                titleRowBottomDp = titleRowBottomDp,
                 modifier = modifier,
                 textColorOverride = lyricTextColor,
                 lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
@@ -179,10 +177,7 @@ fun YosLyricView(
     val height = rememberSaveable { mutableIntStateOf(0) }
     val space = 0.dp
 
-    val density = LocalDensity.current
-    val anchorPx = remember(titleRowBottomDp) {
-        with(density) { (titleRowBottomDp + 20.dp).toPx().roundToInt() }
-    }
+    val anchorPx = with(LocalDensity.current) { 20.dp.toPx().roundToInt() }
 
     val measurer = rememberTextMeasurer(cacheSize = 32)
 
@@ -197,11 +192,9 @@ fun YosLyricView(
         targetItem.value?.offset ?: anchorPx
     }
     val scrollDistance = derivedStateOf {
-        val baseScroll = anchorPx
         val prevSize = prevLineItem.value?.size ?: 0
-        val minVisible = (prevSize * 0.2f).toInt()
-        val effectiveTarget = baseScroll.coerceAtLeast(minVisible)
-        currentOffset.value - effectiveTarget
+        val target = if (prevSize > 0) (prevSize * 0.2f).toInt() else anchorPx
+        currentOffset.value - target
     }
     val nowFirst = derivedStateOf { scrollState.firstVisibleItemIndex }
 
@@ -389,11 +382,11 @@ fun YosLyricView(
                 val prevAfter = scrollState.layoutInfo.visibleItemsInfo
                     .firstOrNull { it.index == targetIdx }
                 val fallbackPrevSize = prevAfter?.size ?: 0
-                val fallbackMinVisible = fallbackPrevSize * 0.2f
-                val fallbackTarget = anchorPx.coerceAtLeast(fallbackMinVisible.toInt())
+                val target = if (fallbackPrevSize > 0)
+                    (fallbackPrevSize * 0.2f).toInt() else anchorPx
                 scrollState.animateScrollToItem(
                     index = (targetIdx + 1).coerceAtLeast(0),
-                    scrollOffset = -fallbackTarget
+                    scrollOffset = target
                 )
             }
         } catch (_: Exception) { }
