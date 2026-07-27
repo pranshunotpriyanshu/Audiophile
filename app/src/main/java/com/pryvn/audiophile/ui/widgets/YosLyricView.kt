@@ -81,7 +81,8 @@ fun YosLyricView(
     weightLambda: () -> Boolean,
     wordSyncedLambda: () -> Boolean = { false },
     modifier: Modifier,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    interactive: Boolean = false,
 ) {
     val context = LocalContext.current
     val mainTextBasicColor = Color(uiConfig.mainTextBasicColor)
@@ -118,6 +119,7 @@ fun YosLyricView(
                 textColorOverride = lyricTextColor,
                 lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
                 onBackgroundClick = onBackClick,
+                interactive = interactive,
             )
         } else {
             ArchiveLyrics(
@@ -125,6 +127,7 @@ fun YosLyricView(
                 sliderPositionProvider = { null },
                 lyricsSyncOffset = 0,
                 modifier = modifier,
+                interactive = interactive,
             )
         }
         return
@@ -138,10 +141,16 @@ fun YosLyricView(
             modifier = Modifier
                 .fillMaxHeight(if (weightLambda()) 0.56f else 1f)
                 .fillMaxWidth()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) { onBackClick() }
+                .then(
+                    if (interactive) {
+                        Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onBackClick() }
+                    } else {
+                        Modifier
+                    },
+                )
         ) {
             if (isLoading) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -215,11 +224,19 @@ fun YosLyricView(
         contentPadding = PaddingValues(vertical = 16.dp),
         modifier = modifier
             .fillMaxSize()
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { onBackClick() }
-            .nestedScroll(nestedScrollConnection)
+            .then(
+                if (interactive) {
+                    Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { onBackClick() }
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (interactive) Modifier.nestedScroll(nestedScrollConnection) else Modifier,
+            )
             .onSizeChanged {
                 if (height.intValue == 0 && it.height != 0) {
                     height.intValue = it.height
@@ -622,10 +639,16 @@ fun LazyItemScope.LyricItem(
                             }
                             .padding(vertical = 4.dp)
                             .then(otherSidePadding.value)
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) { onClick() },
+                            .then(
+                                if (interactive) {
+                                    Modifier.clickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) { onClick() }
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         viewAlign = viewAlign
                     ) { _, measureResult ->
                         // ---- Drawing logic ----

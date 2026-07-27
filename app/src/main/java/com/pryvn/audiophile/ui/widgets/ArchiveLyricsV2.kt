@@ -93,7 +93,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -102,7 +101,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -182,6 +180,7 @@ fun LyricsV2(
     textColorOverride: Color? = null,
     lyricsLineBlurOverride: Boolean? = null,
     onBackgroundClick: () -> Unit = {},
+    interactive: Boolean = false,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -359,10 +358,16 @@ fun LyricsV2(
             modifier
                 .fillMaxSize()
                 .padding(bottom = 12.dp)
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                ) { onBackgroundClick() },
+                .then(
+                    if (interactive) {
+                        Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                        ) { onBackgroundClick() }
+                    } else {
+                        Modifier
+                    },
+                ),
     ) {
         if (lyrics == "LYRICS_NOT_FOUND") {
             Box(
@@ -424,7 +429,9 @@ fun LyricsV2(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .nestedScroll(nestedScrollConnection)
+                    .then(
+                        if (interactive) Modifier.nestedScroll(nestedScrollConnection) else Modifier,
+                    )
                     .drawWithContent {
                         drawContent()
                         val fadeHeight = 120.dp.toPx()
@@ -549,7 +556,7 @@ fun LyricsV2(
                                     scaleY = animatedInstrScale
                                     alpha = animatedInstrAlpha
                                 }.then(
-                                    if (lyricsClick && item.time > 0) {
+                                    if (interactive && lyricsClick && item.time > 0) {
                                         Modifier.clickable { player.seekTo(item.time) }
                                     } else {
                                         Modifier
@@ -689,7 +696,7 @@ fun LyricsV2(
                                     alpha = lineAlpha
                                     transformOrigin = lineTransformOrigin
                                 }.combinedClickable(
-                                    enabled = lyricsClick && isSynced && item.time > 0,
+                                    enabled = interactive && lyricsClick && isSynced && item.time > 0,
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() },
                                     onClick = {
@@ -846,6 +853,22 @@ private fun LyricsLineV2(
     val mainWords = words.filter { !it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
     val bgWords = words.filter { it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
 
+    val lineGlowAlpha: Float
+    val lineGlowRadius: Float
+    if (isActive && (mainWords.isNotEmpty() || bgWords.isNotEmpty())) {
+        val allTimed = if (mainWords.isNotEmpty()) mainWords else bgWords
+        val earliestStartMs = allTimed.minOf { (it.startTime * 1000).toLong() }
+        val latestEndMs = allTimed.maxOf { (it.endTime * 1000).toLong() }
+        val lineDuration = (latestEndMs - earliestStartMs).coerceAtLeast(1L)
+        val lineProgress = ((currentPositionMs - earliestStartMs).toFloat() / lineDuration).coerceIn(0f, 1f)
+        val lineGlowProgress = (lineProgress * 2f).coerceAtMost(1f)
+        lineGlowAlpha = lineGlowProgress * 0.45f * glowFactor
+        lineGlowRadius = lineGlowProgress * 12f * glowFactor
+    } else {
+        lineGlowAlpha = 0f
+        lineGlowRadius = 0f
+    }
+
     if (mainWords.isNotEmpty()) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -897,7 +920,8 @@ AnimatedWordV2(
 isBackground = isLineAllBackground,
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
-                    glowFactor = glowFactor,
+                    lineGlowAlpha = lineGlowAlpha,
+                    lineGlowRadius = lineGlowRadius,
                     fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
@@ -939,7 +963,8 @@ AnimatedWordV2(
                     isBackground = true,
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
-                    glowFactor = glowFactor,
+                    lineGlowAlpha = lineGlowAlpha,
+                    lineGlowRadius = lineGlowRadius,
                     fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
@@ -1010,7 +1035,8 @@ private fun AnimatedWordV2(
     lyricsFontFamily: FontFamily?,
     isRtl: Boolean,
     bounceFactor: Float,
-    glowFactor: Float,
+    lineGlowAlpha: Float,
+    lineGlowRadius: Float,
     fillTransitionWidth: Float,
 ) {
     val wordStartMs = (word.startTime * 1000).toLong()
@@ -1020,7 +1046,6 @@ private fun AnimatedWordV2(
     val isWordComplete = currentPositionMs >= wordEndMs
     val isWordActive = currentPositionMs in wordStartMs until wordEndMs
 
-    // Perfect linear progress [0..1] that matches individual word timings
     val progress =
         when {
             isWordComplete -> 1f
@@ -1028,63 +1053,32 @@ private fun AnimatedWordV2(
             else -> ((currentPositionMs - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
         }
 
-    // ── Bounce and Float animation ──
-    // Subtle scale up peaking halfway through the word. Exact timing sync!
     val sinProgress = kotlin.math.sin(progress * kotlin.math.PI).toFloat()
     val wordScale = 1f + (0.015f * bounceFactor * sinProgress)
+    val floatOffset = if (isWordActive) -4f * bounceFactor * sinProgress else 0f
 
-    // Float is only applied when the word is actively sung, making it pop from the line.
-    // We use animateFloatAsState so that when it finishes (and drops to 0f),
-    // it smoothly decays back into place rather than a harsh mathematical snap.
-    val targetFloat = if (isWordActive) -4f * bounceFactor * sinProgress else 0f
-    val floatOffset by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = targetFloat,
-        animationSpec =
-            androidx.compose.animation.core.tween(
-                durationMillis = if (isWordActive) 50 else 350,
-                easing = androidx.compose.animation.core.FastOutSlowInEasing,
-            ),
-        label = "v2FloatOffset",
-    )
-
-    // ── Glow intensity ──
-    // "lines and words that are done animating shouldnt continue to glow"
-    // Make glow build up faster: reach max intensity at 50% progress
-    val glowProgress = (progress * 2f).coerceAtMost(1f)
-    val glowAlpha = if (isWordActive) glowProgress * 0.45f * glowFactor else 0f
-    val glowRadius = if (isWordActive) glowProgress * 12f * glowFactor else 0f
+    val glowDecay =
+        if (isWordActive) 1f
+        else if (isWordComplete && isLineActive) {
+            val timeSinceEndMs = currentPositionMs - wordEndMs
+            (1f - (timeSinceEndMs / 600f)).coerceIn(0f, 1f)
+        } else 0f
+    val wordGlowAlpha = lineGlowAlpha * glowDecay
+    val wordGlowRadius = lineGlowRadius * glowDecay
 
     val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
     val fontWeight = if (isLineActive || isLinePast) FontWeight.ExtraBold else FontWeight.SemiBold
-    val glowPadding = 10.dp
+    val baseColor = textColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha)
+    val fillColor = textColor.copy(alpha = if (isBackground) 0.75f else 1f)
 
-    // ── Two-layer rendering: dim base + liquid fill overlay ──
     Box(
         modifier =
-            Modifier
-                .layout { measurable, constraints ->
-                    val glowPaddingPx = glowPadding.roundToPx()
-                    val looseConstraints =
-                        constraints.copy(
-                            minWidth = 0,
-                            maxWidth = constraints.maxWidth,
-                            minHeight = 0,
-                            maxHeight = Constraints.Infinity,
-                        )
-                    val placeable = measurable.measure(looseConstraints)
-
-                    val coreWidth = (placeable.width - glowPaddingPx * 2).coerceAtLeast(0)
-                    val coreHeight = (placeable.height - glowPaddingPx * 2).coerceAtLeast(0)
-
-                    layout(coreWidth, coreHeight) {
-                        placeable.place(-glowPaddingPx, -glowPaddingPx)
-                    }
-                }.graphicsLayer {
-                    clip = false
-                    translationY = floatOffset * density
-                    scaleX = wordScale
-                    scaleY = wordScale
-                },
+            Modifier.graphicsLayer {
+                clip = false
+                translationY = floatOffset * density
+                scaleX = wordScale
+                scaleY = wordScale
+            },
     ) {
         // Layer 1: Base text (always dimmed)
         Text(
@@ -1097,8 +1091,7 @@ private fun AnimatedWordV2(
                     lineHeight = (actualFontSize * 1.35f).sp,
                     fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
                 ),
-            color = textColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha),
-            modifier = Modifier.padding(glowPadding),
+            color = baseColor,
         )
 
         // Layer 2: Filled overlay with liquid sweep mask + glow
@@ -1113,20 +1106,17 @@ private fun AnimatedWordV2(
                         lineHeight = (actualFontSize * 1.35f).sp,
                         fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
                         shadow =
-                            if (glowAlpha > 0f) {
+                            if (wordGlowAlpha > 0f) {
                                 Shadow(
-                                    color = textColor.copy(alpha = glowAlpha),
+                                    color = textColor.copy(alpha = wordGlowAlpha),
                                     offset = Offset.Zero,
-                                    blurRadius = glowRadius.coerceAtLeast(1f),
+                                    blurRadius = wordGlowRadius.coerceAtLeast(1f),
                                 )
                             } else {
                                 null
                             },
                     ),
-                color =
-                    textColor.copy(
-                        alpha = if (isBackground) 0.75f else 1f,
-                    ),
+                color = fillColor,
                 modifier =
                     if (isWordActive && !isWordComplete) {
                         Modifier
@@ -1154,9 +1144,9 @@ private fun AnimatedWordV2(
                                         ),
                                     blendMode = BlendMode.DstIn,
                                 )
-                            }.padding(glowPadding)
+                            }
                     } else {
-                        Modifier.padding(glowPadding)
+                        Modifier
                     },
             )
         }

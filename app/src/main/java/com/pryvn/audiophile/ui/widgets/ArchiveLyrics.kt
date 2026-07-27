@@ -151,6 +151,7 @@ fun ArchiveLyrics(
     sliderPositionProvider: () -> Long?,
     lyricsSyncOffset: Int,
     modifier: Modifier = Modifier,
+    interactive: Boolean = false,
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -422,37 +423,43 @@ fun ArchiveLyrics(
                     .asPaddingValues(),
                 modifier = Modifier
                     .smoothFadingEdge(vertical = 72.dp)
-                    .nestedScroll(
-                        remember {
-                            var lastScrollTime = 0L
-                            object : NestedScrollConnection {
-                                override fun onPostScroll(
-                                    consumed: Offset,
-                                    available: Offset,
-                                    source: NestedScrollSource,
-                                ): Offset {
-                                    if (!isSelectionModeActive && source == NestedScrollSource.UserInput) {
-                                        val currentTime = System.currentTimeMillis()
-                                        if (currentTime - lastScrollTime > 50) {
-                                            lastPreviewTime = currentTime
-                                            isManualScrolling = true
-                                            lastScrollTime = currentTime
+                    .then(
+                        if (interactive) {
+                            Modifier.nestedScroll(
+                                remember {
+                                    var lastScrollTime = 0L
+                                    object : NestedScrollConnection {
+                                        override fun onPostScroll(
+                                            consumed: Offset,
+                                            available: Offset,
+                                            source: NestedScrollSource,
+                                        ): Offset {
+                                            if (!isSelectionModeActive && source == NestedScrollSource.UserInput) {
+                                                val currentTime = System.currentTimeMillis()
+                                                if (currentTime - lastScrollTime > 50) {
+                                                    lastPreviewTime = currentTime
+                                                    isManualScrolling = true
+                                                    lastScrollTime = currentTime
+                                                }
+                                            }
+                                            return super.onPostScroll(consumed, available, source)
+                                        }
+
+                                        override suspend fun onPostFling(
+                                            consumed: Velocity,
+                                            available: Velocity,
+                                        ): Velocity {
+                                            if (!isSelectionModeActive) {
+                                                lastPreviewTime = System.currentTimeMillis()
+                                                isManualScrolling = true
+                                            }
+                                            return super.onPostFling(consumed, available)
                                         }
                                     }
-                                    return super.onPostScroll(consumed, available, source)
-                                }
-
-                                override suspend fun onPostFling(
-                                    consumed: Velocity,
-                                    available: Velocity,
-                                ): Velocity {
-                                    if (!isSelectionModeActive) {
-                                        lastPreviewTime = System.currentTimeMillis()
-                                        isManualScrolling = true
-                                    }
-                                    return super.onPostFling(consumed, available)
-                                }
-                            }
+                                },
+                            )
+                        } else {
+                            Modifier
                         },
                     ),
             ) {
@@ -544,17 +551,19 @@ fun ArchiveLyrics(
 
                         val itemModifier = Modifier
                             .fillMaxWidth()
-                            .combinedClickable(
-                                enabled = true,
-                                onClick = {
-                                    if (isSelectionModeActive) {
-                                        if (isSelected) {
-                                            selectedIndices.remove(index)
-                                            if (selectedIndices.isEmpty()) {
-                                                isSelectionModeActive = false
-                                            }
-                                        } else {
-                                            if (selectedIndices.size < maxSelectionLimit) {
+                            .then(
+                                if (interactive) {
+                                    Modifier.combinedClickable(
+                                        enabled = true,
+                                        onClick = {
+                                            if (isSelectionModeActive) {
+                                                if (isSelected) {
+                                                    selectedIndices.remove(index)
+                                                    if (selectedIndices.isEmpty()) {
+                                                        isSelectionModeActive = false
+                                                    }
+                                                } else {
+                                                    if (selectedIndices.size < maxSelectionLimit) {
                                                 selectedIndices.add(index)
                                             } else {
                                                 showMaxSelectionToast = true
@@ -597,7 +606,12 @@ fun ArchiveLyrics(
                                         showMaxSelectionToast = true
                                     }
                                 },
-                            ).background(
+                            )
+                    } else {
+                        Modifier
+                    },
+                )
+                .background(
                                 color = if (isSelected && isSelectionModeActive) {
                                     primary.copy(alpha = 0.3f)
                                 } else {
@@ -1491,13 +1505,19 @@ fun ArchiveLyrics(
                 Row(
                     modifier = Modifier
                         .background(color = Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(24.dp))
-                        .clickable {
-                            isManualScrolling = false
-                            lastPreviewTime = 0L
-                            if (currentLineIndex >= 0) {
-                                scope.launch { lazyListState.animateScrollToItem(index = currentLineIndex, scrollOffset = 0) }
-                            }
-                        }.padding(horizontal = 20.dp, vertical = 10.dp),
+                        .then(
+                                if (interactive) {
+                                    Modifier.clickable {
+                                        isManualScrolling = false
+                                        lastPreviewTime = 0L
+                                        if (currentLineIndex >= 0) {
+                                            scope.launch { lazyListState.animateScrollToItem(index = currentLineIndex, scrollOffset = 0) }
+                                        }
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            ).padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -1530,10 +1550,16 @@ fun ArchiveLyrics(
                             modifier = Modifier
                                 .size(48.dp)
                                 .background(color = Color.Black.copy(alpha = 0.3f), shape = CircleShape)
-                                .clickable {
-                                    isSelectionModeActive = false
-                                    selectedIndices.clear()
-                                },
+                                .then(
+                                    if (interactive) {
+                                        Modifier.clickable {
+                                            isSelectionModeActive = false
+                                            selectedIndices.clear()
+                                        }
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
@@ -1553,19 +1579,26 @@ fun ArchiveLyrics(
                                         Color.White.copy(alpha = 0.5f)
                                     },
                                     shape = RoundedCornerShape(24.dp),
-                                ).clickable(enabled = selectedIndices.isNotEmpty()) {
-                                    if (selectedIndices.isNotEmpty()) {
-                                        val sortedIndices = selectedIndices.sorted()
-                                        val selectedLyricsText = sortedIndices
-                                            .mapNotNull { lines.getOrNull(it)?.text }
-                                            .joinToString("\n")
+                                ).then(
+                                        if (interactive) {
+                                            Modifier.clickable(enabled = selectedIndices.isNotEmpty()) {
+                                                if (selectedIndices.isNotEmpty()) {
+                                                    val sortedIndices = selectedIndices.sorted()
+                                                    val selectedLyricsText = sortedIndices
+                                                        .mapNotNull { lines.getOrNull(it)?.text }
+                                                        .joinToString("\n")
                                         if (selectedLyricsText.isNotBlank()) {
                                             shareLyricsAsText(context, selectedLyricsText)
                                         }
                                         isSelectionModeActive = false
                                         selectedIndices.clear()
                                     }
-                                }.padding(horizontal = 24.dp, vertical = 12.dp),
+                                }
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {

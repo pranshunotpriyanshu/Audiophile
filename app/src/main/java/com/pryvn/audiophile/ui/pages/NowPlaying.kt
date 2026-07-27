@@ -24,7 +24,6 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
@@ -32,12 +31,10 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -619,25 +616,6 @@ fun NowPlaying(
             }
         }
 
-        // 垂直堆叠压缩动画：控制区隐藏时各分组依次向上堆叠
-        val sectionCount = 5
-        val sectionStacks = remember { List(sectionCount) { Animatable(0f) } }
-        val sectionPx = remember(density) {
-            listOf(0.dp, 6.dp, 16.dp, 30.dp, 48.dp).map { with(density) { it.toPx() } }
-        }
-        LaunchedEffect(showControl.value) {
-            val target = if (showControl.value) 0f else 1f
-            sectionStacks.forEachIndexed { i, anim ->
-                launch {
-                    delay(i * 30L)
-                    anim.animateTo(
-                        targetValue = target,
-                        animationSpec = spring(stiffness = 400f, dampingRatio = 0.82f)
-                    )
-                }
-            }
-        }
-
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
@@ -797,6 +775,7 @@ fun NowPlaying(
                         mediaViewModel = mediaViewModel,
                         wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
                         active = nowPageLambda() == Lyric,
+                        interactive = false,
                     )
                 }
             }
@@ -1058,28 +1037,19 @@ Album ->
                             ) {
                                  AnimatedVisibility(
                                      visible = showControl.value,
-                                     enter = fadeIn() + expandVertically(
-                                         expandFrom = Alignment.Top,
-                                         initialHeight = { (it / 1.4).toInt() },
-                                         animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-                                     ),
-                                     exit = fadeOut() + shrinkVertically(
-                                         shrinkTowards = Alignment.Top,
-                                         targetHeight = { (it / 1.4).toInt() },
-                                         animationSpec = spring(stiffness = 300f, dampingRatio = 0.8f)
-                                     )
+                                     enter = fadeIn(),
+                                     exit = fadeOut()
                                  ) {
                                         YosWrapper {
                                             Row(
                                                 Modifier
                                                     .fillMaxWidth()
                                                     .padding(horizontal = 32.dp)
-                                                    .graphicsLayer {
-                                                         compositingStrategy =
-                                                             CompositingStrategy.ModulateAlpha
-                                                         this.alpha = alphaAnim.value
-                                                         translationY = -sectionStacks[0].value * sectionPx[0]
-                                                     },
+.graphicsLayer {
+                                                          compositingStrategy =
+                                                              CompositingStrategy.ModulateAlpha
+                                                          this.alpha = alphaAnim.value
+                                                      },
                                                 horizontalArrangement = Arrangement.End
                                             ) {
                                                 YosWrapper {
@@ -1202,8 +1172,6 @@ Album ->
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
-                                        sectionStacks = sectionStacks,
-                                        sectionPx = sectionPx,
                                         modifier = Modifier
                                             .padding(top = 52.dp),
                                         onWhile = {
@@ -1339,8 +1307,6 @@ Album ->
                                 showControl.value = true
                                 lastClickTime.longValue = TimeUtils.getNowMills()
                             },
-                            sectionStacks = sectionStacks,
-                            sectionPx = sectionPx,
                             modifier = Modifier.fillMaxWidth(),
                             onWhile = {
                                 shuffleModeEnabled.value = mediaControl?.shuffleModeEnabled ?: false
@@ -1468,7 +1434,8 @@ Album ->
                                     },
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
-                                    wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value }
+                                    wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                                    interactive = false,
                                 )
                             } else {
                                 PlayingList(
@@ -2274,6 +2241,7 @@ private fun Lyric(
     onBackClick: () -> Unit,
     wordSyncedLambda: () -> Boolean = { false },
     active: Boolean = true,
+    interactive: Boolean = false,
 ) = YosWrapper {
 
     val context = LocalContext.current
@@ -2299,6 +2267,7 @@ private fun Lyric(
                         Color.Black
                 YosLyricView(
                     //mediaViewModel = mediaViewModel,
+                    interactive = interactive,
                     lrcEntriesLambda = lrcEntries,
                     liveTimeLambda = {
                         (mediaControl?.currentPosition ?: 0).toInt()
@@ -3074,8 +3043,6 @@ private fun PlayerControl(
     onSlider: () -> Unit,
     onWhile: suspend () -> Unit,
     modifier: Modifier,
-    sectionStacks: List<Animatable<Float, AnimationVector1D>>,
-    sectionPx: List<Float>,
 ) {
     val playingDuration = rememberSaveable(key = "PlayerControl_playingDuration") {
         mutableLongStateOf(0L)
@@ -3163,9 +3130,7 @@ private fun PlayerControl(
 
                 // 进度条
                 YosWrapper {
-                    Box(Modifier.graphicsLayer {
-                        translationY = -(sectionStacks.getOrNull(1)?.value ?: 0f) * (sectionPx.getOrNull(1) ?: 0f)
-                    }) {
+                    Box {
                     val seekBarHeight by animateDpAsState(
                         targetValue = if (isPressed.value || isDragging.value) 12.dp else 7.dp,
                         animationSpec = MotionTokens.seekbarSpring()
@@ -3256,10 +3221,7 @@ private fun PlayerControl(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp, horizontal = 7.dp)
-                            .heightIn(min = 22.dp)
-                            .graphicsLayer {
-                                translationY = -(sectionStacks.getOrNull(2)?.value ?: 0f) * (sectionPx.getOrNull(2) ?: 0f)
-                            },
+                            .heightIn(min = 22.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading.value) {
@@ -3418,9 +3380,7 @@ private fun PlayerControl(
 
             // 音量调节
             YosWrapper {
-                Box(Modifier.graphicsLayer {
-                    translationY = -(sectionStacks.getOrNull(3)?.value ?: 0f) * (sectionPx.getOrNull(3) ?: 0f)
-                }) {
+                Box {
                     if (SettingsLibrary.NowPlayingShowVolumeBar) {
                         VolumeSlider(context = context, onSlider)
                     }
@@ -3429,9 +3389,7 @@ private fun PlayerControl(
 
             // 底部 歌词&播放列表
             YosWrapper {
-                Box(Modifier.graphicsLayer {
-                    translationY = -(sectionStacks.getOrNull(4)?.value ?: 0f) * (sectionPx.getOrNull(4) ?: 0f)
-                }) {
+                Box {
                     //println("重组：控制区域内部 - 底部栏")
                     Row(
                         modifier = Modifier
