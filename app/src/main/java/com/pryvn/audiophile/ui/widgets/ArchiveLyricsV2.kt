@@ -122,6 +122,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 // ──────────────────────────────────────────────────────────────────────
 // Constants
@@ -335,11 +336,15 @@ fun LyricsV2(
                 0,
             )
         }
-        // Center the current line in the viewport so large lines fit evenly
-        // with equal breathing room above and below.
+        // Position the current line near the top (~6.18% from viewport top),
+        // matching the line-synced layout behavior.
+        val targetRatio = 0.0618f
         val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
+        val prevItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex - 1 }
+        val minScrollOffset = if (prevItemInfo != null)
+            (prevItemInfo.size * 0.2f).roundToInt() else 0
         if (itemInfo != null) {
-            val targetOffset = ((viewportHeight - itemInfo.size) / 2f).coerceAtLeast(0f)
+            val targetOffset = (viewportHeight * targetRatio).coerceAtLeast(minScrollOffset.toFloat())
             val scrollDistance = (itemInfo.offset - targetOffset).toFloat()
             if (abs(scrollDistance) > 5f) {
                 listState.animateScrollBy(
@@ -351,6 +356,19 @@ fun LyricsV2(
                         ),
                 )
             }
+        } else {
+            listState.scrollToItem(
+                (currentLineIndex - 2).coerceAtLeast(0),
+                0,
+            )
+            val prevAfter = listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == currentLineIndex - 1 }
+            val minOff = if (prevAfter != null)
+                (prevAfter.size * 0.2f).roundToInt() else 0
+            listState.animateScrollToItem(
+                index = currentLineIndex,
+                scrollOffset = (viewportHeight * targetRatio).roundToInt().coerceAtLeast(minOff),
+            )
         }
     }
 
@@ -657,10 +675,10 @@ fun LyricsV2(
                         if (lineIsRtl) LayoutDirection.Rtl else baseLayoutDirection
                     }
 
-                // Match Audiophile's native line-lyrics padding (29.dp sides, native
-                // = 9.dp line + 20.dp card; 9.dp vertical).
-                val startPad = 29.dp
-                val endPad = 29.dp
+                // Match Audiophile's native line-lyrics padding
+                // Outer: 9.dp horizontal (item) + 28.dp card (one side) + 20.dp inner (both sides)
+                val cardPadding = if (isRightSide)
+                    Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
 
                 CompositionLocalProvider(LocalLayoutDirection provides lineLayoutDirection) {
                     Column(
@@ -670,9 +688,10 @@ fun LyricsV2(
                                 .background(
                                     color = Color.Transparent,
                                     shape = RoundedCornerShape(8.dp),
-                                ).padding(
-                                    start = startPad,
-                                    end = endPad,
+                                )
+                                .padding(horizontal = 9.dp)
+                                .then(cardPadding)
+                                .padding(
                                     top =
                                         if (index == 0 ||
                                             (index == 1 && entriesWithWords[0] == HEAD_LYRICS_ENTRY)
@@ -722,85 +741,89 @@ fun LyricsV2(
                                 )
                             }
 
-                        if (item.words != null && isSynced) {
-                            LyricsLineV2(
-                                words = item.words!!,
-                                isActive = isActive,
-                                isPast = isPast,
-                                currentPositionMs = currentPositionMs,
-                                textColor = textColor,
-                                inactiveAlpha = inactiveAlpha,
-                                baseFontSize = lyricsTextSize,
-                                isLineAllBackground = isAllBackground,
-                                textAlign = textAlign,
-                                isRtl = lineIsRtl,
-                                bounceFactor = bounceFactor,
-                                glowFactor = glowFactor,
-                                fillTransitionWidth = fillTransitionWidth,
-                                fontWeight = fontWeight,
-                            )
-                        } else if (isSynced) {
-                            LyricsLineLrcBounce(
-                                text = item.text,
-                                isActive = isActive,
-                                currentPositionMs = currentPositionMs,
-                                lineStartMs = item.time,
-                                textColor = textColor.copy(alpha = if (isActive) 1f else 0.52f),
-                                fontSize = lyricsTextSize,
-                                lineSpacing = lyricsLineSpacing,
-                                isAllBackground = isAllBackground,
-                                textAlign = textAlign,
-                                bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
-                            )
-                        } else {
-                                Text(
-                                text = item.text,
-                                style =
-                                    TextStyle(
-                                        fontFamily = SfProFontFamily,
-                                        fontSize = if (isAllBackground) (lyricsTextSize * 0.82f).sp else lyricsTextSize.sp,
-                                        fontWeight = if (isActive) FontWeight.Bold else fontWeight,
-                                        fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
-                                        lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
-                                    ),
-                                color = textColor.copy(alpha = if (isActive) 1f else 0.52f),
-                                textAlign = textAlign,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+                        Box(Modifier.padding(start = 20.dp, end = 20.dp)) {
+                            Column {
+                                if (item.words != null && isSynced) {
+                                    LyricsLineV2(
+                                        words = item.words!!,
+                                        isActive = isActive,
+                                        isPast = isPast,
+                                        currentPositionMs = currentPositionMs,
+                                        textColor = textColor,
+                                        inactiveAlpha = inactiveAlpha,
+                                        baseFontSize = lyricsTextSize,
+                                        isLineAllBackground = isAllBackground,
+                                        textAlign = textAlign,
+                                        isRtl = lineIsRtl,
+                                        bounceFactor = bounceFactor,
+                                        glowFactor = glowFactor,
+                                        fillTransitionWidth = fillTransitionWidth,
+                                        fontWeight = fontWeight,
+                                    )
+                                } else if (isSynced) {
+                                    LyricsLineLrcBounce(
+                                        text = item.text,
+                                        isActive = isActive,
+                                        currentPositionMs = currentPositionMs,
+                                        lineStartMs = item.time,
+                                        textColor = textColor.copy(alpha = if (isActive) 1f else 0.52f),
+                                        fontSize = lyricsTextSize,
+                                        lineSpacing = lyricsLineSpacing,
+                                        isAllBackground = isAllBackground,
+                                        textAlign = textAlign,
+                                        bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
+                                    )
+                                } else {
+                                        Text(
+                                        text = item.text,
+                                        style =
+                                            TextStyle(
+                                                fontFamily = SfProFontFamily,
+                                                fontSize = if (isAllBackground) (lyricsTextSize * 0.82f).sp else lyricsTextSize.sp,
+                                                fontWeight = if (isActive) FontWeight.Bold else fontWeight,
+                                                fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
+                                                lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
+                                            ),
+                                        color = textColor.copy(alpha = if (isActive) 1f else 0.52f),
+                                        textAlign = textAlign,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
 
-                        // ── Between-lines gap dots ──
-                        // While the current line has finished singing and the next
-                        // line hasn't started yet, show a row of dots that fill
-                        // left-to-right across the duration of the gap.
-                        val lineEnd = lineEndTimesMs.getOrElse(index) { item.time }
-                        val nextEntry = entriesWithWords.getOrNull(index + 1)
-                        val gapStart = lineEnd
-                        val gapEnd = nextEntry?.time ?: -1L
-                        val showGap =
-                            isSynced &&
-                                isActive &&
-                                nextEntry != null &&
-                                gapEnd > gapStart &&
-                                (gapEnd - gapStart) >= 5000L &&
-                                currentPositionMs in gapStart until gapEnd
-                        AnimatedVisibility(
-                            visible = showGap,
-                            enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
-                        ) {
-                            val fill =
-                                ((currentPositionMs - gapStart).toFloat() / (gapEnd - gapStart).toFloat())
-                                    .coerceIn(0f, 1f)
-                            GapDots(
-                                fillFraction = fill,
-                                textColor = textColor,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 20.dp, bottom = 20.dp),
-                                textAlign = textAlign,
-                            )
+                                // ── Between-lines gap dots ──
+                                // While the current line has finished singing and the next
+                                // line hasn't started yet, show a row of dots that fill
+                                // left-to-right across the duration of the gap.
+                                val lineEnd = lineEndTimesMs.getOrElse(index) { item.time }
+                                val nextEntry = entriesWithWords.getOrNull(index + 1)
+                                val gapStart = lineEnd
+                                val gapEnd = nextEntry?.time ?: -1L
+                                val showGap =
+                                    isSynced &&
+                                        isActive &&
+                                        nextEntry != null &&
+                                        gapEnd > gapStart &&
+                                        (gapEnd - gapStart) >= 5000L &&
+                                        currentPositionMs in gapStart until gapEnd
+                                AnimatedVisibility(
+                                    visible = showGap,
+                                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                                    exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+                                ) {
+                                    val fill =
+                                        ((currentPositionMs - gapStart).toFloat() / (gapEnd - gapStart).toFloat())
+                                            .coerceIn(0f, 1f)
+                                    GapDots(
+                                        fillFraction = fill,
+                                        textColor = textColor,
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 20.dp, bottom = 20.dp),
+                                        textAlign = textAlign,
+                                    )
+                                }
+                            }
                         }
 
                         // ── Small gutter between lyrics lines ──
@@ -972,40 +995,27 @@ fun GapDots(
             TextAlign.End -> Arrangement.End
             else -> Arrangement.Start
         }
-    val dimAlpha = 0.22f
-    val brightAlpha = 0.9f
-
-    val infiniteTransition = rememberInfiniteTransition(label = "gapDotsPulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1.0f,
-        targetValue = 0.43f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "gapDotsScale",
-    )
 
     Row(
         modifier = modifier,
         horizontalArrangement = arrangement,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (i in 0 until 3) {
-            val segmentStart = i / 3f
-            val segmentEnd = (i + 1) / 3f
-            val raw = (fillFraction - segmentStart) / (segmentEnd - segmentStart)
-            val dotAlpha = (dimAlpha + (brightAlpha - dimAlpha) * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 6.dp)
-                    .size(7.dp)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    .background(textColor.copy(alpha = dotAlpha), shape = CircleShape)
-            )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 5.dp),
+        ) {
+            for (i in 0 until 3) {
+                val segmentStart = i / 3f
+                val segmentEnd = (i + 1) / 3f
+                val raw = (fillFraction - segmentStart) / (segmentEnd - segmentStart)
+                val dotAlpha = (0.2f + 0.8f * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+                Box(
+                    Modifier
+                        .size(11.dp)
+                        .background(textColor.copy(alpha = dotAlpha), shape = CircleShape)
+                )
+            }
         }
     }
 }

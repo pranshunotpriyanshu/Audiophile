@@ -24,6 +24,7 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
@@ -321,6 +322,177 @@ private fun resolveQueueReorderTarget(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VolumeSlider(context: Context, onSlider: () -> Unit) {
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+    val sliderPosition =
+        remember("VolumeSlider_sliderPosition") { mutableFloatStateOf(currentVolume / maxVolume.toFloat()) }
+    val sliding = remember("VolumeSlider_sliding") {
+        mutableStateOf(false)
+    }
+
+    val volumeChangeReceiver = remember("VolumeSlider_volumeChangeReceiver") {
+        VolumeChangeReceiver { newVolume ->
+            sliderPosition.floatValue = newVolume / maxVolume.toFloat()
+        }
+    }
+    val intentFilter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+
+    DisposableEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(
+                volumeChangeReceiver,
+                intentFilter,
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            context.registerReceiver(volumeChangeReceiver, intentFilter)
+        }
+
+        onDispose {
+            context.unregisterReceiver(volumeChangeReceiver)
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(end = 1.5.dp)
+            .padding(horizontal = 8.dp)
+            .padding(top = 4.dp, bottom = 2.5.dp)
+            .overlayEffect()
+            .alpha(0.45f)
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_nowplaying_volume),
+            contentDescription = "Mute",
+            modifier = Modifier.size(20.dp)
+        )
+
+        YosWrapper {
+            val animatedProgress = if (sliding.value) {
+                sliderPosition
+            } else {
+                animateFloatAsState(
+                    targetValue = sliderPosition.floatValue,
+                    animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+                    visibilityThreshold = 0.0001f
+                )
+            }
+
+            Slider(
+                value = (animatedProgress.value * maxVolume),
+                onValueChange = { newValue ->
+                    sliding.value = true
+                    sliderPosition.floatValue = newValue / maxVolume
+                    val volume = newValue.toInt()
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+                    onSlider()
+                },
+                valueRange = 0f..maxVolume.toFloat(),
+                colors = SliderDefaults.colors(
+                    activeTrackColor = Color.White,
+                    inactiveTrackColor = Color(0x0DFFFFFF)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 1.5.dp, end = 5.dp),
+                thumb = {
+                },
+                track = {
+                    Track(
+                        sliderPositions = SliderPositions(
+                            initialActiveRange = 0f..animatedProgress.value
+                        ), height = 7.dp
+                    )
+                },
+                onValueChangeFinished = {
+                    Vibrator.longClick(context)
+                    sliding.value = false
+                }
+            )
+        }
+        Icon(
+            painter = painterResource(id = R.drawable.ic_nowplaying_volume_full),
+            contentDescription = "Max Volume",
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+fun Track(
+    sliderPositions: SliderPositions,
+    modifier: Modifier = Modifier,
+    height: Dp
+) = YosWrapper {
+    val inactiveTrackColor = Color.White.copy(alpha = 0.5f)
+    val activeTrackColor = Color.White
+    val inactiveTickColor = Color.White.copy(alpha = 0.5f)
+    val activeTickColor = Color.White
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+    ) {
+        val isRtl = layoutDirection == LayoutDirection.Rtl
+        val sliderLeft = Offset(0f, center.y)
+        val sliderRight = Offset(size.width, center.y)
+        val sliderStart = if (isRtl) sliderRight else sliderLeft
+        val sliderEnd = if (isRtl) sliderLeft else sliderRight
+        val tickSize = 2.0.dp.toPx()
+        val trackStrokeWidth = height.toPx()
+        drawLine(
+            inactiveTrackColor,
+            sliderStart,
+            sliderEnd,
+            trackStrokeWidth,
+            StrokeCap.Round
+        )
+        val sliderValueEnd = Offset(
+            sliderStart.x +
+                    (sliderEnd.x - sliderStart.x) * sliderPositions.activeRange.endInclusive,
+            center.y
+        )
+
+        val sliderValueStart = Offset(
+            sliderStart.x +
+                    (sliderEnd.x - sliderStart.x) * sliderPositions.activeRange.start,
+            center.y
+        )
+
+        drawLine(
+            activeTrackColor,
+            sliderValueStart,
+            sliderValueEnd,
+            trackStrokeWidth,
+            StrokeCap.Round
+        )
+        sliderPositions.tickFractions.groupBy {
+            it > sliderPositions.activeRange.endInclusive ||
+                    it < sliderPositions.activeRange.start
+        }.forEach { (outsideFraction, list) ->
+            drawPoints(
+                list.fastMap {
+                    Offset(lerp(sliderStart, sliderEnd, it).x, center.y)
+                },
+                PointMode.Points,
+                (if (outsideFraction) inactiveTickColor else activeTickColor),
+                tickSize,
+                StrokeCap.Round
+            )
+        }
+    }
+}
+
+fun formatTime(seconds: Long): String {
+    val minutes = seconds / 60
+    val secs = seconds % 60
+    return "$minutes:${if (secs < 10) "0$secs" else "$secs"}"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalSharedTransitionApi
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -443,6 +615,25 @@ fun NowPlaying(
                             showControl.value = false
                         }
                     }
+                }
+            }
+        }
+
+        // 垂直堆叠压缩动画：控制区隐藏时各分组依次向上堆叠
+        val sectionCount = 5
+        val sectionStacks = remember { List(sectionCount) { Animatable(0f) } }
+        val sectionPx = remember(density) {
+            listOf(0.dp, 6.dp, 16.dp, 30.dp, 48.dp).map { with(density) { it.toPx() } }
+        }
+        LaunchedEffect(showControl.value) {
+            val target = if (showControl.value) 0f else 1f
+            sectionStacks.forEachIndexed { i, anim ->
+                launch {
+                    delay(i * 30L)
+                    anim.animateTo(
+                        targetValue = target,
+                        animationSpec = spring(stiffness = 400f, dampingRatio = 0.82f)
+                    )
                 }
             }
         }
@@ -884,10 +1075,11 @@ Album ->
                                                     .fillMaxWidth()
                                                     .padding(horizontal = 32.dp)
                                                     .graphicsLayer {
-                                                        compositingStrategy =
-                                                            CompositingStrategy.ModulateAlpha
-                                                        this.alpha = alphaAnim.value
-                                                    },
+                                                         compositingStrategy =
+                                                             CompositingStrategy.ModulateAlpha
+                                                         this.alpha = alphaAnim.value
+                                                         translationY = -sectionStacks[0].value * sectionPx[0]
+                                                     },
                                                 horizontalArrangement = Arrangement.End
                                             ) {
                                                 YosWrapper {
@@ -1010,6 +1202,8 @@ Album ->
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
+                                        sectionStacks = sectionStacks,
+                                        sectionPx = sectionPx,
                                         modifier = Modifier
                                             .padding(top = 52.dp),
                                         onWhile = {
@@ -1145,6 +1339,8 @@ Album ->
                                 showControl.value = true
                                 lastClickTime.longValue = TimeUtils.getNowMills()
                             },
+                            sectionStacks = sectionStacks,
+                            sectionPx = sectionPx,
                             modifier = Modifier.fillMaxWidth(),
                             onWhile = {
                                 shuffleModeEnabled.value = mediaControl?.shuffleModeEnabled ?: false
@@ -2187,14 +2383,23 @@ private fun Lyric(
 
                             drawContent()
 
-                            drawRect(
-                                brush = Brush.verticalGradient(colors),
-                                blendMode = BlendMode.DstIn
-                            )
+                                drawRect(
+                                    brush = Brush.verticalGradient(colors),
+                                    blendMode = BlendMode.DstIn
+                                )
 
-                            canvas.restore()
+                                canvas.restore()
+                            }
                         }
-                    },
+                        .pointerInput(active) {
+                            if (!active) {
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        awaitPointerEvent()
+                                    }
+                                }
+                            }
+                        },
                     onBackClick = onBackClick
                 )
             }
@@ -2869,6 +3074,8 @@ private fun PlayerControl(
     onSlider: () -> Unit,
     onWhile: suspend () -> Unit,
     modifier: Modifier,
+    sectionStacks: List<Animatable<Float, AnimationVector1D>>,
+    sectionPx: List<Float>,
 ) {
     val playingDuration = rememberSaveable(key = "PlayerControl_playingDuration") {
         mutableLongStateOf(0L)
@@ -2956,6 +3163,9 @@ private fun PlayerControl(
 
                 // 进度条
                 YosWrapper {
+                    Box(Modifier.graphicsLayer {
+                        translationY = -(sectionStacks.getOrNull(1)?.value ?: 0f) * (sectionPx.getOrNull(1) ?: 0f)
+                    }) {
                     val seekBarHeight by animateDpAsState(
                         targetValue = if (isPressed.value || isDragging.value) 12.dp else 7.dp,
                         animationSpec = MotionTokens.seekbarSpring()
@@ -3035,18 +3245,21 @@ private fun PlayerControl(
                                     cornerRadius = CornerRadius(trackHeight / 2f)
                                 )
                             }
-                        }
+}
                     }
                 }
 
-                // 控制按钮&进度文本
+// 控制按钮&进度文本
                 YosWrapper {
                     //println("重组：控制区域内部 - 控制按钮&进度文本")
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp, horizontal = 7.dp)
-                            .heightIn(min = 22.dp),
+                            .heightIn(min = 22.dp)
+                            .graphicsLayer {
+                                translationY = -(sectionStacks.getOrNull(2)?.value ?: 0f) * (sectionPx.getOrNull(2) ?: 0f)
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading.value) {
@@ -3202,25 +3415,31 @@ private fun PlayerControl(
                         }
                     }
                 }
-            }
 
             // 音量调节
             YosWrapper {
-                if (SettingsLibrary.NowPlayingShowVolumeBar) {
-                    VolumeSlider(context = context, onSlider)
+                Box(Modifier.graphicsLayer {
+                    translationY = -(sectionStacks.getOrNull(3)?.value ?: 0f) * (sectionPx.getOrNull(3) ?: 0f)
+                }) {
+                    if (SettingsLibrary.NowPlayingShowVolumeBar) {
+                        VolumeSlider(context = context, onSlider)
+                    }
                 }
             }
 
             // 底部 歌词&播放列表
             YosWrapper {
-                //println("重组：控制区域内部 - 底部栏")
-                Row(
-                    modifier = Modifier
-                        .overlayEffect()
-                        .fillMaxWidth()
-                        .alpha(0.4f),
-                    horizontalArrangement = Arrangement.Center
-                ) {
+                Box(Modifier.graphicsLayer {
+                    translationY = -(sectionStacks.getOrNull(4)?.value ?: 0f) * (sectionPx.getOrNull(4) ?: 0f)
+                }) {
+                    //println("重组：控制区域内部 - 底部栏")
+                    Row(
+                        modifier = Modifier
+                            .overlayEffect()
+                            .fillMaxWidth()
+                            .alpha(0.4f),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                     val dp = 32.dp
                     Box(
                         modifier = Modifier
@@ -3304,174 +3523,6 @@ private fun PlayerControl(
         }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
-    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-    val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-    val sliderPosition =
-        remember("VolumeSlider_sliderPosition") { mutableFloatStateOf(currentVolume / maxVolume.toFloat()) }
-    val sliding = remember("VolumeSlider_sliding") {
-        mutableStateOf(false)
-    }
-
-    val volumeChangeReceiver = remember("VolumeSlider_volumeChangeReceiver") {
-        VolumeChangeReceiver { newVolume ->
-            sliderPosition.floatValue = newVolume / maxVolume.toFloat()
-        }
-    }
-    val intentFilter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
-
-    DisposableEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(
-                volumeChangeReceiver,
-                intentFilter,
-                Context.RECEIVER_NOT_EXPORTED
-            )
-        } else {
-            context.registerReceiver(volumeChangeReceiver, intentFilter)
-        }
-
-        onDispose {
-            context.unregisterReceiver(volumeChangeReceiver)
-        }
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .padding(end = 1.5.dp)
-            .padding(horizontal = 8.dp)
-            .padding(top = 4.dp, bottom = 2.5.dp)
-            .overlayEffect()
-            .alpha(0.45f)
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_nowplaying_volume),
-            contentDescription = "Mute",
-            modifier = Modifier.size(20.dp)
-        )
-
-        YosWrapper {
-            val animatedProgress = if (sliding.value) {
-                sliderPosition
-            } else {
-                animateFloatAsState(
-                    targetValue = sliderPosition.floatValue,
-                    animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-                    visibilityThreshold = 0.0001f
-                )
-            }
-
-            Slider(
-                value = (animatedProgress.value * maxVolume),
-                onValueChange = { newValue ->
-                    sliding.value = true
-                    sliderPosition.floatValue = newValue / maxVolume
-                    val volume = newValue.toInt()
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-                    onSlider()
-                },
-                valueRange = 0f..maxVolume.toFloat(),
-                colors = SliderDefaults.colors(
-                    activeTrackColor = Color.White,
-                    inactiveTrackColor = Color(0x0DFFFFFF)
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 1.5.dp, end = 5.dp),
-                thumb = {
-                },
-                track = {
-                    Track(
-                        sliderPositions = SliderPositions(
-                            initialActiveRange = 0f..animatedProgress.value
-                        ), height = 7.dp
-                    )
-                },
-                onValueChangeFinished = {
-                    Vibrator.longClick(context)
-                    sliding.value = false
-                }
-            )
-        }
-        Icon(
-            painter = painterResource(id = R.drawable.ic_nowplaying_volume_full),
-            contentDescription = "Max Volume",
-            modifier = Modifier.size(20.dp)
-        )
-    }
 }
-
-@Composable
-private fun Track(
-    sliderPositions: SliderPositions,
-    modifier: Modifier = Modifier,
-    height: Dp
-) = YosWrapper {
-    val inactiveTrackColor = Color.White.copy(alpha = 0.5f)
-    val activeTrackColor = Color.White
-    val inactiveTickColor = Color.White.copy(alpha = 0.5f)
-    val activeTickColor = Color.White
-    Canvas(
-        modifier
-            .fillMaxWidth()
-            .height(height)
-    ) {
-        val isRtl = layoutDirection == LayoutDirection.Rtl
-        val sliderLeft = Offset(0f, center.y)
-        val sliderRight = Offset(size.width, center.y)
-        val sliderStart = if (isRtl) sliderRight else sliderLeft
-        val sliderEnd = if (isRtl) sliderLeft else sliderRight
-        val tickSize = 2.0.dp.toPx()
-        val trackStrokeWidth = height.toPx()
-        drawLine(
-            inactiveTrackColor,
-            sliderStart,
-            sliderEnd,
-            trackStrokeWidth,
-            StrokeCap.Round
-        )
-        val sliderValueEnd = Offset(
-            sliderStart.x +
-                    (sliderEnd.x - sliderStart.x) * sliderPositions.activeRange.endInclusive,
-            center.y
-        )
-
-        val sliderValueStart = Offset(
-            sliderStart.x +
-                    (sliderEnd.x - sliderStart.x) * sliderPositions.activeRange.start,
-            center.y
-        )
-
-        drawLine(
-            activeTrackColor,
-            sliderValueStart,
-            sliderValueEnd,
-            trackStrokeWidth,
-            StrokeCap.Round
-        )
-        sliderPositions.tickFractions.groupBy {
-            it > sliderPositions.activeRange.endInclusive ||
-                    it < sliderPositions.activeRange.start
-        }.forEach { (outsideFraction, list) ->
-            drawPoints(
-                list.fastMap {
-                    Offset(lerp(sliderStart, sliderEnd, it).x, center.y)
-                },
-                PointMode.Points,
-                (if (outsideFraction) inactiveTickColor else activeTickColor),
-                tickSize,
-                StrokeCap.Round
-            )
-        }
-    }
 }
-
-fun formatTime(seconds: Long): String {
-    val minutes = seconds / 60
-    val secs = seconds % 60
-    return "$minutes:${if (secs < 10) "0$secs" else "$secs"}"
 }

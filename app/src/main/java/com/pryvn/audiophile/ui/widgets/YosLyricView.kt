@@ -176,7 +176,7 @@ fun YosLyricView(
 
     val height = rememberSaveable { mutableIntStateOf(0) }
     val targetWeight = 0.0618f
-    val targetOffset = rememberSaveable(height.intValue) {
+    val baseTargetOffset = rememberSaveable(height.intValue) {
         height.intValue * targetWeight
     }
     val space = 0.dp
@@ -187,11 +187,18 @@ fun YosLyricView(
     val targetItem = derivedStateOf {
         visibleItems.value.find { it.index == currentLyricIndex.intValue + 1 }
     }
+    val prevLineItem = derivedStateOf {
+        visibleItems.value.find { it.index == currentLyricIndex.intValue }
+    }
     val currentOffset = derivedStateOf {
-        targetItem.value?.offset ?: targetOffset.toInt()
+        targetItem.value?.offset ?: baseTargetOffset.toInt()
     }
     val scrollDistance = derivedStateOf {
-        currentOffset.value - targetOffset
+        val baseScroll = baseTargetOffset.toInt()
+        val prevSize = prevLineItem.value?.size ?: 0
+        val minVisible = (prevSize * 0.2f).toInt()
+        val effectiveTarget = baseScroll.coerceAtLeast(minVisible)
+        currentOffset.value - effectiveTarget
     }
     val nowFirst = derivedStateOf { scrollState.firstVisibleItemIndex }
 
@@ -365,16 +372,25 @@ fun YosLyricView(
 
             if (targetItem.value != null) {
                 scrollState.animateScrollBy(
-                    scrollDistance.value,
+                    scrollDistance.value.toFloat(),
                     animationSpec = tween(
                         durationMillis = 550,
                         easing = yosEasing
                     )
                 )
             } else {
+                scrollState.scrollToItem(
+                    (targetIdx).coerceAtLeast(0),
+                    0,
+                )
+                val prevAfter = scrollState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { it.index == targetIdx }
+                val fallbackPrevSize = prevAfter?.size ?: 0
+                val fallbackMinVisible = fallbackPrevSize * 0.2f
+                val fallbackTarget = baseTargetOffset.coerceAtLeast(fallbackMinVisible).toInt()
                 scrollState.animateScrollToItem(
                     index = (targetIdx + 1).coerceAtLeast(0),
-                    scrollOffset = -targetOffset.toInt()
+                    scrollOffset = -fallbackTarget
                 )
             }
         } catch (_: Exception) { }
