@@ -45,7 +45,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -99,6 +98,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -122,7 +122,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 // ──────────────────────────────────────────────────────────────────────
 // Constants
@@ -237,6 +236,7 @@ fun LyricsV2(
     val glowFactor = 1f
     val fillTransitionWidth = 8f
     val lrcBounceEnabled = true
+    val lyricsFontFamily: FontFamily? = SfProFontFamily
 
     // ── Text colour ──
     val textColor = textColorOverride ?: Color.White
@@ -328,48 +328,20 @@ fun LyricsV2(
 
         val visibleInfo = listState.layoutInfo
         val viewportHeight = visibleInfo.viewportSize.height
+        val targetOffset = (viewportHeight * 0.35f).toInt() // Center bias at 35% from top
 
         val distance = abs(currentLineIndex - (listState.firstVisibleItemIndex))
         if (distance > 15) {
+            // Far jump — snap first, then settle
             listState.scrollToItem(
                 (currentLineIndex - 2).coerceAtLeast(0),
                 0,
             )
         }
-        // Anchor the active line a consistent distance (20dp gap) below the
-        // bottom edge of the title/header row, while always keeping at least
-        // the bottom 6% of the previous line visible above it.
-        val anchorPx = with(density) { 20.dp.toPx() }
-        val itemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex }
-        val prevItemInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == currentLineIndex - 1 }
-        val targetOffset = if (prevItemInfo != null)
-            (prevItemInfo.size * 0.2f).toFloat() else anchorPx
-        if (itemInfo != null) {
-            val scrollDistance = (itemInfo.offset - targetOffset).toFloat()
-            if (abs(scrollDistance) > 5f) {
-                listState.animateScrollBy(
-                    scrollDistance,
-                    animationSpec =
-                        tween(
-                            durationMillis = 400,
-                            easing = FastOutSlowInEasing,
-                        ),
-                )
-            }
-        } else {
-            listState.scrollToItem(
-                (currentLineIndex - 2).coerceAtLeast(0),
-                0,
-            )
-            val prevAfter = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { it.index == currentLineIndex - 1 }
-            val scrollOff = if (prevAfter != null)
-                (prevAfter.size * 0.2f).roundToInt() else anchorPx.roundToInt()
-            listState.animateScrollToItem(
-                index = currentLineIndex,
-                scrollOffset = scrollOff,
-            )
-        }
+        listState.animateScrollToItem(
+            index = currentLineIndex,
+            scrollOffset = -targetOffset,
+        )
     }
 
     val activity = context as? android.app.Activity
@@ -758,18 +730,17 @@ fun LyricsV2(
                                         bounceFactor = bounceFactor,
                                         glowFactor = glowFactor,
                                         fillTransitionWidth = fillTransitionWidth,
-                                        fontWeight = fontWeight,
+                                        lyricsFontFamily = lyricsFontFamily,
                                     )
                                 } else if (isSynced) {
                                     LyricsLineLrcBounce(
                                         text = item.text,
                                         isActive = isActive,
-                                        currentPositionMs = currentPositionMs,
-                                        lineStartMs = item.time,
                                         textColor = textColor.copy(alpha = if (isActive) 1f else 0.52f),
                                         fontSize = lyricsTextSize,
                                         lineSpacing = lyricsLineSpacing,
                                         isAllBackground = isAllBackground,
+                                        lyricsFontFamily = lyricsFontFamily,
                                         textAlign = textAlign,
                                         bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
                                     )
@@ -778,11 +749,11 @@ fun LyricsV2(
                                         text = item.text,
                                         style =
                                             TextStyle(
-                                                fontFamily = SfProFontFamily,
                                                 fontSize = if (isAllBackground) (lyricsTextSize * 0.82f).sp else lyricsTextSize.sp,
-                                                fontWeight = if (isActive) FontWeight.Bold else fontWeight,
+                                                fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
                                                 fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
                                                 lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
+                                                fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
                                             ),
                                         color = textColor.copy(alpha = if (isActive) 1f else 0.52f),
                                         textAlign = textAlign,
@@ -863,7 +834,7 @@ private fun LyricsLineV2(
     bounceFactor: Float,
     glowFactor: Float,
     fillTransitionWidth: Float,
-    fontWeight: FontWeight,
+    lyricsFontFamily: FontFamily?,
 ) {
     val arrangement =
         when (textAlign) {
@@ -928,7 +899,7 @@ isBackground = isLineAllBackground,
                     bounceFactor = bounceFactor,
                     glowFactor = glowFactor,
                     fillTransitionWidth = fillTransitionWidth,
-                    fontWeight = fontWeight,
+                    lyricsFontFamily = lyricsFontFamily,
                 )
             }
         }
@@ -970,7 +941,7 @@ AnimatedWordV2(
                     bounceFactor = bounceFactor,
                     glowFactor = glowFactor,
                     fillTransitionWidth = fillTransitionWidth,
-                    fontWeight = fontWeight,
+                    lyricsFontFamily = lyricsFontFamily,
                 )
             }
         }
@@ -1021,8 +992,9 @@ fun GapDots(
 }
 
 // -----------------------------------------------------------------
-// Word-level composable: alpha per-character fill
-// -----------------------------------------------------------------
+// ──────────────────────────────────────────────────────────────────────
+// Word-level composable: liquid fill sweep + glow + bounce
+// ──────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun AnimatedWordV2(
@@ -1035,55 +1007,157 @@ private fun AnimatedWordV2(
     inactiveAlpha: Float,
     fontSize: Float,
     isBackground: Boolean,
+    lyricsFontFamily: FontFamily?,
     isRtl: Boolean,
     bounceFactor: Float,
     glowFactor: Float,
     fillTransitionWidth: Float,
-    fontWeight: FontWeight,
 ) {
-    val startTime = word.startTime
-    val endTime = word.endTime
-    val wordStartMs = (startTime * 1000).toLong()
-    val wordEndMs = (endTime * 1000).toLong()
+    val wordStartMs = (word.startTime * 1000).toLong()
+    val wordEndMs = (word.endTime * 1000).toLong()
+    val wordDuration = (wordEndMs - wordStartMs).coerceAtLeast(1L)
 
-    val wordStartSafe = wordStartMs.coerceAtLeast(0L)
-    val wordEndSafe = wordEndMs.coerceAtLeast(wordStartSafe)
-    val wordDuration = (wordEndSafe - wordStartSafe).coerceAtLeast(1L)
+    val isWordComplete = currentPositionMs >= wordEndMs
+    val isWordActive = currentPositionMs in wordStartMs until wordEndMs
 
+    // Perfect linear progress [0..1] that matches individual word timings
     val progress =
         when {
-            startTime.isNaN() || endTime.isNaN() -> 1f
-            currentPositionMs >= wordEndSafe -> 1f
-            currentPositionMs <= wordStartSafe -> 0f
-            else -> ((currentPositionMs - wordStartSafe).toFloat() / wordDuration).coerceIn(0f, 1f)
+            isWordComplete -> 1f
+            currentPositionMs <= wordStartMs -> 0f
+            else -> ((currentPositionMs - wordStartMs).toFloat() / wordDuration).coerceIn(0f, 1f)
         }
 
+    // ── Bounce and Float animation ──
+    // Subtle scale up peaking halfway through the word. Exact timing sync!
+    val sinProgress = kotlin.math.sin(progress * kotlin.math.PI).toFloat()
+    val wordScale = 1f + (0.015f * bounceFactor * sinProgress)
+
+    // Float is only applied when the word is actively sung, making it pop from the line.
+    // We use animateFloatAsState so that when it finishes (and drops to 0f),
+    // it smoothly decays back into place rather than a harsh mathematical snap.
+    val targetFloat = if (isWordActive) -4f * bounceFactor * sinProgress else 0f
+    val floatOffset by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetFloat,
+        animationSpec =
+            androidx.compose.animation.core.tween(
+                durationMillis = if (isWordActive) 50 else 350,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing,
+            ),
+        label = "v2FloatOffset",
+    )
+
+    // ── Glow intensity ──
+    // "lines and words that are done animating shouldnt continue to glow"
+    // Make glow build up faster: reach max intensity at 50% progress
+    val glowProgress = (progress * 2f).coerceAtMost(1f)
+    val glowAlpha = if (isWordActive) glowProgress * 0.45f * glowFactor else 0f
+    val glowRadius = if (isWordActive) glowProgress * 12f * glowFactor else 0f
+
     val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
+    val fontWeight = if (isLineActive || isLinePast) FontWeight.ExtraBold else FontWeight.SemiBold
+    val glowPadding = 10.dp
 
-    Row(
-        modifier = Modifier.graphicsLayer { clip = false },
-        verticalAlignment = Alignment.CenterVertically,
+    // ── Two-layer rendering: dim base + liquid fill overlay ──
+    Box(
+        modifier =
+            Modifier
+                .layout { measurable, constraints ->
+                    val glowPaddingPx = glowPadding.roundToPx()
+                    val looseConstraints =
+                        constraints.copy(
+                            minWidth = 0,
+                            maxWidth = constraints.maxWidth,
+                            minHeight = 0,
+                            maxHeight = Constraints.Infinity,
+                        )
+                    val placeable = measurable.measure(looseConstraints)
+
+                    val coreWidth = (placeable.width - glowPaddingPx * 2).coerceAtLeast(0)
+                    val coreHeight = (placeable.height - glowPaddingPx * 2).coerceAtLeast(0)
+
+                    layout(coreWidth, coreHeight) {
+                        placeable.place(-glowPaddingPx, -glowPaddingPx)
+                    }
+                }.graphicsLayer {
+                    clip = false
+                    translationY = floatOffset * density
+                    scaleX = wordScale
+                    scaleY = wordScale
+                },
     ) {
-        val chars = word.text.toList()
-        if (chars.isEmpty()) return@Row
-
-        val len = chars.size.coerceAtLeast(1)
-
-        chars.forEachIndexed { c, ch ->
-            val charProgress = ((progress * len) - c).coerceIn(0f, 1f)
-            val charAlpha = (inactiveAlpha + (1f - inactiveAlpha) * charProgress).coerceIn(0f, 1f)
-            val alpha = if (currentPositionMs >= wordEndSafe) 1f else charAlpha
-
-            Text(
-                text = ch.toString(),
-                style = TextStyle(
-                    fontFamily = SfProFontFamily,
+        // Layer 1: Base text (always dimmed)
+        Text(
+            text = word.text,
+            style =
+                MaterialTheme.typography.headlineMedium.copy(
                     fontSize = actualFontSize.sp,
                     fontWeight = fontWeight,
                     fontStyle = FontStyle.Normal,
                     lineHeight = (actualFontSize * 1.35f).sp,
+                    fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
                 ),
-                color = textColor.copy(alpha = alpha),
+            color = textColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha),
+            modifier = Modifier.padding(glowPadding),
+        )
+
+        // Layer 2: Filled overlay with liquid sweep mask + glow
+        if (isWordComplete || isWordActive || isLinePast) {
+            Text(
+                text = word.text,
+                style =
+                    MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = actualFontSize.sp,
+                        fontWeight = fontWeight,
+                        fontStyle = FontStyle.Normal,
+                        lineHeight = (actualFontSize * 1.35f).sp,
+                        fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
+                        shadow =
+                            if (glowAlpha > 0f) {
+                                Shadow(
+                                    color = textColor.copy(alpha = glowAlpha),
+                                    offset = Offset.Zero,
+                                    blurRadius = glowRadius.coerceAtLeast(1f),
+                                )
+                            } else {
+                                null
+                            },
+                    ),
+                color =
+                    textColor.copy(
+                        alpha = if (isBackground) 0.75f else 1f,
+                    ),
+                modifier =
+                    if (isWordActive && !isWordComplete) {
+                        Modifier
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                val edgeWidth = fillTransitionWidth.dp.toPx()
+                                val center =
+                                    if (isRtl) {
+                                        size.width - ((size.width + edgeWidth * 2) * progress - edgeWidth)
+                                    } else {
+                                        (size.width + edgeWidth * 2) * progress - edgeWidth
+                                    }
+                                drawRect(
+                                    brush =
+                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                            colors =
+                                                if (isRtl) {
+                                                    listOf(Color.Transparent, Color.Black)
+                                                } else {
+                                                    listOf(Color.Black, Color.Transparent)
+                                                },
+                                            startX = center - edgeWidth,
+                                            endX = center + edgeWidth,
+                                        ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            }.padding(glowPadding)
+                    } else {
+                        Modifier.padding(glowPadding)
+                    },
             )
         }
     }
@@ -1098,19 +1172,72 @@ private fun AnimatedWordV2(
 private fun LyricsLineLrcBounce(
     text: String,
     isActive: Boolean,
-    currentPositionMs: Long,
-    lineStartMs: Long,
     textColor: Color,
     fontSize: Float,
     lineSpacing: Float,
     isAllBackground: Boolean,
+    lyricsFontFamily: FontFamily?,
     textAlign: TextAlign,
     bounceFactor: Float,
 ) {
+    val words = remember(text) { text.toLyricsWrappingUnits() }
     val effectiveFontSize = if (isAllBackground) fontSize * 0.82f else fontSize
-    val chars = remember(text) { text.toList() }
-    val len = chars.size.coerceAtLeast(1)
-    val lineProgress = ((currentPositionMs - lineStartMs).toFloat() / 3000f).coerceIn(0f, 1f)
+    val fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold
+    val fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal
+    val scaleAnimatables = remember(words.size) { List(words.size) { Animatable(1f) } }
+    val floatAnimatables = remember(words.size) { List(words.size) { Animatable(0f) } }
+
+    LaunchedEffect(isActive) {
+        if (!isActive || bounceFactor == 0f) return@LaunchedEffect
+        words.indices.forEach { i ->
+            launch {
+                delay(i * 40L)
+                try {
+                    scaleAnimatables[i].animateTo(
+                        targetValue = 1f + 0.045f * bounceFactor,
+                        animationSpec =
+                            spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessHigh,
+                            ),
+                    )
+                    scaleAnimatables[i].animateTo(
+                        targetValue = 1f,
+                        animationSpec =
+                            spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                    )
+                } finally {
+                    withContext(NonCancellable) { scaleAnimatables[i].snapTo(1f) }
+                }
+            }
+            launch {
+                delay(i * 40L)
+                try {
+                    floatAnimatables[i].animateTo(
+                        targetValue = -5f * bounceFactor,
+                        animationSpec =
+                            spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessHigh,
+                            ),
+                    )
+                    floatAnimatables[i].animateTo(
+                        targetValue = 0f,
+                        animationSpec =
+                            spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                    )
+                } finally {
+                    withContext(NonCancellable) { floatAnimatables[i].snapTo(0f) }
+                }
+            }
+        }
+    }
 
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -1121,22 +1248,52 @@ private fun LyricsLineLrcBounce(
                 else -> Arrangement.Start
             },
     ) {
-        chars.forEachIndexed { c, ch ->
-            val charProgress = ((lineProgress * len) - c).coerceIn(0f, 1f)
-            val alpha = (0.15f + 0.85f * charProgress).coerceIn(0f, 1f)
-            Text(
-                text = ch.toString(),
-                style = TextStyle(
-                    fontFamily = SfProFontFamily,
-                    fontSize = effectiveFontSize.sp,
-                    fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
-                    fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
-                    lineHeight = (effectiveFontSize * lineSpacing).sp,
-                ),
-                color = textColor.copy(alpha = alpha),
+        words.forEachIndexed { i, word ->
+            LrcBouncingWord(
+                text = word,
+                scaleAnim = scaleAnimatables[i],
+                floatAnim = floatAnimatables[i],
+                color = textColor,
+                fontSize = effectiveFontSize,
+                lineSpacing = lineSpacing,
+                fontWeight = fontWeight,
+                fontStyle = fontStyle,
+                lyricsFontFamily = lyricsFontFamily,
             )
         }
     }
+}
+
+@Composable
+private fun LrcBouncingWord(
+    text: String,
+    scaleAnim: Animatable<Float, AnimationVector1D>,
+    floatAnim: Animatable<Float, AnimationVector1D>,
+    color: Color,
+    fontSize: Float,
+    lineSpacing: Float,
+    fontWeight: FontWeight,
+    fontStyle: FontStyle,
+    lyricsFontFamily: FontFamily?,
+) {
+    Text(
+        text = text,
+        style =
+            MaterialTheme.typography.headlineMedium.copy(
+                fontSize = fontSize.sp,
+                fontWeight = fontWeight,
+                fontStyle = fontStyle,
+                lineHeight = (fontSize * lineSpacing).sp,
+                fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
+            ),
+        color = color,
+        modifier =
+            Modifier.graphicsLayer {
+                scaleX = scaleAnim.value
+                scaleY = scaleAnim.value
+                translationY = floatAnim.value
+            },
+    )
 }
 
 // -----------------------------------------------------------------

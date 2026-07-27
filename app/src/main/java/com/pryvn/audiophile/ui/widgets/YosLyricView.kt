@@ -7,7 +7,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
@@ -177,25 +176,9 @@ fun YosLyricView(
     val height = rememberSaveable { mutableIntStateOf(0) }
     val space = 0.dp
 
-    val anchorPx = with(LocalDensity.current) { 20.dp.toPx().roundToInt() }
-
     val measurer = rememberTextMeasurer(cacheSize = 32)
 
     val visibleItems = derivedStateOf { scrollState.layoutInfo.visibleItemsInfo }
-    val targetItem = derivedStateOf {
-        visibleItems.value.find { it.index == currentLyricIndex.intValue + 1 }
-    }
-    val prevLineItem = derivedStateOf {
-        visibleItems.value.find { it.index == currentLyricIndex.intValue }
-    }
-    val currentOffset = derivedStateOf {
-        targetItem.value?.offset ?: anchorPx
-    }
-    val scrollDistance = derivedStateOf {
-        val prevSize = prevLineItem.value?.size ?: 0
-        val target = if (prevSize > 0) (prevSize * 0.2f).toInt() else anchorPx
-        currentOffset.value - target
-    }
     val nowFirst = derivedStateOf { scrollState.firstVisibleItemIndex }
 
     val supportBlur = rememberSaveable {
@@ -352,9 +335,8 @@ fun YosLyricView(
     LaunchedEffect(currentLyricIndex.intValue, translationLambda()) {
         try {
             if (!enableLyricScroll.value) return@LaunchedEffect
-            val targetIdx = currentLyricIndex.intValue
+            val targetIdx = currentLyricIndex.intValue + 1
 
-            // Skip if previous line is blank
             val skip = try {
                 targetIdx - 1 >= 0 &&
                         lrcEntries[targetIdx - 1][1].second.isBlank()
@@ -363,32 +345,23 @@ fun YosLyricView(
 
             delay(30)
 
-            // Bail if a newer index change superseded this one
-            if (currentLyricIndex.intValue != targetIdx) return@LaunchedEffect
+            if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
 
-            if (targetItem.value != null) {
-                scrollState.animateScrollBy(
-                    scrollDistance.value.toFloat(),
-                    animationSpec = tween(
-                        durationMillis = 550,
-                        easing = yosEasing
-                    )
-                )
-            } else {
+            val visibleInfo = scrollState.layoutInfo
+            val viewportHeight = visibleInfo.viewportSize.height
+            val targetOffset = (viewportHeight * 0.35f).toInt()
+
+            val distance = abs(targetIdx - scrollState.firstVisibleItemIndex)
+            if (distance > 15) {
                 scrollState.scrollToItem(
-                    (targetIdx).coerceAtLeast(0),
+                    (targetIdx - 2).coerceAtLeast(0),
                     0,
                 )
-                val prevAfter = scrollState.layoutInfo.visibleItemsInfo
-                    .firstOrNull { it.index == targetIdx }
-                val fallbackPrevSize = prevAfter?.size ?: 0
-                val target = if (fallbackPrevSize > 0)
-                    (fallbackPrevSize * 0.2f).toInt() else anchorPx
-                scrollState.animateScrollToItem(
-                    index = (targetIdx + 1).coerceAtLeast(0),
-                    scrollOffset = target
-                )
             }
+            scrollState.animateScrollToItem(
+                index = targetIdx,
+                scrollOffset = -targetOffset,
+            )
         } catch (_: Exception) { }
     }
 
