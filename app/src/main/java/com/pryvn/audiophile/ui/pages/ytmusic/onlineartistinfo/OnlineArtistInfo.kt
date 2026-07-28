@@ -85,6 +85,8 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -338,7 +340,7 @@ fun HeroHeader(
             Text(
                 text = header.title,
                 fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -374,7 +376,7 @@ fun HeroHeader(
                 Text(
                     text = "Play",
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = userFontWeight(),
                     color = Color.White
                 )
             }
@@ -423,7 +425,7 @@ fun LatestReleaseCard(
                 Text(
                     text = "Latest Release",
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = userFontWeight(),
                     color = Color.Gray,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -432,7 +434,7 @@ fun LatestReleaseCard(
                 Text(
                     text = release.title,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = userFontWeight(),
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -480,13 +482,13 @@ fun TopSongsSection(
             Text(
                 text = "Top Songs",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White
             )
             Text(
                 text = "See All",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.Gray
             )
         }
@@ -523,7 +525,7 @@ fun SongRow(
         Text(
             text = index.toString(),
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = Color.Gray,
             modifier = Modifier.width(32.dp)
         )
@@ -552,7 +554,7 @@ fun SongRow(
             Text(
                 text = song.title,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -600,13 +602,13 @@ fun EssentialAlbumsSection(
             Text(
                 text = "Essential Albums",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White
             )
             Text(
                 text = "See All",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.Gray
             )
         }
@@ -646,7 +648,7 @@ fun EssentialAlbumCard(
         Text(
             text = album.title,
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -695,13 +697,13 @@ fun SinglesEPsSection(
             Text(
                 text = "Singles & EPs",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White
             )
             Text(
                 text = "See All",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.Gray
             )
         }
@@ -741,7 +743,7 @@ fun SingleEPCard(
         Text(
             text = item.title,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = Color.White,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -763,7 +765,7 @@ fun SingleEPCard(
             Text(
                 text = type.name.capitalize(),
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.Blue.copy(alpha = 0.8f),
                 maxLines = 1,
                 modifier = Modifier.fillMaxWidth()
@@ -783,7 +785,7 @@ fun AboutSection(description: String) {
         Text(
             text = "About",
             fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = headingFontWeight(),
             color = Color.White
         )
         ExpandableText(text = description)
@@ -813,7 +815,7 @@ fun ExpandableText(
         Text(
             text = if (expanded) "Show Less" else "Show More",
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = Color.Blue.copy(alpha = 0.8f),
             modifier = Modifier
                 .fillMaxWidth()
@@ -835,7 +837,7 @@ fun GenreSection(genres: List<String>) {
             Text(
                 text = "Genres",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White
             )
             Row(
@@ -846,7 +848,7 @@ fun GenreSection(genres: List<String>) {
                     Text(
                         text = genre.uppercase(),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = userFontWeight(),
                         color = Color.White.copy(alpha = 0.7f),
                         modifier = Modifier
                             .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -877,13 +879,13 @@ fun SimilarArtistsSection(
             Text(
                 text = "Similar Artists",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 color = Color.White
             )
             Text(
                 text = "See All",
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 color = Color.Gray
             )
         }
@@ -931,7 +933,7 @@ fun SimilarArtistCard(
         Text(
             text = artist.title,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

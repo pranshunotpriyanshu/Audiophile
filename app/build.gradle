@@ -121,6 +121,7 @@ dependencies {
     implementation project(path: ':overscroll_core')
 
     implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation platform('org.jetbrains.kotlin:kotlin-bom:2.3.0')
     implementation platform('androidx.compose:compose-bom:2026.06.01')
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.4'

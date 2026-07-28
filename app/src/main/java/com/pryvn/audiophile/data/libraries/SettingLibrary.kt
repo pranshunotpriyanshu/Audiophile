@@ -541,6 +541,13 @@ object SettingsLibrary {
         initialValue = ""
     )
 
+    @Stable
+    var AnimatedAlbumCoversLocalFolder by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "animated_album_covers_local_folder",
+        initialValue = ""
+    )
+
     fun isAnimatedAlbumCoverBlacklisted(albumName: String): Boolean {
         if (AnimatedAlbumCoverBlacklist.isBlank()) return false
         return AnimatedAlbumCoverBlacklist.split("\n").any { it.trim().equals(albumName.trim(), ignoreCase = true) }

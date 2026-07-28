@@ -64,6 +64,8 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -592,7 +594,7 @@ private fun MusicDetailTopBar(
                         text = title,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = headingFontWeight(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

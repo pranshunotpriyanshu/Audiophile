@@ -133,6 +133,11 @@ fun ShadowImageWithCache(
     val shape = YosRoundedCornerShape(cornerRadius)
     val url = dataLambda()
     val density = LocalDensity.current
+    val baseModifier = modifier.fillMaxWidth().aspectRatio(1f)
+    val clippedModifier = baseModifier.graphicsLayer {
+        clip = true
+        this.shape = shape
+    }
     Box {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
@@ -158,14 +163,10 @@ fun ShadowImageWithCache(
                 .build(),
             contentDescription = contentDescription.toString(),
             contentScale = ContentScale.Crop,
-            modifier = modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
+            modifier = clippedModifier
                 .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.Offscreen
-                    clip = true
-                    this.shape = shape
                 }
                 .drawWithCache {
                     onDrawWithContent {
@@ -188,9 +189,10 @@ fun ShadowImageWithCache(
                         )
                     }
                 }
-
         )
-        overlayContent()
+        Box(modifier = clippedModifier) {
+            overlayContent()
+        }
     }
 }
 

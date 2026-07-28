@@ -68,6 +68,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 
 /*@OptIn(ExperimentalCupertinoApi::class)
 @Composable
@@ -547,7 +548,7 @@ private fun TitleBar(
                         Text(
                             text = title,
                             fontSize = 18.5.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = screenTitleFontWeight()
                         )
                     }
                 }
@@ -604,7 +605,7 @@ private fun TitleItem(
             Text(
                 text = title,
                 fontSize = 35.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = screenTitleFontWeight(),
                 lineHeight = 40.sp
             )
             if (subTitle != null) {

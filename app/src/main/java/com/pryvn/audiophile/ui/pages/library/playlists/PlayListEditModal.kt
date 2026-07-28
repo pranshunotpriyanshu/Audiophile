@@ -84,6 +84,8 @@ import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 
 private const val DescriptionMaxChars = 200
 private const val NameMaxChars = 100
@@ -438,7 +440,7 @@ private fun EditHeader(onClose: () -> Unit, onDone: () -> Unit) {
         Text(
             text = stringResource(R.string.playlist_edit_title),
             fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = headingFontWeight(),
         )
         Spacer(modifier = Modifier.weight(1f))
         Box(
@@ -623,7 +625,7 @@ private fun NameField(name: String, onNameChange: (String) -> Unit) {
                         Text(
                             text = stringResource(R.string.playlist_edit_name_placeholder),
                             fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = userFontWeight(),
                             modifier = Modifier.alpha(0.35f),
                         )
                     }

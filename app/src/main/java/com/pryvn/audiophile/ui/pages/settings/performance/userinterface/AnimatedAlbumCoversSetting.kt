@@ -1,7 +1,9 @@
 package com.pryvn.audiophile.ui.pages.settings.performance.userinterface
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,7 +28,6 @@ import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.pages.settings.Divider
 import com.pryvn.audiophile.ui.pages.settings.LabelItem
-import com.pryvn.audiophile.ui.pages.settings.ListHeader
 import com.pryvn.audiophile.ui.pages.settings.SettingBackground
 import com.pryvn.audiophile.ui.pages.settings.SwitchItem
 import com.pryvn.audiophile.ui.toUI
@@ -47,6 +48,19 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
         val animatedAlbumCoverCacheSizeBytes = remember("AnimatedAlbumCoversSetting_animatedAlbumCoverCacheSizeBytes") {
             mutableLongStateOf(0L)
         }
+        val localFolderLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri: Uri? ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                SettingsLibrary.AnimatedAlbumCoversLocalFolder = uri.toString()
+            }
+        }
 
         LaunchedEffect(Unit)
         {
@@ -62,12 +76,12 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
                     Column(Modifier.fillMaxSize()) {
                         RoundColumn {
                             SwitchItem(
-                                title = stringResource(id = R.string.settings_library_animated_album_covers),
+                                title = stringResource(id = R.string.settings_library_animated_album_covers_use_api),
                                 onClick = {
-                                    SettingsLibrary.AnimatedAlbumCovers =
-                                        !SettingsLibrary.AnimatedAlbumCovers
+                                    SettingsLibrary.AnimatedAlbumCoversUseApi =
+                                        !SettingsLibrary.AnimatedAlbumCoversUseApi
                                     if (
-                                        SettingsLibrary.AnimatedAlbumCovers &&
+                                        SettingsLibrary.AnimatedAlbumCoversUseApi &&
                                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                                         ContextCompat.checkSelfPermission(
                                             context,
@@ -78,8 +92,23 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
                                         videoPermissionLauncher.launch(Manifest.permission.READ_MEDIA_VIDEO)
                                     }
                                 },
-                                checkedLambda = { SettingsLibrary.AnimatedAlbumCovers }
+                                checkedLambda = { SettingsLibrary.AnimatedAlbumCoversUseApi }
                             )
+
+                            Divider()
+
+                            val localFolder = SettingsLibrary.AnimatedAlbumCoversLocalFolder
+                            val folderDisplay = if (localFolder.isNullOrEmpty()) {
+                                stringResource(id = R.string.settings_library_animated_album_covers_local_folder_not_set)
+                            } else {
+                                Uri.parse(localFolder).lastPathSegment ?: localFolder
+                            }
+                            LabelItem(
+                                title = stringResource(id = R.string.settings_library_animated_album_covers_local_folder),
+                                desc = stringResource(id = R.string.settings_library_animated_album_covers_local_folder_desc),
+                            ) {
+                                localFolderLauncher.launch(null)
+                            }
 
                             Divider()
 
@@ -88,17 +117,6 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
                             ) {
                                 navController.toUI(UI.Settings.AnimatedAlbumCoverBlacklist)
                             }
-
-                            Divider()
-
-                            SwitchItem(
-                                title = stringResource(id = R.string.settings_library_animated_album_covers_use_api),
-                                onClick = {
-                                    SettingsLibrary.AnimatedAlbumCoversUseApi =
-                                        !SettingsLibrary.AnimatedAlbumCoversUseApi
-                                },
-                                checkedLambda = { SettingsLibrary.AnimatedAlbumCoversUseApi }
-                            )
 
                             Divider()
 
@@ -135,7 +153,6 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
                                 }
                             }
                         }
-                        ListHeader(content = stringResource(id = R.string.settings_library_animated_album_covers_desc))
                     }
                 }
             }

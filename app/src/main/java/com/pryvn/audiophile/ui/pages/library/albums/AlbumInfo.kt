@@ -67,6 +67,8 @@ import com.pryvn.audiophile.data.libraries.defaultArtistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImage
 import com.pryvn.audiophile.ui.widgets.basic.Title
@@ -197,7 +199,7 @@ fun AlbumInfo(
                             ),*/
                             textAlign = TextAlign.Center,
                             lineHeight = 26.sp,
-                            fontWeight = FontWeight.Medium
+fontWeight = headingFontWeight()
                         )
                         /*}*/
 
@@ -378,7 +380,7 @@ fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modifier, on
         Text(
             text = label,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             fontSize = 17.sp
         )
     }

@@ -66,6 +66,9 @@ import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -434,7 +437,7 @@ fun YTMusicSearchScreen(
                         Text(
                             text = "Search",
                             fontSize = 35.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = screenTitleFontWeight(),
                             lineHeight = 40.sp,
                             fontFamily = SfProFontFamily,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -593,10 +596,10 @@ private fun IdlePage(
             .padding(bottom = 200.dp)
     ) {
         Text(
-            text = "Browse Categories",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = SfProFontFamily,
+                    text = "Browse Categories",
+                    fontSize = 20.sp,
+                    fontWeight = headingFontWeight(),
+                    fontFamily = SfProFontFamily,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -695,7 +698,7 @@ private fun CategoryCard(
         Text(
             text = label,
             fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = headingFontWeight(),
             fontFamily = SfProFontFamily,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
@@ -776,7 +779,7 @@ private fun RecentSearchesContent(
             Text(
                 text = "Recent Searches",
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 fontFamily = SfProFontFamily,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -861,7 +864,7 @@ private fun ResultsSection(
             Text(
                 text = section.title,
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 lineHeight = 20.sp,
                 fontFamily = SfProFontFamily,
                 color = MaterialTheme.colorScheme.onSurface
@@ -913,7 +916,7 @@ private fun AppleAlbumSearchRow(album: YTAlbumSearchItem) {
                 text = album.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -960,7 +963,7 @@ private fun AppleArtistSearchRow(artist: YTArtistSearchItem) {
                 text = artist.name,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -1005,7 +1008,7 @@ private fun ApplePlaylistSearchRow(playlist: YTPlaylist) {
                 text = playlist.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -1067,7 +1070,7 @@ private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit
                 text = song.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -1146,7 +1149,7 @@ private fun AppleMiniPlayer(modifier: Modifier = Modifier) {
                     text = "Not Playing",
                     fontSize = 15.sp,
                     fontFamily = SfProFontFamily,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = userFontWeight(),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1201,7 +1204,7 @@ private fun EmptyView(modifier: Modifier = Modifier) {
             text = "No Results",
             fontSize = 17.sp,
             fontFamily = SfProFontFamily,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = userFontWeight(),
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
         )
         Text(

@@ -45,11 +45,15 @@ import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.PlaybackSource
 import com.pryvn.audiophile.data.libraries.artistsList
+import com.pryvn.audiophile.data.libraries.toHighResThumbnail
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
@@ -200,7 +204,7 @@ fun Home(
             Text(
                 text = stringResource(id = R.string.page_home_title),
                 fontSize = 35.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = screenTitleFontWeight(),
                 lineHeight = 40.sp,
                 fontFamily = SfProFontFamily,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -476,7 +480,7 @@ fun Home(
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        fontWeight = FontWeight.Bold,
+        fontWeight = headingFontWeight(),
         fontSize = 22.sp,
         lineHeight = 22.sp,
         fontFamily = SfProFontFamily,
@@ -514,10 +518,9 @@ private fun FeaturedSongCard(
                 .clip(RoundedCornerShape(16.dp))
         ) {
             CachedArtworkImage(
-                url = item.thumbnailUrl,
+                url = item.thumbnailUrl.toHighResThumbnail(),
                 contentDescription = null,
-                size = 560,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
             Box(
                 modifier = Modifier
@@ -536,7 +539,7 @@ private fun FeaturedSongCard(
                 Text(
                     text = item.title,
                     fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = userFontWeight(),
                     fontFamily = SfProFontFamily,
                     color = Color.White,
                     maxLines = 2,
@@ -583,7 +586,7 @@ private fun SongCard(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CachedArtworkImage(
-            url = song.thumbnailUrl,
+            url = song.thumbnailUrl.toHighResThumbnail(),
             contentDescription = null,
             size = 300,
             modifier = Modifier
@@ -636,9 +639,9 @@ private fun TryTheseCard(
                 .clip(RoundedCornerShape(14.dp)),
         ) {
             CachedArtworkImage(
-                url = song.thumbnailUrl,
-                contentDescription = null,
-                size = 556,
+            url = song.thumbnailUrl.toHighResThumbnail(),
+            contentDescription = null,
+            size = 556,
                 modifier = Modifier.fillMaxSize(),
             )
             Box(
@@ -658,7 +661,7 @@ private fun TryTheseCard(
                 Text(
                     text = song.title,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = userFontWeight(),
                     fontFamily = SfProFontFamily,
                     color = Color.White,
                     maxLines = 2,
@@ -712,10 +715,10 @@ private fun CuratedSongsPager(
                                 .clickable(onClick = { onClick(song) })
                         ) {
                             Column {
-                                CachedArtworkImage(
-                                    url = song.thumbnailUrl,
-                                    contentDescription = null,
-                                    size = 200,
+                CachedArtworkImage(
+                    url = song.thumbnailUrl.toHighResThumbnail(),
+                    contentDescription = null,
+                    size = 200,
                                     modifier = Modifier
                                         .size(100.dp)
                                         .clip(RoundedCornerShape(6.dp)),
@@ -761,7 +764,7 @@ private fun HomeCard(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CachedArtworkImage(
-            url = item.thumbnailUrl,
+            url = item.thumbnailUrl.toHighResThumbnail(),
             contentDescription = null,
             size = 300,
             modifier = Modifier

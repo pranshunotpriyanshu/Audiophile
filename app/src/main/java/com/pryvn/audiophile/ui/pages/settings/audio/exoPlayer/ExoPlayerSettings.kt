@@ -9,6 +9,7 @@ import androidx.navigation.NavController
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.UI
+import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.pages.settings.Divider
 import com.pryvn.audiophile.ui.pages.settings.GroupSpacer
 import com.pryvn.audiophile.ui.pages.settings.GroupSpacerMedium
@@ -112,15 +113,12 @@ fun ExoPlayerSettings(navController: NavController) =
 
                             Divider()
 
-                            SwitchItem(
+                            LabelItem(
                                 title = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork),
                                 desc = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork_desc),
-                                onClick = {
-                                    SettingsLibrary.AnimatedAlbumCovers =
-                                        !SettingsLibrary.AnimatedAlbumCovers
-                                },
-                                checkedLambda = { SettingsLibrary.AnimatedAlbumCovers }
-                            )
+                            ) {
+                                navController.toUI(UI.Settings.AnimatedAlbumCovers)
+                            }
 
                             Divider()
 

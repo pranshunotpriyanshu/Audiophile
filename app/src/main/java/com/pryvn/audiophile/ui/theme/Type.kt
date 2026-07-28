@@ -22,7 +22,7 @@ val SfProFontFamily = FontFamily(
     Font(R.font.sf_pro_display_black_italic, FontWeight.Black, FontStyle.Italic),
 )
 
-private fun fontWeightFromString(weight: String): FontWeight = when (weight) {
+fun fontWeightFromString(weight: String): FontWeight = when (weight) {
     "Thin" -> FontWeight.Thin
     "ExtraLight" -> FontWeight.ExtraLight
     "Light" -> FontWeight.Light
@@ -34,6 +34,18 @@ private fun fontWeightFromString(weight: String): FontWeight = when (weight) {
     "Black" -> FontWeight.Black
     else -> FontWeight.Normal
 }
+
+@Composable
+fun userFontWeight(): FontWeight = fontWeightFromString(SettingsLibrary.AppFontWeight)
+
+@Composable
+fun headingFontWeight(): FontWeight {
+    val baseWeight = userFontWeight().weight
+    return FontWeight((baseWeight + 100).coerceAtMost(900))
+}
+
+@Composable
+fun screenTitleFontWeight(): FontWeight = FontWeight.Bold
 
 fun buildTypography(
     fontFamily: FontFamily = SfProFontFamily,

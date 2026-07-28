@@ -204,6 +204,8 @@ import com.pryvn.audiophile.code.player.SleepTimerState
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
 import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.ui.animation.MotionTokens
@@ -212,6 +214,7 @@ import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.artistsName
 import com.pryvn.audiophile.data.libraries.defaultArtistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
+import com.pryvn.audiophile.data.libraries.toHighResThumbnailUri
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.data.models.MainViewModel
 import com.pryvn.audiophile.ui.markNextNavigationFromNowPlaying
@@ -714,7 +717,7 @@ fun NowPlaying(
                     .alpha(heroAlpha)
             ) {
                 HeroArtworkLayer(
-                    albumUrl = { thisMusicPlaying.value?.thumb },
+                    albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                     topSpacingDp = 0.dp,
                     artworkMaxHeightDp = artworkMaxHeightDp,
                     bottomGradientColor = MediaViewModelObject.paletteDarkMutedColor.value,
@@ -851,7 +854,7 @@ Album ->
                                                         ),
                                                         visible = isVisible
                                                     ),
-                                                    albumUrl = { thisMusicPlaying.value?.thumb },
+                                                    albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
                                                     active = active
@@ -878,7 +881,7 @@ Album ->
                                                         fontSize = 19.5.sp,
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
-                                                        fontWeight = FontWeight.Medium,
+                                                        fontWeight = userFontWeight(),
                                                         color = Color.White,
                                                     )
                                                     Text(
@@ -1228,7 +1231,7 @@ Album ->
                                                 LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
                                             Album(
                                                 modifier = Modifier.fillMaxWidth(),
-                                                albumUrl = { thisMusicPlaying.value?.thumb },
+                                                albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                                                 isPlaying = isPlayingStatusLambda,
                                                 music = { thisMusicPlaying.value },
                                                 active = nowPageLambda() == Album &&
@@ -1265,7 +1268,7 @@ Album ->
                                 fontSize = 17.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = userFontWeight(),
                                 fontFamily = SfProFontFamily,
                                 color = Color.White,
                                 modifier = Modifier.padding(horizontal = 24.dp),
@@ -1698,7 +1701,7 @@ fun PlayingList(
                     Text(
                         text = stringResource(id = R.string.page_library_playlists),
                         fontSize = 16.5.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = headingFontWeight(),
                     )
                     Text(
                         text = stringResource(
@@ -1842,7 +1845,7 @@ fun PlayingList(
                     Text(
                         text = stringResource(id = R.string.playlist_unavailable_title),
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = headingFontWeight(),
                         color = Color.White,
                         modifier = Modifier.padding(top = 18.dp, bottom = 12.dp)
                     )
@@ -2691,7 +2694,7 @@ fun NowPlayingOverflowHeader(
             Text(
                 text = song.title.orEmpty(),
                 fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -2818,7 +2821,7 @@ fun PlayingBar(
                     fontSize = 16.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = userFontWeight(),
                     lineHeight = 16.5.sp,
                     modifier = Modifier.clickable(
                         indication = null,

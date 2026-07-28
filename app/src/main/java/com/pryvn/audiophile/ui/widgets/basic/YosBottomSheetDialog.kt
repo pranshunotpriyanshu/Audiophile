@@ -70,6 +70,8 @@ import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 
 internal const val SheetNavigationForward = 1
 internal const val SheetNavigationBackward = -1
@@ -269,7 +271,7 @@ private fun DialogTitle(icon: @Composable () -> Unit, title: String, subTitle: S
             text = title,
             fontSize = 26.sp,
             lineHeight = 30.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = headingFontWeight(),
             modifier = Modifier.padding(top = 10.dp, bottom = 8.dp),
             textAlign = TextAlign.Center
         )
@@ -514,7 +516,7 @@ private fun ActionSheetRow(item: ActionItem) {
             Text(
                 text = item.label,
                 fontSize = 16.5.sp,
-                fontWeight = if (item.tint != null) FontWeight.SemiBold else FontWeight.Normal,
+                fontWeight = userFontWeight(),
                 color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

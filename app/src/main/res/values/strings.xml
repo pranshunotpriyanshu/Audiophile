@@ -222,6 +222,9 @@
     <string name="settings_library_animated_album_cover_blacklist_hint">Enter one album name per line. Blacklisted albums never call the animated artwork API, but existing local MP4 files can still play.</string>
     <string name="settings_library_animated_album_cover_cache_clear">Delete Animated Cover Cache (%s)</string>
     <string name="settings_library_animated_album_cover_cache_clear_desc">Deletes animated covers downloaded to the app cache.</string>
+    <string name="settings_library_animated_album_covers_local_folder">Local Animated Artworks</string>
+    <string name="settings_library_animated_album_covers_local_folder_desc">Place the video files in the folder as the same name as the album of the song</string>
+    <string name="settings_library_animated_album_covers_local_folder_not_set">Not set</string>
     <string name="settings_library_animated_album_cover_cache_clear_confirm">tap again to delete cache</string>
     <string name="settings_library_animated_album_cover_cache_clear_done">Deleted %d cached animated cover files.</string>
     <string name="sleep_timer_title">Sleep Timer</string>

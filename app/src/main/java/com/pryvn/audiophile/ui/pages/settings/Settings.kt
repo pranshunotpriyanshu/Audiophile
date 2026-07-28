@@ -36,6 +36,8 @@ import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.code.api.InnerTubeClient
 import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.MusicLibrary
@@ -92,7 +94,7 @@ fun Settings(navController: NavController) =
                                         Text(
                                             text = SettingsLibrary.YtMusicAccountName,
                                             fontSize = 17.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            fontWeight = headingFontWeight(),
                                         )
                                         val email = SettingsLibrary.YtMusicAccountEmail
                                         if (email.isNotBlank()) {
@@ -173,7 +175,7 @@ fun Settings(navController: NavController) =
                                 Text(
                                     text = stringResource(R.string.ytmusic_login),
                                     fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = userFontWeight(),
                                 )
                             }
                         }
@@ -361,7 +363,7 @@ private fun ProfilePictureRow() {
             Text(
                 text = stringResource(R.string.profile_picture),
                 fontSize = 17.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = headingFontWeight(),
             )
             Text(
                 text = if (uriString.isNotBlank()) stringResource(R.string.profile_picture_change)

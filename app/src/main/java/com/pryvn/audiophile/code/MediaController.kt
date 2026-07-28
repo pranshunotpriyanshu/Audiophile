@@ -56,6 +56,7 @@ import com.pryvn.audiophile.code.MediaController.mediaSession
 import com.pryvn.audiophile.code.MediaController.musicPlaying
 import com.pryvn.audiophile.code.MediaController.onServiceRunning
 import com.pryvn.audiophile.code.MediaController.playingMusicList
+import com.pryvn.audiophile.code.api.YTPlayerUtils
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
 import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
@@ -230,11 +231,21 @@ object MediaController {
             var index = 0
 
             val itemList = thisMusicList.mapIndexed { thisIndex, it ->
-                if (it.uri == music.uri) {
+                val resolved = if (it.uri?.scheme == "ytmusic") {
+                    val videoId = it.uri.host ?: it.mediaId ?: ""
+                    val response = YTPlayerUtils.resolvePlayable(videoId)
+                    if (response.isSuccess) {
+                        it.copy(uri = Uri.parse(response.getOrThrow().streamUrl))
+                    } else it
+                } else it
+
+                if ((music.mediaId != null && resolved.mediaId != null && resolved.mediaId == music.mediaId) ||
+                    (resolved.uri != null && resolved.uri == music.uri)
+                ) {
                     index = thisIndex
                 }
 
-                it.toMediaItem()
+                resolved.toMediaItem()
             }
 
 

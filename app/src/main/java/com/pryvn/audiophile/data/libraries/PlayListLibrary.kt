@@ -53,12 +53,21 @@ object PlayListLibrary {
     }
 
     fun PlayList.addMusic(music: YosMediaItem) {
-        val uri = music.uri ?: return
+        val uri = if (music.mediaId != null && music.uri?.scheme != "file" && music.uri?.scheme != "content") {
+            Uri.parse("ytmusic://${music.mediaId}")
+        } else {
+            music.uri ?: return
+        }
         replace(this, copy(songDataList = songDataList + uri))
     }
 
     fun PlayList.removeMusic(music: YosMediaItem) {
-        val idx = songDataList.indexOfFirst { it == music.uri }
+        val targetUri = if (music.mediaId != null && music.uri?.scheme != "file" && music.uri?.scheme != "content") {
+            Uri.parse("ytmusic://${music.mediaId}")
+        } else {
+            music.uri ?: return
+        }
+        val idx = songDataList.indexOfFirst { it == targetUri }
         if (idx < 0) return
         replace(this, copy(songDataList = songDataList.toMutableList().also { it.removeAt(idx) }))
     }
@@ -141,14 +150,38 @@ object FavPlayListLibrary {
         private set
 
     fun addMusic(music: YosMediaItem) {
-        if (!favPlayList.any { it.uri == music.uri }) {
-            favPlayList += music
+        val isOnline = music.mediaId != null && music.uri?.scheme != "file" && music.uri?.scheme != "content"
+        val storedUri = if (isOnline) Uri.parse("ytmusic://${music.mediaId}") else music.uri
+        val exists = favPlayList.any { existing ->
+            if (existing.mediaId != null && music.mediaId != null) {
+                existing.mediaId == music.mediaId
+            } else {
+                existing.uri == music.uri
+            }
+        }
+        if (!exists) {
+            favPlayList += music.copy(uri = storedUri)
         }
     }
 
     fun removeMusic(music: YosMediaItem) {
-        favPlayList -= music
+        val idx = favPlayList.indexOfFirst { existing ->
+            if (existing.mediaId != null && music.mediaId != null) {
+                existing.mediaId == music.mediaId
+            } else {
+                existing.uri == music.uri
+            }
+        }
+        if (idx >= 0) {
+            favPlayList = favPlayList.toMutableList().also { it.removeAt(idx) }
+        }
     }
 
-    fun isFavorite(music: YosMediaItem): Boolean = favPlayList.any { it.uri == music.uri }
+    fun isFavorite(music: YosMediaItem): Boolean = favPlayList.any { existing ->
+        if (existing.mediaId != null && music.mediaId != null) {
+            existing.mediaId == music.mediaId
+        } else {
+            existing.uri == music.uri
+        }
+    }
 }

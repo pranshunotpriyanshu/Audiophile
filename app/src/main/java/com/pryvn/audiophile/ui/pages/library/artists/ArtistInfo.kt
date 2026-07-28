@@ -83,6 +83,8 @@ import com.pryvn.audiophile.ui.pages.library.MusicDetailPage
 import com.pryvn.audiophile.ui.pages.library.MusicList
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
@@ -268,7 +270,7 @@ fun ArtistInfo(
                 text = artistName.value ?: "",
                 color = Color.White,
                 fontSize = 31.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
                 textAlign = TextAlign.Center,
                 lineHeight = 36.sp,
                 maxLines = 2,
@@ -454,7 +456,7 @@ private fun ArtistSectionHeader(title: String, onMore: (() -> Unit)? = null)
         Text(
             text = title,
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = headingFontWeight(),
             modifier = Modifier.weight(1f),
         )
 
@@ -574,7 +576,7 @@ private fun ArtistOverflowHeader(artistName: String, songs: List<YosMediaItem>)
             Text(
                 text = artistName,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

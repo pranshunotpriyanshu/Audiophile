@@ -60,6 +60,8 @@ import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -123,7 +125,7 @@ fun FloatingMenuItem(
         Text(
             text = label,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
             modifier = Modifier.weight(1f),
             maxLines = 1,
@@ -175,7 +177,7 @@ fun FloatingMenuItem(
         Text(
             text = label,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
             modifier = Modifier.weight(1f),
             maxLines = 1,
@@ -285,7 +287,7 @@ fun FloatingMenuPlayListPickerContent(
             Text(
                 text = stringResource(R.string.playlist_picker_title),
                 fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = headingFontWeight(),
             )
         }
     }
@@ -321,7 +323,7 @@ fun FloatingMenuPlayListPickerContent(
                     text = stringResource(R.string.playlist_picker_new_playlist),
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = userFontWeight(),
                 )
             }
         }

@@ -1,7 +1,9 @@
 package com.pryvn.audiophile.code
 
 import android.content.Context
+import android.net.Uri
 import android.media.MediaCodec
+import android.util.Log
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -73,9 +75,15 @@ object AnimatedArtworkLibrary
         variant: ArtworkVariant
     ): AnimatedArtworkResult? = withContext(Dispatchers.IO)
     {
-        if (!SettingsLibrary.AnimatedAlbumCovers) {return@withContext null}
+        Log.d("AnimatedArtwork", "resolveArtworkFile: title='${music.title}' album='${music.album}' uri=${music.uri}")
+        val albumName = resolveAlbumName(music) ?: run {
+            Log.d("AnimatedArtwork", "resolveArtworkFile: resolveAlbumName returned null")
+            return@withContext null
+        }
+        Log.d("AnimatedArtwork", "resolveArtworkFile: albumName='$albumName' variant=${variant.name}")
 
-        val albumName = resolveAlbumName(music) ?: return@withContext null
+        tryLocalFolderArtwork(context, albumName, variant)?.let { return@withContext it }
+
         localArtworkFile(music, variant, albumName)?.takeIf { isPlayableVideoFile(it) }?.let { return@withContext AnimatedArtworkResult.Success(it) }
         val cachedArtworkFile = cachedArtworkFile(context, music, albumName, variant)
         val negativeCacheFile = File(cachedArtworkFile.absolutePath + NegativeCacheExtension)
@@ -131,6 +139,41 @@ object AnimatedArtworkLibrary
     suspend fun cachedArtworkFilesSizeBytes(context: Context): Long = withContext(Dispatchers.IO)
     {
         cacheDirectory(context).listFiles()?.sumOf { it.length() } ?: 0L
+    }
+
+    private suspend fun tryLocalFolderArtwork(
+        context: Context,
+        albumName: String,
+        variant: ArtworkVariant
+    ): AnimatedArtworkResult? {
+        val folderUri = SettingsLibrary.AnimatedAlbumCoversLocalFolder
+        Log.d("AnimatedArtwork", "tryLocalFolderArtwork: folderUri='$folderUri' album='$albumName' variant=${variant.name}")
+        if (folderUri.isNullOrEmpty()) {
+            Log.d("AnimatedArtwork", "tryLocalFolderArtwork: no folder configured")
+            return null
+        }
+
+        val treeUri = Uri.parse(folderUri)
+        val parentDoc = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+        if (parentDoc == null) {
+            Log.d("AnimatedArtwork", "tryLocalFolderArtwork: DocumentFile.fromTreeUri returned null")
+            return null
+        }
+
+        val expectedFileName = "$albumName.mp4"
+        Log.d("AnimatedArtwork", "tryLocalFolderArtwork: looking for '$expectedFileName'")
+        val childDoc = parentDoc.listFiles().firstOrNull {
+            it.isFile && it.name != null && it.name.equals(expectedFileName, ignoreCase = true)
+        }
+        if (childDoc == null) {
+            Log.d("AnimatedArtwork", "tryLocalFolderArtwork: file not found")
+            return null
+        }
+
+        Log.d("AnimatedArtwork", "tryLocalFolderArtwork: found ${childDoc.uri}")
+        val cacheFile = copyLocalArtworkToCache(context, childDoc.uri, albumName, variant)
+        Log.d("AnimatedArtwork", "tryLocalFolderArtwork: cacheFile=$cacheFile")
+        return if (cacheFile != null) AnimatedArtworkResult.Success(cacheFile) else null
     }
 
     private fun localArtworkFile(music: YosMediaItem, variant: ArtworkVariant, albumName: String): File?
@@ -197,6 +240,55 @@ object AnimatedArtworkLibrary
     internal fun animatedArtworkFile(songDirectory: File, albumName: String, variant: ArtworkVariant): File
     {
         return File(File(songDirectory, AnimatedArtworkDirectoryName), animatedArtworkFileName(albumName, variant))
+    }
+
+    private suspend fun copyLocalArtworkToCache(
+        context: Context,
+        sourceUri: Uri,
+        albumName: String,
+        variant: ArtworkVariant
+    ): File? = withContext(Dispatchers.IO) {
+        try {
+            val cacheDir = cacheDirectory(context)
+            cacheDir.mkdirs()
+            val identity = "${variant.name.lowercase(Locale.ROOT)}\u0000local\u0000${albumName.lowercase(Locale.ROOT)}"
+            val hash = MessageDigest.getInstance("SHA-256")
+                .digest(identity.toByteArray())
+                .joinToString("") { "%02x".format(Locale.ROOT, it) }
+            val cacheFile = File(cacheDir, "$hash.mp4")
+            if (cacheFile.exists() && cacheFile.length() > 0L) return@withContext cacheFile
+
+            cacheFile.delete()
+            val tempFile = File(cacheDir, ".${hash}.tmp")
+            tempFile.delete()
+
+            try {
+                context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var totalBytes = 0L
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            val bytesRead = input.read(buffer)
+                            if (bytesRead < 0) break
+                            totalBytes += bytesRead
+                            if (totalBytes > MaximumArtworkBytes) return@withContext null
+                            output.write(buffer, 0, bytesRead)
+                        }
+                    }
+                } ?: return@withContext null
+
+                if (tempFile.length() == 0L) { tempFile.delete(); return@withContext null }
+                if (tempFile.renameTo(cacheFile)) return@withContext cacheFile
+                tempFile.delete()
+                return@withContext null
+            } catch (e: Exception) {
+                tempFile.delete()
+                return@withContext null
+            }
+        } catch (_: Exception) {
+            return@withContext null
+        }
     }
 
     private fun buildSearchUrl(music: YosMediaItem, albumName: String): String?

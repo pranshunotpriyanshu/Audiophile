@@ -58,6 +58,8 @@ import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.YTSongItem
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.theme.withNight
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 
 @Composable
@@ -144,7 +146,7 @@ fun OnlinePlaylistScreen(navController: NavController) {
                         fontSize = 20.sp,
                         textAlign = TextAlign.Center,
                         lineHeight = 26.sp,
-                        fontWeight = FontWeight.Medium,
+fontWeight = headingFontWeight(),
                     )
 
                     Spacer(modifier = Modifier.height(2.dp))
@@ -307,7 +309,7 @@ private fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modi
         Text(
             text = label,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
+            fontWeight = userFontWeight(),
             fontSize = 17.sp
         )
     }

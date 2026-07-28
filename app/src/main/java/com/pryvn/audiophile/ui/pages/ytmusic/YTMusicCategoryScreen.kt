@@ -34,6 +34,8 @@ import com.pryvn.audiophile.code.api.YTPlaylist
 import com.pryvn.audiophile.code.api.YTSongItem
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.userFontWeight
+import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import kotlinx.coroutines.Dispatchers
@@ -97,7 +99,7 @@ fun YTMusicCategoryScreen(
                     Text(
                         text = category,
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = headingFontWeight(),
                         fontFamily = SfProFontFamily
                     )
                 },
@@ -148,7 +150,7 @@ fun YTMusicCategoryScreen(
                             text = "No Results",
                             fontSize = 17.sp,
                             fontFamily = SfProFontFamily,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = userFontWeight(),
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                         Text(
@@ -171,7 +173,7 @@ fun YTMusicCategoryScreen(
                                 Text(
                                     text = section.title,
                                     fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = headingFontWeight(),
                                     lineHeight = 20.sp,
                                     fontFamily = SfProFontFamily,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -231,7 +233,7 @@ private fun CategorySongRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
                 text = song.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -297,7 +299,7 @@ private fun CategoryAlbumRow(album: YTAlbumSearchItem) {
                 text = album.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -344,7 +346,7 @@ private fun CategoryArtistRow(artist: YTArtistSearchItem) {
                 text = artist.name,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
@@ -380,7 +382,7 @@ private fun CategoryPlaylistRow(playlist: YTPlaylist) {
                 text = playlist.title,
                 fontSize = 17.sp,
                 fontFamily = SfProFontFamily,
-                fontWeight = FontWeight.Medium,
+                fontWeight = userFontWeight(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface

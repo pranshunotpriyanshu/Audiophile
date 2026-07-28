@@ -463,7 +463,13 @@ private fun convertToSongList(
     songs: List<YosMediaItem>
 ): List<YosMediaItem> {
     return songDataList.fastMapNotNull { uri ->
-        songs.find { it.uri == uri }
+        if (uri.scheme == "ytmusic") {
+            val mediaId = uri.host ?: return@fastMapNotNull null
+            songs.find { it.mediaId == mediaId }
+                ?: YosMediaItem(uri = uri, mediaId = mediaId)
+        } else {
+            songs.find { it.uri == uri }
+        }
     }
 }
 
