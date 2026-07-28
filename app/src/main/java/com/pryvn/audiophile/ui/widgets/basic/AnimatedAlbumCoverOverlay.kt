@@ -3,6 +3,7 @@ package com.pryvn.audiophile.ui.widgets.basic
 import android.net.Uri
 import android.view.TextureView
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxScope
@@ -26,6 +27,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.pryvn.audiophile.code.AnimatedArtworkLibrary
+import com.pryvn.audiophile.code.AnimatedArtworkLibrary.AnimatedArtworkResult
+import com.pryvn.audiophile.code.AnimatedArtworkLibrary.ArtworkVariant
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import java.io.File
@@ -41,30 +44,69 @@ class AnimatedAlbumCoverState internal constructor(
 fun rememberAnimatedAlbumCoverState(
     music: YosMediaItem?,
     isPlaying: Boolean,
-    active: Boolean
+    active: Boolean,
+    fullscreenArtwork: Boolean
 ): AnimatedAlbumCoverState
 {
     val context = LocalContext.current
     val animatedAlbumCovers = SettingsLibrary.AnimatedAlbumCovers
     val animatedAlbumCoversUseApi = SettingsLibrary.AnimatedAlbumCoversUseApi
     val animatedAlbumCoverBlacklist = SettingsLibrary.AnimatedAlbumCoverBlacklist
-    var animatedArtworkFile by remember(music?.uri, music?.album, active, animatedAlbumCovers, animatedAlbumCoversUseApi, animatedAlbumCoverBlacklist) {
-        mutableStateOf<File?>(null)
+    val artworkVariant = if (fullscreenArtwork) ArtworkVariant.Tall else ArtworkVariant.Square
+    var artworkResult by remember(
+        music?.uri,
+        music?.album,
+        active,
+        artworkVariant,
+        animatedAlbumCovers,
+        animatedAlbumCoversUseApi,
+        animatedAlbumCoverBlacklist
+    ) {
+        mutableStateOf<AnimatedArtworkResult?>(null)
     }
 
-    LaunchedEffect(music?.uri, music?.album, active, animatedAlbumCovers, animatedAlbumCoversUseApi, animatedAlbumCoverBlacklist)
+    LaunchedEffect(
+        music?.uri,
+        music?.album,
+        active,
+        artworkVariant,
+        animatedAlbumCovers,
+        animatedAlbumCoversUseApi,
+        animatedAlbumCoverBlacklist
+    )
     {
-        animatedArtworkFile = if (!active || music == null)
+        artworkResult = if (!active || music == null)
         {
             null
         }
         else
         {
-            AnimatedArtworkLibrary.resolveArtworkFile(context.applicationContext, music)
+            AnimatedArtworkLibrary.resolveArtworkFile(context.applicationContext, music, artworkVariant)
         }
     }
 
-    val artworkFile = animatedArtworkFile
+    val result = artworkResult
+    LaunchedEffect(result)
+    {
+        when (result)
+        {
+            is AnimatedArtworkResult.NoAnimatedArtwork ->
+            {
+                Toast.makeText(context, context.getString(com.pryvn.audiophile.R.string.animated_artwork_not_found), Toast.LENGTH_SHORT).show()
+            }
+            is AnimatedArtworkResult.ApiFailed ->
+            {
+                Toast.makeText(context, context.getString(com.pryvn.audiophile.R.string.animated_artwork_api_failed), Toast.LENGTH_SHORT).show()
+            }
+            else -> {}
+        }
+    }
+
+    val artworkFile = when (result)
+    {
+        is AnimatedArtworkResult.Success -> result.file
+        else -> null
+    }
     if (artworkFile == null) {return AnimatedAlbumCoverState(null, isPlaying, false)}
 
     val artworkUri = remember(artworkFile) { Uri.fromFile(artworkFile) }

@@ -51,10 +51,12 @@
     <string name="settings_audio_exoplayer_ui">Now Playing UI</string>
     <string name="settings_audio_exoplayer_full_screen_album_artwork">Full Screen Album Artwork</string>
     <string name="settings_audio_exoplayer_full_screen_album_artwork_desc">Blend the cover into the whole Now Playing screen with a beautiful blur.</string>
-<string name="settings_audio_exoplayer_background">Now Playing Background</string>
-<string name="settings_audio_exoplayer_background_desc">Solid accent color or blurred album art, applied everywhere (paused, playing, lyrics, queue).</string>
-<string name="settings_audio_exoplayer_full_screen_static_artwork">Full Screen Static Artwork</string>
-<string name="settings_audio_exoplayer_full_screen_static_artwork_desc">Show the album cover as a single artwork that continues beyond its rounded corners and gradually loses focus. Overrides Background Mode while active.</string>
+    <string name="settings_audio_exoplayer_background">Now Playing Background</string>
+    <string name="settings_audio_exoplayer_background_desc">Solid accent color or blurred album art, applied everywhere (paused, playing, lyrics, queue).</string>
+    <string name="settings_audio_exoplayer_full_screen_static_artwork">Full Screen Static Artwork</string>
+    <string name="settings_audio_exoplayer_full_screen_static_artwork_desc">Show the album cover as a single artwork that continues beyond its rounded corners and gradually loses focus. Overrides Background Mode while active.</string>
+    <string name="settings_audio_exoplayer_animated_album_artwork">Animated Album Artwork</string>
+    <string name="settings_audio_exoplayer_animated_album_artwork_desc">Lazy load Apple Music animated artwork in Now Playing, then fade it over the static cover when ready.</string>
     <string name="settings_audio_exoplayer_decode_codec">Audio Decoder</string>
     <string name="settings_audio_exoplayer_behaviors">Behaviors</string>
     <string name="settings_audio_exoplayer_behaviors_audio_attributes">Audio Focus</string>
@@ -240,4 +242,6 @@
     <string name="sleep_timer_fade_30s">30 seconds</string>
     <string name="sleep_timer_custom_hours">Hours</string>
     <string name="sleep_timer_custom_minutes">Minutes</string>
+    <string name="animated_artwork_not_found">No animated artwork found</string>
+    <string name="animated_artwork_api_failed">API failed</string>
 </resources>

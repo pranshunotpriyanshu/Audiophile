@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.artistsName
@@ -30,6 +31,20 @@ import java.util.concurrent.ConcurrentHashMap
 
 object AnimatedArtworkLibrary
 {
+    enum class ArtworkVariant
+    {
+        Square,
+        Tall
+    }
+
+    sealed class AnimatedArtworkResult
+    {
+        data class Success(val file: File) : AnimatedArtworkResult()
+        data object NoAnimatedArtwork : AnimatedArtworkResult()
+        data object ApiFailed : AnimatedArtworkResult()
+        data object NotAvailable : AnimatedArtworkResult()
+    }
+
     private const val AnimatedArtworkDirectoryName = "anim"
     private const val AnimatedArtworkCacheDirectoryName = "animated_artwork"
     private const val ArtworkSearchEndpoint = "https://artwork.m8tec.top/api/v1/artwork/search"
@@ -37,6 +52,7 @@ object AnimatedArtworkLibrary
     private const val DefaultSampleBufferBytes = 1024 * 1024
     private const val MaximumPlaylistBytes = 1024 * 1024
     private const val MaximumArtworkBytes = 50L * 1024L * 1024L
+    private const val NegativeCacheExtension = ".none"
     private const val MaximumExpectedStartOffsetMicroseconds = 500_000L
     private val bandwidthRegex = Regex("BANDWIDTH=(\\d+)")
     private val invalidFileNameCharacters = Regex("[\\\\/:*?\"<>|]")
@@ -51,34 +67,59 @@ object AnimatedArtworkLibrary
         val bandwidth: Long
     )
 
-    suspend fun resolveArtworkFile(context: Context, music: YosMediaItem): File? = withContext(Dispatchers.IO)
+    suspend fun resolveArtworkFile(
+        context: Context,
+        music: YosMediaItem,
+        variant: ArtworkVariant
+    ): AnimatedArtworkResult? = withContext(Dispatchers.IO)
     {
         if (!SettingsLibrary.AnimatedAlbumCovers) {return@withContext null}
 
-        val albumName = music.album?.trim()?.takeIf { it.isNotEmpty() } ?: return@withContext null
-        localArtworkFile(music)?.takeIf { isPlayableVideoFile(it) }?.let { return@withContext it }
-        val cachedArtworkFile = cachedArtworkFile(context, music, albumName)
+        val albumName = resolveAlbumName(music) ?: return@withContext null
+        localArtworkFile(music, variant, albumName)?.takeIf { isPlayableVideoFile(it) }?.let { return@withContext AnimatedArtworkResult.Success(it) }
+        val cachedArtworkFile = cachedArtworkFile(context, music, albumName, variant)
+        val negativeCacheFile = File(cachedArtworkFile.absolutePath + NegativeCacheExtension)
+        if (negativeCacheFile.exists()) {return@withContext AnimatedArtworkResult.NotAvailable}
         val artworkMutex = artworkMutexes.getOrPut(cachedArtworkFile.absolutePath) { Mutex() }
 
-        artworkMutex.withLock {
-            if (cachedArtworkFile.exists())
-            {
-                if (cachedArtworkFile.isFile && cachedArtworkFile.length() > 0L && normalizeCachedMp4File(cachedArtworkFile))
+        try {
+            return@withContext artworkMutex.withLock {
+                if (negativeCacheFile.exists()) {return@withLock AnimatedArtworkResult.NotAvailable}
+                if (cachedArtworkFile.exists())
                 {
-                    return@withLock cachedArtworkFile
+                    if (cachedArtworkFile.isFile && cachedArtworkFile.length() > 0L && normalizeCachedMp4File(cachedArtworkFile))
+                    {
+                        return@withLock AnimatedArtworkResult.Success(cachedArtworkFile)
+                    }
+
+                    cachedArtworkFile.delete()
                 }
 
-                cachedArtworkFile.delete()
+                if (!SettingsLibrary.AnimatedAlbumCoversUseApi) {return@withLock AnimatedArtworkResult.NotAvailable}
+                if (SettingsLibrary.isAnimatedAlbumCoverBlacklisted(albumName)) {return@withLock AnimatedArtworkResult.NotAvailable}
+
+                val searchUrl = buildSearchUrl(music, albumName) ?: return@withLock AnimatedArtworkResult.NotAvailable
+                val hlsUrl = fetchArtworkHlsUrl(searchUrl, variant)
+                if (hlsUrl == null)
+                {
+                    negativeCacheFile.parentFile?.mkdirs()
+                    negativeCacheFile.createNewFile()
+                    return@withLock AnimatedArtworkResult.NoAnimatedArtwork
+                }
+
+                val mp4Url = resolveMp4Url(hlsUrl)
+                if (mp4Url == null) {return@withLock AnimatedArtworkResult.ApiFailed}
+
+                if (downloadFile(mp4Url, cachedArtworkFile)) {AnimatedArtworkResult.Success(cachedArtworkFile)} else AnimatedArtworkResult.ApiFailed
             }
-
-            if (!SettingsLibrary.AnimatedAlbumCoversUseApi) {return@withLock null}
-            if (SettingsLibrary.isAnimatedAlbumCoverBlacklisted(albumName)) {return@withLock null}
-
-            val searchUrl = buildSearchUrl(music, albumName) ?: return@withLock null
-            val hlsUrl = fetchArtworkHlsUrl(searchUrl) ?: return@withLock null
-            val mp4Url = resolveMp4Url(hlsUrl) ?: return@withLock null
-
-            if (downloadFile(mp4Url, cachedArtworkFile)) {cachedArtworkFile} else null
+        }
+        catch (cancellationException: CancellationException)
+        {
+            throw cancellationException
+        }
+        catch (_: Exception)
+        {
+            return@withContext AnimatedArtworkResult.ApiFailed
         }
     }
 
@@ -92,14 +133,13 @@ object AnimatedArtworkLibrary
         cacheDirectory(context).listFiles()?.sumOf { it.length() } ?: 0L
     }
 
-    private fun localArtworkFile(music: YosMediaItem): File?
+    private fun localArtworkFile(music: YosMediaItem, variant: ArtworkVariant, albumName: String): File?
     {
-        val albumName = music.album?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val songPath = music.uri?.path ?: return null
         val songDirectory = File(songPath).parentFile ?: return null
         if (!songDirectory.isDirectory) {return null}
 
-        return animatedArtworkFile(songDirectory, albumName)
+        return animatedArtworkFile(songDirectory, albumName, variant)
     }
 
     private fun isPlayableVideoFile(artworkFile: File): Boolean
@@ -112,17 +152,30 @@ object AnimatedArtworkLibrary
         return File(context.cacheDir, AnimatedArtworkCacheDirectoryName)
     }
 
-    private fun cachedArtworkFile(context: Context, music: YosMediaItem, albumName: String): File
+    private fun cachedArtworkFile(
+        context: Context,
+        music: YosMediaItem,
+        albumName: String,
+        variant: ArtworkVariant
+    ): File
     {
         val artistName = music.albumArtists?.trim()?.takeIf { it.isNotEmpty() }
-            ?: music.artistsName?.trim().orEmpty()
+            ?: music.artistsName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: resolveArtistNameFromPath(music)
+            .orEmpty()
 
-        return animatedArtworkCacheFile(cacheDirectory(context), artistName, albumName)
+        return animatedArtworkCacheFile(cacheDirectory(context), artistName, albumName, variant)
     }
 
-    internal fun animatedArtworkCacheFile(cacheDirectory: File, artistName: String, albumName: String): File
+    internal fun animatedArtworkCacheFile(
+        cacheDirectory: File,
+        artistName: String,
+        albumName: String,
+        variant: ArtworkVariant
+    ): File
     {
-        val cacheIdentity = "${artistName.lowercase(Locale.ROOT)}\u0000${albumName.lowercase(Locale.ROOT)}"
+        val cacheIdentity =
+            "${variant.name.lowercase(Locale.ROOT)}\u0000${artistName.lowercase(Locale.ROOT)}\u0000${albumName.lowercase(Locale.ROOT)}"
         val cacheHash = MessageDigest.getInstance("SHA-256")
             .digest(cacheIdentity.toByteArray())
             .joinToString("") { "%02x".format(Locale.ROOT, it) }
@@ -130,25 +183,27 @@ object AnimatedArtworkLibrary
         return File(cacheDirectory, "$cacheHash.mp4")
     }
 
-    internal fun animatedArtworkFileName(albumName: String): String
+    internal fun animatedArtworkFileName(albumName: String, variant: ArtworkVariant): String
     {
         val safeAlbumName = albumName
             .trim()
             .replace(invalidFileNameCharacters, "_")
             .ifEmpty { "animated_artwork" }
+        val variantSuffix = if (variant == ArtworkVariant.Tall) {"-tall"} else {""}
 
-        return "$safeAlbumName.mp4"
+        return "$safeAlbumName$variantSuffix.mp4"
     }
 
-    internal fun animatedArtworkFile(songDirectory: File, albumName: String): File
+    internal fun animatedArtworkFile(songDirectory: File, albumName: String, variant: ArtworkVariant): File
     {
-        return File(File(songDirectory, AnimatedArtworkDirectoryName), animatedArtworkFileName(albumName))
+        return File(File(songDirectory, AnimatedArtworkDirectoryName), animatedArtworkFileName(albumName, variant))
     }
 
     private fun buildSearchUrl(music: YosMediaItem, albumName: String): String?
     {
         val artistName = music.albumArtists?.trim()?.takeIf { it.isNotEmpty() }
             ?: music.artistsName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: resolveArtistNameFromPath(music)
             ?: return null
 
         val queryParameters = mutableListOf(
@@ -162,17 +217,37 @@ object AnimatedArtworkLibrary
         return "$ArtworkSearchEndpoint?${queryParameters.joinToString("&")}"
     }
 
+    private fun resolveAlbumName(music: YosMediaItem): String?
+    {
+        music.album?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+
+        val uri = music.uri ?: return null
+        if (uri.scheme != "file" && uri.scheme != "content") {return null}
+        val path = uri.path ?: return null
+        val parentName = File(path).parentFile?.name?.trim() ?: return null
+        return parentName.takeIf { it.isNotEmpty() && !it.startsWith(".") }
+    }
+
+    private fun resolveArtistNameFromPath(music: YosMediaItem): String?
+    {
+        val uri = music.uri ?: return null
+        if (uri.scheme != "file" && uri.scheme != "content") {return null}
+        val path = uri.path ?: return null
+        val grandparentName = File(path).parentFile?.parentFile?.name?.trim() ?: return null
+        return grandparentName.takeIf { it.isNotEmpty() && !it.startsWith(".") }
+    }
+
     private fun encodeUrlParameter(value: String): String
     {
         return URLEncoder.encode(value, "UTF-8")
     }
 
-    private suspend fun fetchArtworkHlsUrl(searchUrl: String): String?
+    private suspend fun fetchArtworkHlsUrl(searchUrl: String, variant: ArtworkVariant): String?
     {
         return try
         {
             val responseText = readUrlText(searchUrl)
-            JSONObject(responseText).optString("url").takeIf { it.isNotBlank() }
+            artworkUrlFromResponse(JSONObject(responseText), variant)
         }
         catch (cancellationException: CancellationException)
         {
@@ -181,6 +256,79 @@ object AnimatedArtworkLibrary
         catch (_: Exception)
         {
             null
+        }
+    }
+
+    private fun artworkUrlFromResponse(response: JSONObject, variant: ArtworkVariant): String?
+    {
+        val tallKeys = listOf(
+            "url_tall",
+            "tallUrl",
+            "tall_url",
+            "tall",
+            "portraitUrl",
+            "portrait",
+            "fullscreenUrl",
+            "fullScreenUrl",
+            "expandedUrl",
+            "lockScreenUrl"
+        )
+        val squareKeys = listOf(
+            "url",
+            "squareUrl",
+            "square_url",
+            "square",
+            "standardUrl",
+            "coverUrl",
+            "artworkUrl",
+            "hlsUrl",
+            "animatedArtworkUrl"
+        )
+        return response.findArtworkUrl(if (variant == ArtworkVariant.Tall) {tallKeys} else {squareKeys})
+    }
+
+    private fun JSONObject.findArtworkUrl(keys: List<String>): String?
+    {
+        keys.firstNotNullOfOrNull { key -> optArtworkUrl(key) }?.let { return it }
+
+        val nestedObjectKeys = listOf("artwork", "animatedArtwork", "covers", "result", "data")
+        nestedObjectKeys.forEach { key ->
+            when (val value = opt(key))
+            {
+                is JSONObject -> value.findArtworkUrl(keys)?.let { return it }
+                is JSONArray -> value.findArtworkUrl(keys)?.let { return it }
+            }
+        }
+
+        return null
+    }
+
+    private fun JSONArray.findArtworkUrl(keys: List<String>): String?
+    {
+        for (index in 0 until length())
+        {
+            val value = opt(index)
+            when (value)
+            {
+                is JSONObject -> value.findArtworkUrl(keys)?.let { return it }
+                is JSONArray -> value.findArtworkUrl(keys)?.let { return it }
+            }
+        }
+
+        return null
+    }
+
+    private fun JSONObject.optArtworkUrl(key: String): String?
+    {
+        val value = opt(key) ?: return null
+        return when (value)
+        {
+            is String -> value.takeIf { it.isNotBlank() }
+            is JSONObject -> listOf("url", "hlsUrl", "src", "href")
+                .firstNotNullOfOrNull { nestedKey ->
+                    value.optString(nestedKey).takeIf { it.isNotBlank() }
+                }
+            else -> null
         }
     }
 

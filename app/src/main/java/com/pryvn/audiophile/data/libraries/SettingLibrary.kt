@@ -524,7 +524,7 @@ object SettingsLibrary {
     var AnimatedAlbumCovers by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "animated_album_covers",
-        initialValue = true
+        initialValue = false
     )
 
     @Stable

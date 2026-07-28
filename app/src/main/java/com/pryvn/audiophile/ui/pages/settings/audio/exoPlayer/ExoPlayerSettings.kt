@@ -112,6 +112,18 @@ fun ExoPlayerSettings(navController: NavController) =
 
                             Divider()
 
+                            SwitchItem(
+                                title = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork),
+                                desc = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork_desc),
+                                onClick = {
+                                    SettingsLibrary.AnimatedAlbumCovers =
+                                        !SettingsLibrary.AnimatedAlbumCovers
+                                },
+                                checkedLambda = { SettingsLibrary.AnimatedAlbumCovers }
+                            )
+
+                            Divider()
+
                             SelectItem(
                                 title = stringResource(id = R.string.settings_audio_exoplayer_background),
                                 desc = stringResource(id = R.string.settings_audio_exoplayer_background_desc),

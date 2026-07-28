@@ -87,6 +87,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
@@ -151,8 +152,8 @@ fun ArchiveLyrics(
     sliderPositionProvider: () -> Long?,
     lyricsSyncOffset: Int,
     modifier: Modifier = Modifier,
-    interactive: Boolean = false,
 ) {
+    val isInteractive = LyricsInteractionController.isInteractive()
     val density = LocalDensity.current
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -424,7 +425,7 @@ fun ArchiveLyrics(
                 modifier = Modifier
                     .smoothFadingEdge(vertical = 72.dp)
                     .then(
-                        if (interactive) {
+                        if (isInteractive) {
                             Modifier.nestedScroll(
                                 remember {
                                     var lastScrollTime = 0L
@@ -552,7 +553,7 @@ fun ArchiveLyrics(
                         val itemModifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (interactive) {
+                                if (isInteractive) {
                                     Modifier.combinedClickable(
                                         enabled = true,
                                         onClick = {
@@ -1506,7 +1507,7 @@ fun ArchiveLyrics(
                     modifier = Modifier
                         .background(color = Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(24.dp))
                         .then(
-                                if (interactive) {
+                                if (isInteractive) {
                                     Modifier.clickable {
                                         isManualScrolling = false
                                         lastPreviewTime = 0L
@@ -1551,7 +1552,7 @@ fun ArchiveLyrics(
                                 .size(48.dp)
                                 .background(color = Color.Black.copy(alpha = 0.3f), shape = CircleShape)
                                 .then(
-                                    if (interactive) {
+                                    if (isInteractive) {
                                         Modifier.clickable {
                                             isSelectionModeActive = false
                                             selectedIndices.clear()
@@ -1580,7 +1581,7 @@ fun ArchiveLyrics(
                                     },
                                     shape = RoundedCornerShape(24.dp),
                                 ).then(
-                                        if (interactive) {
+                                        if (isInteractive) {
                                             Modifier.clickable(enabled = selectedIndices.isNotEmpty()) {
                                                 if (selectedIndices.isNotEmpty()) {
                                                     val sortedIndices = selectedIndices.sorted()

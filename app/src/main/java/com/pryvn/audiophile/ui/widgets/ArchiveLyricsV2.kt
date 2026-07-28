@@ -113,6 +113,7 @@ import com.pryvn.audiophile.data.objects.LyricsEntry
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordTimestamp
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -180,8 +181,8 @@ fun LyricsV2(
     textColorOverride: Color? = null,
     lyricsLineBlurOverride: Boolean? = null,
     onBackgroundClick: () -> Unit = {},
-    interactive: Boolean = false,
 ) {
+    val isInteractive = LyricsInteractionController.isInteractive()
     val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -359,7 +360,7 @@ fun LyricsV2(
                 .fillMaxSize()
                 .padding(bottom = 12.dp)
                 .then(
-                    if (interactive) {
+                    if (isInteractive) {
                         Modifier.clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() },
@@ -430,7 +431,7 @@ fun LyricsV2(
                 Modifier
                     .fillMaxSize()
                     .then(
-                        if (interactive) Modifier.nestedScroll(nestedScrollConnection) else Modifier,
+                        if (isInteractive) Modifier.nestedScroll(nestedScrollConnection) else Modifier,
                     )
                     .drawWithContent {
                         drawContent()
@@ -556,7 +557,7 @@ fun LyricsV2(
                                     scaleY = animatedInstrScale
                                     alpha = animatedInstrAlpha
                                 }.then(
-                                    if (interactive && lyricsClick && item.time > 0) {
+                                    if (isInteractive && lyricsClick && item.time > 0) {
                                         Modifier.clickable { player.seekTo(item.time) }
                                     } else {
                                         Modifier
@@ -696,7 +697,7 @@ fun LyricsV2(
                                     alpha = lineAlpha
                                     transformOrigin = lineTransformOrigin
                                 }.combinedClickable(
-                                    enabled = interactive && lyricsClick && isSynced && item.time > 0,
+                                    enabled = isInteractive && lyricsClick && isSynced && item.time > 0,
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() },
                                     onClick = {

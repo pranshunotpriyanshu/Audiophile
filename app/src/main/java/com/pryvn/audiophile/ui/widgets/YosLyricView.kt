@@ -47,6 +47,7 @@ import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -82,13 +83,15 @@ fun YosLyricView(
     wordSyncedLambda: () -> Boolean = { false },
     modifier: Modifier,
     onBackClick: () -> Unit,
-    interactive: Boolean = false,
 ) {
     val context = LocalContext.current
     val mainTextBasicColor = Color(uiConfig.mainTextBasicColor)
     val subTextBasicColor = Color(uiConfig.subTextBasicColor)
     val otherSideForLines = MediaViewModelObject.otherSideForLines
     val lrcEntries = lrcEntriesLambda()
+
+    // Read interaction state from single source of truth
+    val interactive = LocalLyricsInteractive.current
 
     // ---- Word-synced lyrics: delegate to ArchiveTune renderers ----
     // Priority: syllable-level -> word-level -> line-sync -> plain blocks.
@@ -119,7 +122,6 @@ fun YosLyricView(
                 textColorOverride = lyricTextColor,
                 lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
                 onBackgroundClick = onBackClick,
-                interactive = interactive,
             )
         } else {
             ArchiveLyrics(
@@ -127,7 +129,6 @@ fun YosLyricView(
                 sliderPositionProvider = { null },
                 lyricsSyncOffset = 0,
                 modifier = modifier,
-                interactive = interactive,
             )
         }
         return
@@ -492,6 +493,7 @@ fun LazyItemScope.LyricItem(
     onClick: () -> Unit
 ) {
     val viewAlign = if (otherSide) Alignment.End else Alignment.Start
+    val interactive = LocalLyricsInteractive.current
 
     val focusedColor = Color.White
     val unfocusedColor = Color(0x2EFFFFFF)

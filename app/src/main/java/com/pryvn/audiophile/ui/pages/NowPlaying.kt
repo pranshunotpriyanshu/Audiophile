@@ -49,6 +49,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -233,7 +234,6 @@ import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
 import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
-import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverState
 import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
 import com.pryvn.audiophile.ui.widgets.basic.rememberAnimatedAlbumCoverState
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
@@ -248,6 +248,7 @@ import com.pryvn.audiophile.ui.widgets.sleeptimer.SleepTimerContent
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
+import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import sh.calvin.reorderable.ReorderableItem
@@ -510,7 +511,11 @@ fun NowPlaying(
         contentColor = Color.White,
         color = Color.Transparent
     ) {
-        val context = LocalContext.current
+        // Single source of truth for lyrics interactivity:
+        // Only interactive when the user is on the Lyrics page.
+        val isLyricsViewOpen = nowPageLambda() == Lyric
+        LyricsInteractionController.Provider(isLyricsViewOpen) {
+            val context = LocalContext.current
         val configuration = LocalConfiguration.current
         val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val density = LocalDensity.current
@@ -695,6 +700,12 @@ fun NowPlaying(
             if (titleRowYPx >= Float.MAX_VALUE || contentWrapperTopY >= Float.MAX_VALUE) 0.dp
             else (titleRowYPx - contentWrapperTopY).toDp().coerceAtLeast(0.dp)
         }
+        val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
+            music = thisMusicPlaying.value,
+            isPlaying = isPlayingStatusLambda(),
+            active = fsEnabled && fsAlbum,
+            fullscreenArtwork = true
+        )
         if (fsAlbum || heroAlpha > 0f) {
             Box(
                 Modifier
@@ -706,7 +717,8 @@ fun NowPlaying(
                     albumUrl = { thisMusicPlaying.value?.thumb },
                     topSpacingDp = 0.dp,
                     artworkMaxHeightDp = artworkMaxHeightDp,
-                    bottomGradientColor = MediaViewModelObject.paletteDarkMutedColor.value
+                    bottomGradientColor = MediaViewModelObject.paletteDarkMutedColor.value,
+                    animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
                 )
             }
         }
@@ -775,7 +787,6 @@ fun NowPlaying(
                         mediaViewModel = mediaViewModel,
                         wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
                         active = nowPageLambda() == Lyric,
-                        interactive = false,
                     )
                 }
             }
@@ -1435,7 +1446,6 @@ Album ->
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
                                     wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
-                                    interactive = false,
                                 )
                             } else {
                                 PlayingList(
@@ -1467,9 +1477,10 @@ Album ->
         )
         }
     }
+}
 
 @Composable
-private fun ColumnScope.Album(
+fun ColumnScope.Album(
     modifier: Modifier,
     albumUrl: () -> Uri?,
     isPlaying: () -> Boolean,
@@ -1516,7 +1527,8 @@ private fun ColumnScope.Album(
         val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
             music = music(),
             isPlaying = isPlaying(),
-            active = active
+            active = active,
+            fullscreenArtwork = fsEnabled
         )
 
         if (fsEnabled) {
@@ -1596,53 +1608,55 @@ private fun ColumnScope.Album(
 }
 
 @Composable
-private fun HeroArtworkLayer(
+fun HeroArtworkLayer(
     albumUrl: () -> Uri?,
     modifier: Modifier = Modifier,
     topSpacingDp: Dp = 0.dp,
     artworkMaxHeightDp: Dp = Dp.Unspecified,
-    bottomGradientColor: Color = Color.Black
+    bottomGradientColor: Color = Color.Black,
+    animatedCoverOverlay: @Composable BoxScope.() -> Unit = {}
 ) {
     val url = albumUrl()
 
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {
             val painter = rememberAsyncImagePainter(model = url, contentScale = ContentScale.Crop)
+            val artworkModifier = Modifier
+                .padding(top = topSpacingDp)
+                .fillMaxWidth()
+                .height(artworkMaxHeightDp)
+                .align(Alignment.TopCenter)
 
             Image(
                 painter = painter,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .padding(top = topSpacingDp)
-                    .fillMaxWidth()
-                    .height(artworkMaxHeightDp)
-                    .align(Alignment.TopCenter)
+                modifier = artworkModifier
             )
 
+            Box(modifier = artworkModifier) {
+                animatedCoverOverlay()
+            }
+
             Box(
-                modifier = Modifier
-                    .padding(top = topSpacingDp)
-                    .fillMaxWidth()
-                    .height(artworkMaxHeightDp)
-                    .align(Alignment.TopCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.45f to Color.Transparent,
-                            0.75f to bottomGradientColor.copy(alpha = 0.5f),
-                            0.9f to bottomGradientColor.copy(alpha = 0.85f),
-                            1.0f to bottomGradientColor
+                modifier = artworkModifier
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.45f to Color.Transparent,
+                                0.75f to bottomGradientColor.copy(alpha = 0.5f),
+                                0.9f to bottomGradientColor.copy(alpha = 0.85f),
+                                1.0f to bottomGradientColor
+                            )
                         )
                     )
-                )
-        )
-    }
+            )
+        }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun PlayingList(
+fun PlayingList(
     shuffleModeEnabledLambda: () -> Boolean,
     shuffleModeOnChanged: (Boolean) -> Unit,
     repeatModeLambda: () -> Int,
@@ -2018,7 +2032,7 @@ private fun PlayingList(
 }
 
 @Composable
-private fun LazyItemScope.QueueSectionHeader(
+fun LazyItemScope.QueueSectionHeader(
     title: String,
     onClear: (() -> Unit)?
 ) {
@@ -2053,7 +2067,7 @@ private fun LazyItemScope.QueueSectionHeader(
 private val QueueRowHeight = 64.dp
 
 @Composable
-private fun LazyItemScope.QueueMusicListItem(
+fun LazyItemScope.QueueMusicListItem(
     music: YosMediaItem,
     isCurrentItem: Boolean = false,
     reorderHandleModifier: Modifier,
@@ -2232,7 +2246,7 @@ private fun LazyItemScope.QueueMusicListItem(
 }
 
 @Composable
-private fun Lyric(
+fun Lyric(
     lrcEntries: () -> List<List<Pair<Float, String>>>,
     weightLambda: () -> Boolean,
     translationLambda: () -> Boolean,
@@ -2241,7 +2255,6 @@ private fun Lyric(
     onBackClick: () -> Unit,
     wordSyncedLambda: () -> Boolean = { false },
     active: Boolean = true,
-    interactive: Boolean = false,
 ) = YosWrapper {
 
     val context = LocalContext.current
@@ -2267,7 +2280,6 @@ private fun Lyric(
                         Color.Black
                 YosLyricView(
                     //mediaViewModel = mediaViewModel,
-                    interactive = interactive,
                     lrcEntriesLambda = lrcEntries,
                     liveTimeLambda = {
                         (mediaControl?.currentPosition ?: 0).toInt()
@@ -2377,7 +2389,7 @@ private fun Lyric(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionButtonsRow(
+fun ActionButtonsRow(
     musicPlayingLambda: () -> YosMediaItem?,
     navController: NavController? = null,
     isLyricsView: Boolean = false,
@@ -2478,7 +2490,7 @@ private fun ActionButtonsRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NowPlayingOverflowSheet(
+fun NowPlayingOverflowSheet(
     isOpen: MutableState<Boolean>,
     song: YosMediaItem?,
     navController: NavController,
@@ -2549,16 +2561,16 @@ private fun NowPlayingOverflowSheet(
     }
 }
 
-private enum class OverflowScreen { Menu, Playlist, SleepTimer }
+enum class OverflowScreen { Menu, Playlist, SleepTimer }
 
-private enum class OverflowLibraryTarget(val route: String)
+enum class OverflowLibraryTarget(val route: String)
 {
     Artist(UI.ArtistInfo),
     Album(UI.AlbumInfo),
 }
 
 @Composable
-private fun OverflowMenuBody(
+fun OverflowMenuBody(
     song: YosMediaItem?,
     navController: NavController,
     onMinimizeNowPlaying: suspend () -> Unit,
@@ -2639,7 +2651,7 @@ private fun OverflowMenuBody(
 }
 
 @Composable
-private fun NowPlayingOverflowHeader(
+fun NowPlayingOverflowHeader(
     song: YosMediaItem,
     navController: NavController,
     onMinimizeNowPlaying: suspend () -> Unit,
@@ -2760,7 +2772,7 @@ private fun NowPlayingOverflowHeader(
 
 
 @Composable
-private fun PlayingBar(
+fun PlayingBar(
     modifier: Modifier,
     albumUrlLambda: () -> Uri?,
     musicPlayingLambda: () -> YosMediaItem?,
@@ -3018,7 +3030,7 @@ fun RowScope.AirPlay() {
     }
 }
 
-private fun BluetoothDevice.isConnected(): Boolean {
+fun BluetoothDevice.isConnected(): Boolean {
     return runCatching {
         val isConnectedMethod =
             BluetoothDevice::class.java.getMethod("isConnected")
@@ -3030,7 +3042,7 @@ private fun BluetoothDevice.isConnected(): Boolean {
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlayerControl(
+fun PlayerControl(
     isPlayingLambda: () -> Boolean,
     isPlayingOnChanged: (Boolean) -> Unit,
     onPrevious: () -> Unit,
@@ -3480,7 +3492,7 @@ private fun PlayerControl(
             // 为显示设备名称，迁移到 AirPlay 底部处理
         }
     }
-}
+} // Close LyricsInteractionController.Provider
 }
 }
 }
