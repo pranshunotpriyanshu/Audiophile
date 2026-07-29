@@ -74,6 +74,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -223,10 +224,10 @@ fun PlayLists(navController: NavController) {
             } else null,
             onBulkAddToPlaylist = { source, target ->
                 scope.launch(Dispatchers.IO) {
-                    source.songDataList.forEach { uri ->
+                    source.songDataList.forEach { music ->
                         val live = playList.firstOrNull { it.listID == target.listID }
                             ?: return@forEach
-                        live.addMusic(uriStubMedia(uri))
+                        live.addMusic(music)
                     }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
@@ -242,10 +243,10 @@ fun PlayLists(navController: NavController) {
                     PlayListLibrary.create(playlistName)
                     val created = playList.firstOrNull { it.name == playlistName }
                         ?: return@launch
-                    source.songDataList.forEach { uri ->
+                    source.songDataList.forEach { music ->
                         val live = playList.firstOrNull { it.listID == created.listID }
                             ?: return@forEach
-                        live.addMusic(uriStubMedia(uri))
+                        live.addMusic(music)
                     }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
@@ -258,7 +259,7 @@ fun PlayLists(navController: NavController) {
             },
             onPlayNext = {
                 scope.launch(Dispatchers.IO) {
-                    val songsInOrder = convertToSongList(playListForMenu.songDataList, songs)
+                    val songsInOrder = convertToSongList(playListForMenu.songDataList)
                     if (songsInOrder.isEmpty()) return@launch
 
                     val currentPlaying = MediaController.musicPlaying.value
@@ -368,7 +369,7 @@ fun PlayLists(navController: NavController) {
                         if (reorderActive.value) { return@playlistClick }
                         scope.launch(Dispatchers.IO) {
                             val targetTitle = playList.name
-                            val targetList = convertToSongList(playList.songDataList, songs)
+                            val targetList = convertToSongList(playList.songDataList)
                             LibraryObject.setTargetListWithTitle(
                                 targetTitle,
                                 targetList,
@@ -458,20 +459,7 @@ private fun PlayListDivider() {
     )
 }
 
-private fun convertToSongList(
-    songDataList: List<Uri>,
-    songs: List<YosMediaItem>
-): List<YosMediaItem> {
-    return songDataList.fastMapNotNull { uri ->
-        if (uri.scheme == "ytmusic") {
-            val mediaId = uri.host ?: return@fastMapNotNull null
-            songs.find { it.mediaId == mediaId }
-                ?: YosMediaItem(uri = uri, mediaId = mediaId)
-        } else {
-            songs.find { it.uri == uri }
-        }
-    }
-}
+private fun convertToSongList(songDataList: List<YosMediaItem>) = songDataList
 
 @Composable
 private fun PlayListContextMenu(
@@ -813,11 +801,7 @@ private fun PlayListContextMenuHeader(playList: PlayList)
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (playList.songDataList.size == 1) {
-                    stringResource(id = R.string.playlist_picker_song_count_one)
-                } else {
-                    stringResource(id = R.string.playlist_picker_song_count_other, playList.songDataList.size)
-                },
+                text = pluralStringResource(R.plurals.playlist_picker_song_count, playList.songDataList.size, playList.songDataList.size),
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
                 modifier = Modifier
@@ -1088,11 +1072,7 @@ private fun PlayListContextPlaylistOptionItem(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
             )
             Text(
-                text = if (playlist.songDataList.size == 1) {
-                    stringResource(id = R.string.playlist_picker_song_count_one)
-                } else {
-                    stringResource(id = R.string.playlist_picker_song_count_other, playlist.songDataList.size)
-                },
+                text = pluralStringResource(R.plurals.playlist_picker_song_count, playlist.songDataList.size),
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
                 maxLines = 1,
@@ -1175,18 +1155,6 @@ private fun PlayListContextMenuDivider(color: Color)
             .background(color),
     )
 }
-
-private fun uriStubMedia(uri: Uri) = YosMediaItem(
-    uri = uri,
-    mediaId = null, mimeType = null,
-    title = null, writer = null, compilation = null, composer = null,
-    artists = null, album = null, albumArtists = null, thumb = null,
-    trackNumber = null, discNumber = null, genre = null,
-    recordingDay = null, recordingMonth = null, recordingYear = null,
-    releaseYear = null, artistId = null, albumId = null, genreId = null,
-    author = null, addDate = null, duration = 0L,
-    modifiedDate = null, cdTrackNumber = null,
-)
 
 @Stable
 private enum class PlayListType {

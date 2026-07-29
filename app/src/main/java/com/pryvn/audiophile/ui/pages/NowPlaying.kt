@@ -528,7 +528,9 @@ fun NowPlaying(
         val overflowSheetOpen = remember { mutableStateOf(false) }
         val snapshotSong = remember { mutableStateOf<YosMediaItem?>(null) }
         val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
-        val fsAlbum = fsEnabled && nowPageLambda() == Album
+        val forceLocalFs = remember { mutableStateOf(false) }
+        val effectiveFs = fsEnabled || forceLocalFs.value
+        val fsAlbum = effectiveFs && nowPageLambda() == Album
 
         val lrcEntries: MutableState<List<List<Pair<Float, String>>>> =
             MediaViewModelObject.lrcEntries
@@ -568,6 +570,7 @@ fun NowPlaying(
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
             musicPlaying
         }
+        LaunchedEffect(thisMusicPlaying.value?.uri) { forceLocalFs.value = false }
 
         val lastClickTime = rememberSaveable(key = "NowPlaying_lastClickTime") {
             mutableLongStateOf(0L)
@@ -631,7 +634,7 @@ fun NowPlaying(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
-        val bgMode = if (fsEnabled) "Solid" else SettingsLibrary.NowPlayingBackground
+        val bgMode = if (effectiveFs) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
             // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
@@ -706,7 +709,7 @@ fun NowPlaying(
         val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
             music = thisMusicPlaying.value,
             isPlaying = isPlayingStatusLambda(),
-            active = fsEnabled && fsAlbum,
+            active = fsAlbum,
             fullscreenArtwork = true
         )
         if (fsAlbum || heroAlpha > 0f) {
@@ -844,7 +847,7 @@ Album ->
                                                 showNowPlaying() &&
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
-                                            if (fsEnabled) {
+                                            if (effectiveFs) {
                                                 Box(Modifier.weight(1f)) { }
                                             } else {
                                                 Album(
@@ -857,7 +860,8 @@ Album ->
                                                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
-                                                    active = active
+                                                    active = active,
+                                                    onLocalArtworkFound = { forceLocalFs.value = true }
                                                 )
                                             }
                                             Row(
@@ -917,7 +921,7 @@ Album ->
                                       YosWrapper {
                                           val isVisible = nowPageLambda() == Lyric
                                           PlayingBar(
-                                              modifier = if (fsEnabled) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = if (effectiveFs) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
@@ -967,7 +971,7 @@ Album ->
                                     ) {
                                         val isVisible = nowPageLambda() == PlayingList
                                           PlayingBar(
-                                              modifier = if (fsEnabled) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = if (effectiveFs) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
@@ -1488,7 +1492,8 @@ fun ColumnScope.Album(
     albumUrl: () -> Uri?,
     isPlaying: () -> Boolean,
     music: () -> YosMediaItem?,
-    active: Boolean
+    active: Boolean,
+    onLocalArtworkFound: (() -> Unit)? = null
 ) {
     val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
 
@@ -1533,6 +1538,10 @@ fun ColumnScope.Album(
             active = active,
             fullscreenArtwork = fsEnabled
         )
+
+        LaunchedEffect(animatedAlbumCoverState.localArtworkFound) {
+            if (animatedAlbumCoverState.localArtworkFound) onLocalArtworkFound?.invoke()
+        }
 
         if (fsEnabled) {
             YosWrapper {
@@ -2014,7 +2023,11 @@ fun PlayingList(
                                             },
                                             itemClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    MediaController.prepare(song, upNext)
+                                                    if (song.mediaId != null && song.uri?.scheme != "file" && song.uri?.scheme != "content") {
+                                                        MediaController.playOnline(song.mediaId, song.title)
+                                                    } else {
+                                                        MediaController.prepare(song, listOf(song))
+                                                    }
                                                 }
                                             },
                                         )

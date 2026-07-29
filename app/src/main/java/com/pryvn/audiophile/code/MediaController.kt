@@ -225,7 +225,7 @@ object MediaController {
         repeatMode: Int = REPEAT_MODE_ALL,
         play: Boolean = true
     ) {
-        println("prepare $music")
+        Log.d("QueueTap", "prepare() called: music.title=${music.title}, thisMusicList.size=${thisMusicList.size}, thisMusicList.hash=${thisMusicList.hashCode()}, playingMusicList.hash=${playingMusicList.value?.hashCode()}, sameRef=${thisMusicList === playingMusicList.value}, sameValue=${thisMusicList == playingMusicList.value}")
         if (thisMusicList != playingMusicList.value) {
 
             var index = 0
@@ -248,7 +248,7 @@ object MediaController {
                 resolved.toMediaItem()
             }
 
-
+            Log.d("QueueTap", "prepare() FULL path taken: resolved list size=${itemList.size}, target index=$index, about to setMediaItems+prepare+fadePlay")
             withContext(Dispatchers.Main) {
                 mediaControl?.setMediaItems(itemList, index, position)
                 mediaControl?.prepare()
@@ -290,7 +290,7 @@ object MediaController {
             }
 
         } else {
-            println("prepare 调用非切列表")
+            Log.d("QueueTap", "prepare() ELSE branch taken: indexOf(music)=${thisMusicList.indexOf(music)}, music.mediaId=${music.mediaId}, music.uri=${music.uri}")
             val index = thisMusicList.indexOf(music)
             withContext(Dispatchers.Main) {
                 mediaControl?.seekToDefaultPosition(index)
@@ -455,7 +455,7 @@ object MediaController {
                 )
             } else {
                 YosMediaItem(
-                    uri = Uri.EMPTY,
+                    uri = Uri.parse("ytmusic://${song.videoId}"),
                     mediaId = song.videoId,
                     title = song.title,
                     artists = song.artists.joinToString(", ") { it.name },
@@ -717,6 +717,7 @@ object MediaController {
     }
 
     suspend fun skipToNextInQueueItem(index: Int): Boolean {
+        Log.d("QueueTap", "skipToNextInQueueItem called: index=$index")
         val controller = mediaControl ?: return false
         val currentIndex = withContext(Dispatchers.Main) {
             controller.currentMediaItemIndex.coerceAtLeast(0)
@@ -726,6 +727,7 @@ object MediaController {
     }
 
     suspend fun skipToUpNextItem(index: Int): Boolean {
+        Log.d("QueueTap", "skipToUpNextItem called: index=$index")
         val controller = mediaControl ?: return false
         val currentIndex = withContext(Dispatchers.Main) {
             controller.currentMediaItemIndex.coerceAtLeast(0)
@@ -974,6 +976,7 @@ object MediaController {
         targetIndex: Int,
     ): Boolean {
         val currentQueue = currentQueueSnapshot(controller)
+        Log.d("QueueTap", "skipToQueueIndex: targetIndex=$targetIndex, currentQueue.size=${currentQueue.size}, valid=${targetIndex in currentQueue.indices}")
 
         if (targetIndex !in currentQueue.indices) {
             return false
@@ -1446,6 +1449,7 @@ class YosPlaybackService : MediaSessionService() {
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    Log.d("QueueTap", "onMediaItemTransition: mediaId=${mediaItem?.mediaId}, reason=$reason")
                     /*mediaSession?.let { MediaController.sendNotification(it,context) }*/
                     mediaItem?.let {
                         val yosItem = it.toYosMediaItem()
@@ -1495,6 +1499,7 @@ class YosPlaybackService : MediaSessionService() {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     super.onPlaybackStateChanged(playbackState)
                     val currentId = player.currentMediaItem?.mediaId
+                    Log.d("QueueTap", "onPlaybackStateChanged: state=$playbackState, currentId=$currentId, musicPlaying.mediaId=${musicPlaying.value?.mediaId}, match=${currentId != null && currentId == musicPlaying.value?.mediaId}")
                     if (currentId == null || currentId != musicPlaying.value?.mediaId) return
                     when (playbackState) {
                         Player.STATE_READY -> {

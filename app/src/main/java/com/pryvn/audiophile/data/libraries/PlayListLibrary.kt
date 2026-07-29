@@ -13,7 +13,7 @@ import java.util.UUID
 data class PlayList(
     val listID: String,
     val name: String,
-    val songDataList: List<Uri>,
+    val songDataList: List<YosMediaItem>,
     val description: String? = null,
     /** Custom cover image URI (content:// or file://) chosen by the user.
      *  When null the playlist falls back to the auto-generated collage
@@ -53,12 +53,12 @@ object PlayListLibrary {
     }
 
     fun PlayList.addMusic(music: YosMediaItem) {
-        val uri = if (music.mediaId != null && music.uri?.scheme != "file" && music.uri?.scheme != "content") {
-            Uri.parse("ytmusic://${music.mediaId}")
+        val storedMusic = if (music.mediaId != null && music.uri?.scheme != "file" && music.uri?.scheme != "content") {
+            music.copy(uri = Uri.parse("ytmusic://${music.mediaId}"))
         } else {
-            music.uri ?: return
+            music
         }
-        replace(this, copy(songDataList = songDataList + uri))
+        replace(this, copy(songDataList = songDataList + storedMusic))
     }
 
     fun PlayList.removeMusic(music: YosMediaItem) {
@@ -67,7 +67,7 @@ object PlayListLibrary {
         } else {
             music.uri ?: return
         }
-        val idx = songDataList.indexOfFirst { it == targetUri }
+        val idx = songDataList.indexOfFirst { it.uri == targetUri || (it.mediaId != null && it.mediaId == music.mediaId) }
         if (idx < 0) return
         replace(this, copy(songDataList = songDataList.toMutableList().also { it.removeAt(idx) }))
     }
@@ -78,7 +78,7 @@ object PlayListLibrary {
         name: String,
         description: String?,
         coverUri: String?,
-        songs: List<Uri>,
+        songs: List<YosMediaItem>,
     ) = replace(
         this,
         copy(

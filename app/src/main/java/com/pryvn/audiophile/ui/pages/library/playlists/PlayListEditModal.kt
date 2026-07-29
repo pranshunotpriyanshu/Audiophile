@@ -94,13 +94,14 @@ private val EditPlaylistRowHeight = 56.dp
 private val EditPlaylistDraggingItemShape = RoundedCornerShape(0.dp)
 
 private fun playlistEditItemKey(
-    songUri: Uri,
+    song: YosMediaItem,
     index: Int,
-    songUris: List<Uri>,
+    songList: List<YosMediaItem>,
 ): String {
-    val duplicateOrdinal = songUris
+    val songUri = song.uri
+    val duplicateOrdinal = songList
         .take(index + 1)
-        .count { it == songUri }
+        .count { it.uri == songUri }
 
     return "edit_playlist:$songUri:$duplicateOrdinal"
 }
@@ -119,7 +120,7 @@ private fun resolvePlaylistReorderTarget(
 }
 
 private fun movePlaylistSongDuringDrag(
-    workingSongs: SnapshotStateList<Uri>,
+    workingSongs: SnapshotStateList<YosMediaItem>,
     staged: SnapshotStateList<Int>,
     fromIndex: Int,
     toIndex: Int,
@@ -184,8 +185,8 @@ fun PlayListEditModal(
     var name by remember(source.listID) { mutableStateOf(source.name) }
     var description by remember(source.listID) { mutableStateOf(source.description.orEmpty()) }
     var coverUri by remember(source.listID) { mutableStateOf(source.coverUri) }
-    val workingSongs: SnapshotStateList<Uri> =
-        remember(source.listID) { mutableStateListOf<Uri>().apply { addAll(source.songDataList) } }
+    val workingSongs: SnapshotStateList<YosMediaItem> =
+        remember(source.listID) { mutableStateListOf<YosMediaItem>().apply { addAll(source.songDataList) } }
     val staged: SnapshotStateList<Int> = remember(source.listID) { mutableStateListOf() }
 
     // Photo picker — uses the modern Android Photo Picker on API
@@ -218,8 +219,8 @@ fun PlayListEditModal(
         // the new title + (post-removal) song list without needing
         // an explicit nav restart.
         if (LibraryObject.getTargetPlaylistId() == source.listID) {
-            val resolved = finalSongs.mapNotNull { uri ->
-                songs.firstOrNull { it.uri == uri }
+            val resolved = finalSongs.mapNotNull { music ->
+                songs.firstOrNull { it.uri == music.uri }
             }
             LibraryObject.setTargetListWithTitle(
                 title = finalName,
@@ -285,7 +286,7 @@ private fun EditPlaylistContent(
     coverUri: String?,
     onPickCustomCover: () -> Unit,
     onChooseAutoCover: () -> Unit,
-    workingSongs: SnapshotStateList<Uri>,
+    workingSongs: SnapshotStateList<YosMediaItem>,
     staged: SnapshotStateList<Int>,
     onClose: () -> Unit,
     onDone: () -> Unit,
@@ -300,19 +301,20 @@ private fun EditPlaylistContent(
     // synthetic placeholder if the song was removed from the library
     // since the playlist was saved (orphan URI).
     val resolvedSongs = remember(workingSongs.toList()) {
-        workingSongs.map { uri ->
-            songs.firstOrNull { it.uri == uri }
+        workingSongs.map { music ->
+            songs.firstOrNull { it.uri == music.uri }
                 ?: YosMediaItem(
-                    uri = uri, mediaId = null, mimeType = null,
-                    title = null, writer = null, compilation = null,
-                    composer = null, artists = null, album = null,
-                    albumArtists = null, thumb = null,
-                    trackNumber = null, discNumber = null, genre = null,
-                    recordingDay = null, recordingMonth = null,
-                    recordingYear = null, releaseYear = null,
-                    artistId = null, albumId = null, genreId = null,
-                    author = null, addDate = null, duration = 0L,
-                    modifiedDate = null, cdTrackNumber = null,
+                    uri = music.uri, mediaId = music.mediaId, mimeType = music.mimeType,
+                    title = music.title, writer = music.writer, compilation = music.compilation,
+                    composer = music.composer, artists = music.artists, album = music.album,
+                    albumArtists = music.albumArtists, thumb = music.thumb,
+                    trackNumber = music.trackNumber, discNumber = music.discNumber,
+                    genre = music.genre, recordingDay = music.recordingDay,
+                    recordingMonth = music.recordingMonth, recordingYear = music.recordingYear,
+                    releaseYear = music.releaseYear, artistId = music.artistId,
+                    albumId = music.albumId, genreId = music.genreId, author = music.author,
+                    addDate = music.addDate, duration = music.duration,
+                    modifiedDate = music.modifiedDate, cdTrackNumber = music.cdTrackNumber,
                 )
         }
     }

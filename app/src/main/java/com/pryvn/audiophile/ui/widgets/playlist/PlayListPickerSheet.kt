@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -583,7 +584,7 @@ private fun ExistingPlayListList(
         ) { _, playlist ->
             ExistingPlayListRow(
                 playlist = playlist,
-                isAlreadyIn = songToAdd != null && playlist.songDataList.contains(songToAdd.uri),
+                isAlreadyIn = songToAdd != null && playlist.songDataList.any { it.uri == songToAdd.uri },
                 onClick = { onAdd(playlist) },
             )
         }
@@ -662,9 +663,5 @@ private fun Divider() {
 
 @Composable
 private fun pluralSongCount(count: Int): String {
-    return if (count == 1) {
-        stringResource(R.string.playlist_picker_song_count_one)
-    } else {
-        stringResource(R.string.playlist_picker_song_count_other, count)
-    }
+    return pluralStringResource(R.plurals.playlist_picker_song_count, count, count)
 }

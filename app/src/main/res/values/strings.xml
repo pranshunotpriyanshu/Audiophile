@@ -189,8 +189,10 @@
     <string name="playlist_picker_create_new">Create New Playlist</string>
     <string name="playlist_picker_empty">No playlists yet</string>
     <string name="playlist_picker_already_added_cd">Already in this playlist</string>
-    <string name="playlist_picker_song_count_one">%1$d song</string>
-    <string name="playlist_picker_song_count_other">%1$d songs</string>
+    <plurals name="playlist_picker_song_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
     <string name="playlist_edit_title">Edit Playlist</string>
     <string name="playlist_edit_close_cd">Close</string>
     <string name="playlist_edit_done_cd">Done</string>

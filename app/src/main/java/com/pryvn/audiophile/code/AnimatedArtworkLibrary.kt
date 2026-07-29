@@ -41,7 +41,7 @@ object AnimatedArtworkLibrary
 
     sealed class AnimatedArtworkResult
     {
-        data class Success(val file: File) : AnimatedArtworkResult()
+        data class Success(val file: File, val localFolder: Boolean = false) : AnimatedArtworkResult()
         data object NoAnimatedArtwork : AnimatedArtworkResult()
         data object ApiFailed : AnimatedArtworkResult()
         data object NotAvailable : AnimatedArtworkResult()
@@ -53,7 +53,7 @@ object AnimatedArtworkLibrary
     private const val NetworkTimeoutMilliseconds = 15000
     private const val DefaultSampleBufferBytes = 1024 * 1024
     private const val MaximumPlaylistBytes = 1024 * 1024
-    private const val MaximumArtworkBytes = 50L * 1024L * 1024L
+    private const val MaximumArtworkBytes = 100L * 1024L * 1024L
     private const val NegativeCacheExtension = ".none"
     private const val MaximumExpectedStartOffsetMicroseconds = 500_000L
     private val bandwidthRegex = Regex("BANDWIDTH=(\\d+)")
@@ -171,9 +171,13 @@ object AnimatedArtworkLibrary
         }
 
         Log.d("AnimatedArtwork", "tryLocalFolderArtwork: found ${childDoc.uri}")
-        val cacheFile = copyLocalArtworkToCache(context, childDoc.uri, albumName, variant)
+        if (childDoc.length() > MaximumArtworkBytes) {
+            Log.d("AnimatedArtwork", "tryLocalFolderArtwork: file too large (${childDoc.length()} bytes), skipping")
+            return null
+        }
+        val cacheFile = copyLocalArtworkToCache(context, childDoc.uri, albumName)
         Log.d("AnimatedArtwork", "tryLocalFolderArtwork: cacheFile=$cacheFile")
-        return if (cacheFile != null) AnimatedArtworkResult.Success(cacheFile) else null
+        return if (cacheFile != null) AnimatedArtworkResult.Success(cacheFile, localFolder = true) else null
     }
 
     private fun localArtworkFile(music: YosMediaItem, variant: ArtworkVariant, albumName: String): File?
@@ -245,13 +249,12 @@ object AnimatedArtworkLibrary
     private suspend fun copyLocalArtworkToCache(
         context: Context,
         sourceUri: Uri,
-        albumName: String,
-        variant: ArtworkVariant
+        albumName: String
     ): File? = withContext(Dispatchers.IO) {
         try {
             val cacheDir = cacheDirectory(context)
             cacheDir.mkdirs()
-            val identity = "${variant.name.lowercase(Locale.ROOT)}\u0000local\u0000${albumName.lowercase(Locale.ROOT)}"
+            val identity = "local\u0000${albumName.lowercase(Locale.ROOT)}"
             val hash = MessageDigest.getInstance("SHA-256")
                 .digest(identity.toByteArray())
                 .joinToString("") { "%02x".format(Locale.ROOT, it) }

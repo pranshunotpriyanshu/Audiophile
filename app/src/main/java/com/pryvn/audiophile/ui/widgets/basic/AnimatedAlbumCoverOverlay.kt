@@ -37,7 +37,8 @@ import java.io.File
 class AnimatedAlbumCoverState internal constructor(
     internal val player: ExoPlayer?,
     internal val isPlaying: Boolean,
-    internal val videoPrepared: Boolean
+    internal val videoPrepared: Boolean,
+    internal val localArtworkFound: Boolean = false
 )
 
 @Composable
@@ -102,12 +103,10 @@ fun rememberAnimatedAlbumCoverState(
         }
     }
 
-    val artworkFile = when (result)
-    {
-        is AnimatedArtworkResult.Success -> result.file
-        else -> null
-    }
-    if (artworkFile == null) {return AnimatedAlbumCoverState(null, isPlaying, false)}
+    val successResult = result as? AnimatedArtworkResult.Success
+    if (successResult == null) {return AnimatedAlbumCoverState(null, isPlaying, false)}
+    val artworkFile = successResult.file
+    val localArtworkFound = successResult.localFolder
 
     val artworkUri = remember(artworkFile) { Uri.fromFile(artworkFile) }
     val latestIsPlaying = rememberUpdatedState(isPlaying)
@@ -120,6 +119,7 @@ fun rememberAnimatedAlbumCoverState(
                 .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
                 .build()
             repeatMode = Player.REPEAT_MODE_ONE
+            setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
             setMediaItem(MediaItem.fromUri(artworkUri))
             prepare()
         }
@@ -162,7 +162,7 @@ fun rememberAnimatedAlbumCoverState(
         if (isPlaying) {player.play()} else {player.pause()}
     }
 
-    return AnimatedAlbumCoverState(player, isPlaying, videoPrepared)
+    return AnimatedAlbumCoverState(player, isPlaying, videoPrepared, localArtworkFound)
 }
 
 @Composable
