@@ -3338,7 +3338,8 @@ fun PlayerControl(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .padding(12.dp),
-                                            size = 35.dp
+                                            size = 35.dp,
+                                            spinnerRes = R.raw.ios_spinner_white
                                         )
                                         "pause" -> Icon(
                                             painterResource(id = R.drawable.ic_nowplaying_pause),

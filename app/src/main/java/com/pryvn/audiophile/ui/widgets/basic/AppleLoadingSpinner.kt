@@ -1,11 +1,10 @@
 package com.pryvn.audiophile.ui.widgets.basic
 
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieAnimation
@@ -20,12 +19,10 @@ fun AppleLoadingSpinner(
     size: Dp = 40.dp,
     spinnerRes: Int? = null,  // optional override
 ) {
-    // Detect dark mode using Configuration
-    val configuration = LocalConfiguration.current
-    val isDark = configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+    val bg = MaterialTheme.colorScheme.background
+    val isDarkBg = (0.2126f * bg.red + 0.7152f * bg.green + 0.0722f * bg.blue) < 0.5f
 
-    // Choose resource: override or auto
-    val resId = spinnerRes ?: if (isDark) {
+    val resId = spinnerRes ?: if (isDarkBg) {
         R.raw.ios_spinner_white
     } else {
         R.raw.ios_spinner_black
