@@ -1,7 +1,6 @@
 package com.pryvn.audiophile.data.objects
 
 import android.net.Uri
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf

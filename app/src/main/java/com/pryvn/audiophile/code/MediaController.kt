@@ -60,7 +60,6 @@ import com.pryvn.audiophile.code.api.YTPlayerUtils
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
 import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
-import com.pryvn.audiophile.code.api.parseSyncedLyrics
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
@@ -254,7 +253,7 @@ object MediaController {
                 mediaControl?.prepare()
             }
 
-            println("prepare 调用切列表")
+            println("prepare: switching playlist")
             orderedPlayingMusicList.value = thisMusicList
             nextInQueueMusicList.value = emptyList()
             historyMusicList.value = emptyList()
@@ -277,10 +276,10 @@ object MediaController {
                 }
             }
 
-            // 播放列表切换事件
-            println("prepare 尝试保存播放列表")
+            // Playlist switch event
+            println("prepare: attempting to save playlist")
             if (mainMusicList != null && playingMusicList.value != null) {
-                println("prepare 保存播放列表")
+                println("prepare: saving playlist")
                 MusicLibrary.updatePlayList(
                     PlayListV1(
                         mainMusicList = mainMusicList,
@@ -513,7 +512,7 @@ object MediaController {
         val scope = CoroutineScope(Dispatchers.IO + refreshJob!!)
 
         scope.launch {
-            println("prepare 刷新UI状态 $music")
+            println("prepare: refreshing UI state $music")
             musicPlaying.value = music
             println(musicPlaying.value)
         }
@@ -1219,9 +1218,9 @@ class YosPlaybackService : MediaSessionService() {
     }
 
     private fun saveData() {
-        println("持久化 尝试保存播放状态")
+        println("persist: attempting to save playback state")
         if (musicPlaying.value != null && mediaControl != null) {
-            println("持久化 保存播放状态")
+            println("persist: saving playback state")
             MusicLibrary.updatePlayStatus(
                 PlayStatus(
                     musicPlaying.value,
@@ -1293,7 +1292,7 @@ class YosPlaybackService : MediaSessionService() {
 
                         val path = player.currentMediaItem?.uri
 
-                        println("质量分析 内置实现获取")
+                        println("quality: using built-in implementation")
                         var samplingRate = 0
                         var bitrate = 0
                         var haveJOC = false
@@ -1315,7 +1314,7 @@ class YosPlaybackService : MediaSessionService() {
 
                         val finalLrcContent = if (lrcContent == null) {
                             val lrcPath = "${thisPath?.substringBeforeLast(".")}.lrc"
-                            println("获取歌词元数据失败，将读取：$lrcPath")
+                            println("failed to get lyrics metadata, will read: $lrcPath")
                             AudioMetadataUtils.loadLrcFile(this@YosPlaybackService, lrcPath) ?: ""
                         } else {
                             lrcContent
@@ -1326,7 +1325,7 @@ class YosPlaybackService : MediaSessionService() {
 
                         if (thisPath != null) {
                             // MediaViewModelObject.isDolby.value = thisPath.endsWith(".m4a")
-                            // 改为 JOC 判断
+                            // Changed to JOC check
 
                             if (samplingRate == 0 || bitrate == 0) {
                                 try {
@@ -1337,7 +1336,7 @@ class YosPlaybackService : MediaSessionService() {
                                         bitrate = audioInfo.first
                                     }
                                 } catch (_: Exception) {
-                                    println("质量分析失败（非本地文件），跳过")
+                                    println("quality analysis failed (not a local file), skipping")
                                 }
                             }
                         }
@@ -1346,7 +1345,7 @@ class YosPlaybackService : MediaSessionService() {
                         MediaViewModelObject.samplingRate.intValue = samplingRate
                         MediaViewModelObject.bitrate.intValue = bitrate
 
-                        println("质量分析 采样率：${MediaViewModelObject.samplingRate.intValue}，比特率：${MediaViewModelObject.bitrate.intValue}")
+                        println("quality: sample rate: ${MediaViewModelObject.samplingRate.intValue}, bitrate: ${MediaViewModelObject.bitrate.intValue}")
 
                         // Fetch online lyrics with cancellation guard
                         MediaViewModelObject.isLoadingLyrics.value = true
@@ -1470,7 +1469,7 @@ class YosPlaybackService : MediaSessionService() {
                         }
                     }
 
-                    println("更新 $mediaItem")
+                    println("updating $mediaItem")
                     super.onMediaItemTransition(mediaItem, reason)
                 }
 

@@ -4,7 +4,6 @@ import com.pryvn.audiophile.code.api.innertube.models.Artist
 import com.pryvn.audiophile.code.api.innertube.models.SongItem
 import com.pryvn.audiophile.code.api.innertube.models.AlbumItem
 import com.pryvn.audiophile.code.api.innertube.models.ArtistItem
-import com.pryvn.audiophile.code.api.innertube.models.PlaylistItem
 
 data class ArtistPageData(
     val artist: ArtistItem,

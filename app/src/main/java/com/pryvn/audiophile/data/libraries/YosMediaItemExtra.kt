@@ -3,7 +3,6 @@ package com.pryvn.audiophile.data.libraries
 import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
-import java.util.Locale
 
 const val defaultArtistsName = "Unknown Artist"
 val defaultArtists = listOf(defaultArtistsName)

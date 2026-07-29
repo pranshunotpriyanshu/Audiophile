@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -23,7 +24,6 @@ import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandHorizontally
@@ -40,7 +40,6 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,7 +67,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.CompositionLocalProvider
 
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -176,10 +174,10 @@ import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import java.io.File
 import kotlin.math.abs
 
-/*//MediaPlayer全局控制器
+/*//MediaPlayer global controller
 var mediaController = com.pryvn.audiophile.code.MediaController*/
 
-class MainActivity : BaseActivity() {
+class MainActivity : ComponentActivity() {
 
     private val mediaViewModel: MediaViewModel by viewModels()
     private val mainViewModel: MainViewModel by viewModels()
@@ -251,7 +249,7 @@ class MainActivity : BaseActivity() {
                         }
                     }*/
 
-                    println("重组：底层载体")
+                    println("Recompose: bottom container")
 
                     /*Surface(
                         modifier = Modifier
@@ -259,7 +257,7 @@ class MainActivity : BaseActivity() {
                         color = Color.Transparent,
                         contentColor = Color.Black withNight Color.White
                     ) {*/
-                        println("重组：主载体")
+                        println("Recompose: main container")
                         val miniPlayerHeight = 62.dp
                         val height = remember("MainActivity_height") { mutableIntStateOf(0) }
 
@@ -268,7 +266,7 @@ class MainActivity : BaseActivity() {
                                 height.intValue.toDp().plus(miniPlayerHeight)
                             }
                         }
-                        // 逻辑初始化区域
+                        // Logic initialization area
                         val navController = rememberNavController()
                         val navSpec = spring(
                             stiffness = 380f,
@@ -279,7 +277,7 @@ class MainActivity : BaseActivity() {
                         val route = rememberSaveable(key = "MainActivity_route") {
                             mutableStateOf(UI.HomePage)
                         }
-                        // 记录当前路线
+                        // Record current route
 
                         YosWrapper {
                             val backstackEntry =
@@ -288,7 +286,7 @@ class MainActivity : BaseActivity() {
                                 backstackEntry.value?.destination?.route ?: UI.HomePage
                         }
 
-                        // 显示控制区域
+                        // Show control area
                         val yosBottomSheetConfig = object {
                             val progress
                                 get() = if (parentHeight.intValue == 0) 0f else abs(offsetY.value / parentHeight.intValue).coerceIn(
@@ -359,7 +357,7 @@ class MainActivity : BaseActivity() {
                             }
                         }
 
-                        // 导航区域
+                        // Navigation area
                         val defaultHome = stringResource(id = R.string.page_home_title)
 
                         val nowLabel = rememberSaveable(key = "MainActivity_nowLabel") {
@@ -368,11 +366,11 @@ class MainActivity : BaseActivity() {
 
                         val pagerState = rememberPagerState(pageCount = { 4 })
 
-                        // 以下为实际显示
+                        // Actual display below
 
-                        // 主界面
+// Main interface
                         YosWrapper {
-                            println("重组：主界面")
+                            println("Recompose: main interface")
 
                             Surface(
                                 modifier = Modifier
@@ -405,7 +403,7 @@ class MainActivity : BaseActivity() {
                                 color = MaterialTheme.colorScheme.background,
                                 contentColor = MaterialTheme.colorScheme.onBackground
                             ) {
-                                // 主界面本体
+                                // Main interface body
                                 SharedTransitionLayout {
                                     YosWrapper {
                                         BackHandler(showNowPlaying.value) {
@@ -461,7 +459,7 @@ class MainActivity : BaseActivity() {
                                                 if (SettingsLibrary.BarBlurEffect && !showNowPlaying.value) {
                                                     Modifier.haze(state = hazeState)
                                                 } else {
-                                                    //println("haze 父控件效果关闭")
+                                                    //println("haze parent effect disabled")
                                                     Modifier
                                                 }
                                             ),
@@ -632,12 +630,12 @@ class MainActivity : BaseActivity() {
 
                                 }
 
-                                // 播放列表删除撤销 snackbar
+                                // Playlist deletion undo snackbar
                                 YosWrapper {
                                     UndoSnackbarHost(bottomOffset = 62.dp)
                                 }
 
-                                // 底部导航栏
+                                // Bottom navigation bar
                                 YosWrapper {
                                     val showNavBar = route.value in listOf(
                                         UI.HomePage,
@@ -651,7 +649,7 @@ class MainActivity : BaseActivity() {
                                             contentAlignment = Alignment.BottomCenter
                                         ) {
                                             val navBarHeight128 = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() + 128.dp }
-                                            // 背景
+                                            // Background
                                             if (!showNowPlaying.value && SettingsLibrary.BarBlurEffect) {
                                                 Spacer(
                                                     modifier = Modifier
@@ -696,7 +694,7 @@ class MainActivity : BaseActivity() {
                                                         }
                                                 )
                                             } else {
-                                                //println("haze 底栏效果关闭")
+                                                //println("haze bottom bar effect disabled")
                                                 Spacer(
                                                     modifier = Modifier
                                                         .fillMaxWidth()
@@ -776,7 +774,7 @@ class MainActivity : BaseActivity() {
                                 }
                             }
 
-                            // 弹窗
+                            // Dialog
                             YosWrapper {
                                 val showCornerSetDialog =
                                     remember("MainActivity_showCornerSetDialog") {
@@ -796,7 +794,7 @@ class MainActivity : BaseActivity() {
                             }
 
 
-                            // 播放条&播放界面
+                            // Playback bar & NowPlaying
                         YosWrapper {
                             if (height.intValue == 0) return@YosWrapper
                             if (!hasMusic.value) return@YosWrapper
@@ -834,7 +832,7 @@ class MainActivity : BaseActivity() {
 
                                     val color = Color.White withNight Color(0xFF1C1C1E)
 
-                                    println("重组：播放条&播放界面 外层")
+                                    println("Recompose: playback bar & NowPlaying outer")
 
                                     val showNavBar = route.value in listOf(
                                         UI.HomePage,
@@ -915,7 +913,7 @@ class MainActivity : BaseActivity() {
                                             },
                                         color = Color.Transparent
                                     ) {
-                                        println("重组：播放条&播放界面")
+                                        println("Recompose: playback bar & NowPlaying")
 
                                         val isPlaying =
                                             rememberSaveable(key = "MainActivity_isPlaying") {
@@ -943,9 +941,9 @@ class MainActivity : BaseActivity() {
                                                 }
                                         }
 
-                                        // 迷你播放状态
+                                        // Mini player state
                                         YosWrapper {
-                                            //println("变换：菜单透明度 $menuAlpha")
+                                            //println("transform: menu alpha $menuAlpha")
                                             if (yosBottomSheetConfig.showMenu) {
                                                 YosWrapper {
                                                     Column(
@@ -1060,7 +1058,7 @@ class MainActivity : BaseActivity() {
                                                                         )
                                                                         /*Text(
                                                                 text = musicPlaying.value?.Artist
-                                                                    ?: "未知艺术家",
+                                                                    ?: "Unknown Artist",
                                                                 fontSize = 13.5.sp,
                                                                 lineHeight = 13.5.sp,
                                                                 modifier = Modifier.alpha(
@@ -1339,10 +1337,10 @@ class MainActivity : BaseActivity() {
         val needRefresh = SettingsLibrary.RefreshEveryTime
         if (needRefresh || enforce) {
             mediaViewModel.viewModelScope.launch(Dispatchers.IO) {
-                // Application中已还原，这里算是后台扫描
+                // Already restored in Application, this is background scan
                 // mainMusicList.value = MusicScanner(context).getMusicList()
                 MusicLibrary.scanMedia(context)
-                println("刷新媒体库")
+                println("Refreshing music library")
             }
         }
     }

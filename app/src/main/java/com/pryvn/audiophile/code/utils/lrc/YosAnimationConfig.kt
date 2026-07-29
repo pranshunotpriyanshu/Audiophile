@@ -3,11 +3,11 @@ package com.pryvn.audiophile.code.utils.lrc
 import androidx.compose.runtime.Stable
 
 /**
- * YosLyricView 动画效果控制类
+ * YosLyricView animation control class
  *
- * 当前只有较少选项，等待后续开发
+ * Currently limited options, awaiting future development
  *
- * @param ignoreSystemAnimationScale 是否忽略系统设置的 Animator 动画时长。注意此项有严重的兼容性问题，建议保持默认设置
+ * @param ignoreSystemAnimationScale Whether to ignore system Animator duration scale. Note: this has significant compatibility issues, keeping default is recommended
  */
 @Stable
 data class YosAnimationConfig(

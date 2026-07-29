@@ -9,7 +9,7 @@ import com.pryvn.audiophile.data.SettingsSaver
 object SettingsLibrary {
 
     /**
-     * 关注的歌手列表
+     * Followed artist list
      */
     @Stable
     var FollowedArtists by mutableDataSaverListStateOf(
@@ -51,7 +51,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 是否显示音量条
+     * Whether to show volume slider
      */
     @Stable
     var NowPlayingShowVolumeBar by mutableDataSaverStateOf(
@@ -61,7 +61,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 应用主题
+     * App theme
      */
     @Stable
     var CustomTheme by mutableDataSaverStateOf(
@@ -71,7 +71,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 是否已设置过屏幕圆角大小
+     * Whether screen corner radius has been set
      */
     @Stable
     var ScreenCornerSet by mutableDataSaverStateOf(
@@ -81,7 +81,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 屏幕圆角大小
+     * Screen corner radius
      */
     @Stable
     var ScreenCorner by mutableDataSaverStateOf(
@@ -91,7 +91,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌曲排序
+     * Song sort order
      */
     @Stable
     var SongSort by mutableDataSaverStateOf(
@@ -106,7 +106,7 @@ object SettingsLibrary {
     }
 
     /**
-     * 启用降序
+     * Enable descending order
      */
     @Stable
     var EnableDescending by mutableDataSaverStateOf(
@@ -116,7 +116,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌词界面 - 翻译
+     * Lyrics screen - translation
      */
     @Stable
     var NowPlayingTranslation by mutableDataSaverStateOf(
@@ -126,7 +126,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 每次启动时刷新媒体库
+     * Refresh media library on every launch
      */
     @Stable
     var RefreshEveryTime by mutableDataSaverStateOf(
@@ -136,7 +136,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌词字体字重
+     * Lyrics font weight
      */
     @Stable
     var LyricFontWeight by mutableDataSaverStateOf(
@@ -146,7 +146,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌词字体大小 (sp)
+     * Lyrics font size (sp)
      */
     @Stable
     var LyricFontSize by mutableDataSaverStateOf(
@@ -156,7 +156,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌词平衡行模式
+     * Lyrics line balance mode
      */
     @Stable
     var LyricLineBalance by mutableDataSaverStateOf(
@@ -166,7 +166,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 歌词模糊效果
+     * Lyrics blur effect
      */
     @Stable
     var LyricBlurEffect by mutableDataSaverStateOf(
@@ -176,7 +176,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 状态栏歌词启用
+     * Status bar lyrics enabled
      */
     @Stable
     var StatusBarLyricEnabled by mutableDataSaverStateOf(
@@ -186,7 +186,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 状态栏歌词已挂钩
+     * Status bar lyrics hooked
      */
     @Stable
     var StatusBarLyricHooked by mutableDataSaverStateOf(
@@ -196,7 +196,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 播放界面背景动态效果
+     * Now playing background dynamic effect
      */
     @Stable
     var NowplayingBackgroundEffect by mutableDataSaverStateOf(
@@ -206,7 +206,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 界面工具栏模糊效果
+     * UI toolbar blur effect
      */
     @Stable
     var BarBlurEffect by mutableDataSaverStateOf(
@@ -216,7 +216,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 媒体通知-额外的媒体图标
+     * Media notification - extra media icon
      */
     @Stable
     var NotificationEnableIcon by mutableDataSaverStateOf(
@@ -226,7 +226,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 媒体通知-小一号图标
+     * Media notification - smaller icon
      */
     @Stable
     var NotificationSmallerIcon by mutableDataSaverStateOf(
@@ -236,7 +236,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 渐入渐出播放
+     * Fade in/out playback
      */
     @Stable
     var FadePlay by mutableDataSaverStateOf(
@@ -246,7 +246,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 播放历史
+     * Playback history
      */
     @Stable
     var ListenHistory by mutableDataSaverStateOf(
@@ -256,7 +256,7 @@ object SettingsLibrary {
     )
 
     /**
-     * ExoPlayer行为 - 音频属性
+     * ExoPlayer behavior - audio attributes
      */
     @Stable
     var AudioAttributes by mutableDataSaverStateOf(
@@ -266,7 +266,7 @@ object SettingsLibrary {
     )
 
     /**
-     * ExoPlayer解码 - 编解码器
+     * ExoPlayer decoding - codec
      */
     @Stable
     var Codec by mutableDataSaverStateOf(
@@ -276,7 +276,7 @@ object SettingsLibrary {
     )
 
     /**
-     * ExoPlayer解码 - 硬件音频轨道播放参数
+     * ExoPlayer decoding - hardware audio track playback params
      */
     @Stable
     var HardwareAudioTrackPlayBackParams by mutableDataSaverStateOf(
@@ -286,7 +286,7 @@ object SettingsLibrary {
     )
 
     /**
-     * ExoPlayer解码 - 音频浮点输出
+     * ExoPlayer decoding - audio float output
      */
     @Stable
     var AudioFloatOutput by mutableDataSaverStateOf(
@@ -296,8 +296,8 @@ object SettingsLibrary {
     )
 
     /**
-     * 播放界面背景样式：Solid（取专辑封面主色调的纯色）或 Blurred（模糊专辑封面）。
-     * 沉浸式封面为默认行为，此设置不再控制全屏封面（保留以防旧引用）。
+     * NowPlaying background style: Solid (solid color from album art's dominant color) or Blurred (blurred album art).
+     * Immersive artwork is the default behavior; this setting no longer controls full-screen artwork (kept for old references).
      */
     @Stable
     var NowPlayingBackground by mutableDataSaverStateOf(
@@ -307,7 +307,7 @@ object SettingsLibrary {
     )
 
     /**
-     * 排除一分钟以内的歌曲
+     * Exclude songs under one minute
      */
     @Stable
     var EnableExcludeSongsUnderOneMinute by mutableDataSaverStateOf(

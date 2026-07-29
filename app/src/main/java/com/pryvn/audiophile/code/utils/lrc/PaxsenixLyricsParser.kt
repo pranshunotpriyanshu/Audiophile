@@ -4,7 +4,6 @@ import com.pryvn.audiophile.code.lyrics.ParsedLineSynced
 import com.pryvn.audiophile.code.lyrics.ParsedWord
 import com.pryvn.audiophile.code.lyrics.ParsedWordSyncedLine
 import org.w3c.dom.Document
-import org.w3c.dom.NodeList
 import java.io.ByteArrayInputStream
 import javax.xml.parsers.DocumentBuilderFactory
 

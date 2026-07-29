@@ -5,7 +5,6 @@ import com.pryvn.audiophile.code.api.SBSegment
 import com.pryvn.audiophile.code.api.SponsorBlockClient
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import kotlinx.coroutines.*
-import kotlin.math.abs
 
 object SponsorBlockManager {
     private var currentVideoId: String? = null

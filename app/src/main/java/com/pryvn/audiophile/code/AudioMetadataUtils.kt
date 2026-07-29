@@ -29,7 +29,7 @@ object AudioMetadataUtils {
         var bitrate: Int
         var sampleRate: Int
 
-        println("质量分析 Taglib 实现获取")
+        println("quality: Taglib implementation")
 
         ParcelFileDescriptor.open(songFile, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
             val audioProperties = TagLib.getAudioProperties(fd.dup().detachFd(), AudioPropertiesReadStyle.Fast)
@@ -40,7 +40,7 @@ object AudioMetadataUtils {
         if (bitrate == -1 || sampleRate == -1) {
             val extractor = MediaExtractor()
             try {
-                println("质量分析 MediaExtractor 实现获取")
+                println("quality: MediaExtractor implementation")
                 extractor.setDataSource(filePath)
                 val format = extractor.getTrackFormat(0)
                 if (bitrate == -1) {

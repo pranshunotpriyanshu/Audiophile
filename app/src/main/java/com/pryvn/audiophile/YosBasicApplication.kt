@@ -23,8 +23,6 @@ import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.PlayList
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.YosStringWrapper
-import kotlin.system.exitProcess
-import moe.rukamori.archivetune.innertube.YouTube
 import moe.rukamori.archivetune.kugou.KuGou
 import moe.rukamori.archivetune.paxsenix.PaxsenixLyrics
 import moe.rukamori.archivetune.utils.PreferenceStore
@@ -42,13 +40,13 @@ class YosBasicApplication : Application() {
             }
         }
 
-        // 初始化 MMKV
+        // Initialize MMKV
         MMKV.initialize(this)
 
-        // 初始化 ArchiveTune DataStore 内存缓存 (幂等，仅启动一次)
+        // Initialize ArchiveTune DataStore memory cache (idempotent, starts once)
         PreferenceStore.start(applicationContext)
 
-        // 初始化歌词 provider 模块 (ported from the standalone `lyrics` project)
+        // Initialize lyrics provider modules
         runCatching {
             PaxsenixLyrics.setUserAgent("Audiophile", BuildConfig.VERSION_NAME)
         }
@@ -61,10 +59,10 @@ class YosBasicApplication : Application() {
             }
         }
 
-        // 启动 ArchiveTune 在线播放后端 (PoToken 生成 + visitorData 引导)
+        // Start ArchiveTune online playback backend (PoToken generation + visitorData bootstrap)
         runCatching { BotGuardTokenGenerator.initialize(applicationContext) }
 
-        // 恢复持久化的认证状态 (visitorData, cookie, dataSyncId)
+        // Restore persisted auth state (visitorData, cookie, dataSyncId)
         ArchiveTuneAdapter.restorePersistedAuth()
 
         // Initialize ArchiveTuneAdapter with persistent cache and BotGuard pre-warm
@@ -112,7 +110,7 @@ class YosBasicApplication : Application() {
             restore = { str -> gson.fromJson(str, YosStringWrapper::class.java) }
         )
 
-        // 初始化媒体控制器
+        // Initialize media controller
         val sessionToken = SessionToken(this, ComponentName(this, YosPlaybackService::class.java))
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener(
@@ -126,9 +124,9 @@ class YosBasicApplication : Application() {
                         val playListData = MusicLibrary.loadPlayList()
                         val playStatusData = MusicLibrary.loadPlayStatus()
 
-                        println("prepare 读取历史")
+                        println("prepare: loading history")
                         if (playListData.mainMusicList != null) {
-                            println("prepare 准备调用")
+                            println("prepare: ready to invoke")
                             if (playStatusData.music != null) {
                                 com.pryvn.audiophile.code.MediaController.prepare(
                                     playStatusData.music,

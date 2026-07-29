@@ -18,7 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.pryvn.audiophile.R
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 
 private val SheetBackground = Color(0xFF2C2C2E)

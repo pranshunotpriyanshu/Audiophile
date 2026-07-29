@@ -44,7 +44,6 @@ import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.PlaybackSource
-import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.toHighResThumbnail
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.objects.LibraryObject

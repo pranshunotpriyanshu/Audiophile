@@ -41,12 +41,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -73,11 +71,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Slider
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderPositions
@@ -92,14 +88,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -109,12 +100,12 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -150,12 +141,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastMap
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.drawable.toDrawable
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -191,7 +180,6 @@ import com.pryvn.audiophile.code.SystemMediaControlResolver
 import com.pryvn.audiophile.code.VolumeChangeReceiver
 import com.pryvn.audiophile.code.YosPlaybackService
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
-import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
 import com.pryvn.audiophile.ui.UI
@@ -202,7 +190,6 @@ import com.pryvn.audiophile.code.utils.player.FadeExo.fadePlay
 import com.pryvn.audiophile.code.player.SleepTimer
 import com.pryvn.audiophile.code.player.SleepTimerState
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
-import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
@@ -229,13 +216,6 @@ import com.pryvn.audiophile.ui.widgets.YosLyricView
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
 import com.pryvn.audiophile.ui.widgets.audio.MusicQualityIndicator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
-import com.pryvn.audiophile.ui.pages.library.FloatingMenu
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
-import com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet
-import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
-import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
-import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
 import com.pryvn.audiophile.ui.widgets.basic.rememberAnimatedAlbumCoverState
@@ -256,9 +236,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.IconButton
 
 
 @Stable
@@ -536,7 +514,7 @@ fun NowPlaying(
             MediaViewModelObject.lrcEntries
         val bitmap: MutableState<Uri?> = MediaViewModelObject.bitmap
 
-        // 全局统一提取专辑主色调（Solid 背景渐变依赖此数据，与是否渲染模糊层解耦）
+        // Extract album palette color globally (Solid bg gradient depends on this, decoupled from blur layer rendering)
         val paletteContext = LocalContext.current
         LaunchedEffect(bitmap.value) {
             if (bitmap.value == null) return@LaunchedEffect
@@ -607,9 +585,9 @@ fun NowPlaying(
             MainViewModelObject.nowPage
         }*/
 
-        println("重组：NowPlaying")
+        println("Recompose: NowPlaying")
 
-        // 触摸超时
+        // Touch timeout
         YosWrapper {
             LaunchedEffect(showControl.value, nowPageLambda(), lastClickTime.longValue) {
                 if (nowPageLambda() != Lyric && !showControl.value) {
@@ -627,9 +605,9 @@ fun NowPlaying(
             }
         }
 
-        // ── 背景层（始终位于所有内容之下）──────────────────────────────
-        // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
-        // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
+        // ── Background layer (always below all content) ──────────────────
+        // User can choose in settings: Solid (album palette gradient) or Blurred (blurred album art, matching original).
+        // This choice persists across Pause/Play/Lyrics/Queue/Album pages as the single base background.
         val heroAlpha by animateFloatAsState(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
@@ -637,7 +615,7 @@ fun NowPlaying(
         val bgMode = if (effectiveFs) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
-            // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
+            // Blurred album art (matching original: blur + saturation boost + slow KenBurns + flowing light vignette)
             YosWrapper {
                 YosFloatingLight(
                     album = { bitmap.value },
@@ -648,7 +626,7 @@ fun NowPlaying(
                 )
             }
 
-            // 动态专辑艺术颜色渐变（叠在模糊背景之上，低透明度着色，与最初版本一致）
+            // Dynamic album art color gradient (overlaid on blurred bg, low-alpha tint, matching original)
             YosWrapper {
                 val vibrant = MediaViewModelObject.paletteVibrantColor.value
                 val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
@@ -682,7 +660,7 @@ fun NowPlaying(
                 )
             }
         } else {
-            // 纯色背景：取专辑封面的主色调（由上方全局 LaunchedEffect 提取）
+            // Solid background: use album art dominant color (extracted by LaunchedEffect above)
             YosWrapper {
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
@@ -699,7 +677,7 @@ fun NowPlaying(
             }
         }
 
-        // ── 全屏静态封面：页面级英雄层 ─────────────────
+        // ── Fullscreen static artwork: page-level hero layer ─────────────
         var contentWrapperTopY by remember { mutableStateOf(Float.MAX_VALUE) }
         var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
         val artworkMaxHeightDp = with(density) {
@@ -729,7 +707,7 @@ fun NowPlaying(
             }
         }
 
-        // 实际显示区
+        // Display area
         // Reference box to track the Surface's root position for artwork sizing
         Box(Modifier.onGloballyPositioned { coords ->
             contentWrapperTopY = coords.localToRoot(Offset.Zero).y
@@ -766,11 +744,11 @@ fun NowPlaying(
                 derivedStateOf { showControl.value && alphaAnim.value != 0f }
             }
 
-            println("重组：主功能区")
+            println("Recompose: main content area")
 
             if (!isLandscape) {
 
-            // 歌词：始终组合在树中，通过 alpha 控制显隐，避免拦截手势
+            // Lyrics: always composed in tree, visibility controlled via alpha to avoid gesture interception
             YosWrapper {
                 Column(
                     Modifier
@@ -797,7 +775,7 @@ fun NowPlaying(
                 }
             }
 
-            // 这是小把手
+            // Drag handle
             if (!fsAlbum) YosWrapper {
                 Column(Modifier.fillMaxWidth()) {
                     Box(
@@ -820,7 +798,7 @@ fun NowPlaying(
                 }
             }
 
-            // 主 View
+            // Main view
             YosWrapper {
                 SharedTransitionLayout {
                     Crossfade(
@@ -1015,7 +993,7 @@ Album ->
                 }
             }
 
-            // 音乐控制
+            // Music controls
             YosWrapper {
                 Column(
                     Modifier
@@ -1028,7 +1006,7 @@ Album ->
                             .fillMaxHeight(0.437f)
                             .fillMaxWidth()
                     ) {
-                        println("重组：控制区域外部")
+                        println("Recompose: controls outer")
 
                         YosWrapper {
                             if (showControl.value) {
@@ -2277,14 +2255,14 @@ fun Lyric(
     val lyDensity = LocalDensity.current
     val statusBarHeight = with(lyDensity) { WindowInsets.statusBars.getTop(this).toDp() }
 
-    println("重组：YosLyricView 外层 2")
+    println("Recompose: YosLyricView outer 2")
 
     Column(
         Modifier
             .fillMaxSize()
     ) {
         YosWrapper {
-            println("重组：YosLyricView 外层 1")
+            println("Recompose: YosLyricView outer 1")
 
             Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
@@ -3113,10 +3091,10 @@ fun PlayerControl(
                 .padding(bottom = 15.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            println("重组：控制区域内部")
+            println("Recompose: controls inner")
 
             YosWrapper {
-                // 启动作用
+                // Lifecycle effect
                 YosWrapper {
                     val lifecycleState =
                         LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
@@ -3156,7 +3134,7 @@ fun PlayerControl(
                     }
                 }
 
-                // 进度条
+                // Seekbar
                 YosWrapper {
                     Box {
                     val seekBarHeight by animateDpAsState(
@@ -3242,9 +3220,9 @@ fun PlayerControl(
                     }
                 }
 
-// 控制按钮&进度文本
+// Control buttons & progress text
                 YosWrapper {
-                    //println("重组：控制区域内部 - 控制按钮&进度文本")
+                    //println("Recompose: controls inner - buttons & progress")
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3406,7 +3384,7 @@ fun PlayerControl(
                     }
                 }
 
-            // 音量调节
+            // Volume control
             YosWrapper {
                 Box {
                     if (SettingsLibrary.NowPlayingShowVolumeBar) {
@@ -3415,10 +3393,10 @@ fun PlayerControl(
                 }
             }
 
-            // 底部 歌词&播放列表
+            // Bottom: lyrics & playlist
             YosWrapper {
                 Box {
-                    //println("重组：控制区域内部 - 底部栏")
+                    //println("Recompose: controls inner - bottom bar")
                     Row(
                         modifier = Modifier
                             .overlayEffect()
@@ -3501,11 +3479,11 @@ fun PlayerControl(
                 }
             }
 
-            // 边距填充
+            // Margin padding
             /*YosWrapper {
                 Spacer(modifier = Modifier.navigationBarsHeight(5.dp))
             }*/
-            // 为显示设备名称，迁移到 AirPlay 底部处理
+            // Device name display, moved to AirPlay bottom handling
         }
     }
 } // Close LyricsInteractionController.Provider

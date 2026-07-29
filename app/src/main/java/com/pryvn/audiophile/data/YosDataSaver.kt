@@ -12,14 +12,14 @@ enum class DataType {
 }
 
 val NormalSaver = YosDataSaver(DataType.NORMAL)
-// 通用数据存储，如隐藏的文件夹列表
+// General data storage, e.g. hidden folder list
 val SongListSaver = YosDataSaver(DataType.SONG_LIST)
-// 歌曲、隐藏的歌曲、所有文件夹
+// Songs, hidden songs, all folders
 val SettingsSaver = YosDataSaver(DataType.SETTINGS)
-// 存储设置数据
+// Store settings data
 val PlayListSaver = YosDataSaver(DataType.PLAY_LIST)
-// 歌曲列表 V2、喜爱的歌曲列表
-// 歌曲列表 V1 位于 YosPlayerCore
+// Playlist V2, favorite songs list
+// Playlist V1 is located in YosPlayerCore
 
 @Stable
 class YosDataSaver(dataType: DataType = DataType.NORMAL) : DataSaverInterface() {

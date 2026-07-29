@@ -64,7 +64,6 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
-import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 

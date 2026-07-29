@@ -9,14 +9,12 @@ import com.pryvn.audiophile.code.lyrics.PaxsenixDeezerResponse
 import com.pryvn.audiophile.code.lyrics.PaxsenixLyricsResponse
 import com.pryvn.audiophile.code.lyrics.PaxsenixMusixmatchResponse
 import com.pryvn.audiophile.code.lyrics.PaxsenixNetEaseLyricsResponse
-import com.pryvn.audiophile.code.lyrics.PaxsenixSearchResult
 import com.pryvn.audiophile.code.lyrics.PaxsenixSearchResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.util.Locale
 
 object PaxsenixApiClient {
     private const val BASE_URL = "https://lyrics.paxsenix.org/"

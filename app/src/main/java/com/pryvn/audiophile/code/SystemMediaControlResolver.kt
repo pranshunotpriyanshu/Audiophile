@@ -36,10 +36,10 @@ class SystemMediaControlResolver(val context: Context) {
 
             else -> {
                 if (Build.VERSION.SDK_INT >= 34) {
-                    // Android 14 及以上
+                    // Android 14 and above
                     startNativeMediaDialogForAndroid14(context)
                 } else if (Build.VERSION.SDK_INT >= 31) {
-                    // Android 12 及以上
+                    // Android 12 and above
                     val intent = Intent().apply {
                         action = "com.android.systemui.action.LAUNCH_MEDIA_OUTPUT_DIALOG"
                         setPackage("com.android.systemui")

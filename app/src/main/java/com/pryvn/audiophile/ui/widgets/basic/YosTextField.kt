@@ -71,7 +71,7 @@ fun SearchTextField(
                     ),
                     keyboardActions = KeyboardActions(onSearch = {
                         onSearch()
-                        //keyboardController?.hide() // 隐藏软键盘
+                        //keyboardController?.hide() // Hide soft keyboard
                     }),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,

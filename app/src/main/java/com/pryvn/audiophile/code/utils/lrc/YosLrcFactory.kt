@@ -6,12 +6,12 @@ import androidx.compose.ui.util.fastJoinToString
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 
 /**
- * Lrc 歌词文本处理
+ * LRC lyrics text processing
  */
 class YosLrcFactory(private val formatText: Boolean = true) {
     /**
-     * Lrc 歌词文本处理方法
-     * @param lrcText Lrc 格式的文本
+     * LRC lyrics text processing method
+     * @param lrcText LRC format text
      */
     /*fun formatLrcEntries(lrcText: String): List<Pair<Float, String>> {
         val lrcLines = lrcText.lines()
@@ -36,7 +36,7 @@ class YosLrcFactory(private val formatText: Boolean = true) {
             var remainingLine =
                 line.replace(Regex("([\\[\\]]){2,}"), "$1").replace(Regex("<([^>]+)>"), "[$1]")
                     .replace(Regex("(\\[\\d{2}:\\d{2}\\.\\d{2,3}]){2,}"), "$1")
-            println("歌词处理：$remainingLine")
+            println("lyrics processing: $remainingLine")
             val currentLinePairs = mutableListOf<Pair<Float, String>>()
             while (remainingLine.isNotEmpty()) {
                 /*val timeIndex = remainingLine.indexOf("]")
@@ -69,7 +69,7 @@ class YosLrcFactory(private val formatText: Boolean = true) {
                 if (remainingLine.substring(timeAfter + 1, remainingLine.length)
                         .isBlank() && remainingLine.substring(0, timeIndex).isBlank()
                 ) {
-                    // 检查下一行的时间差
+                    // Check next line's time difference
                     if (index + 1 < lrcLines.size) {
                         val nextLine = lrcLines[index + 1]
                         val nextTimeIndex = nextLine.indexOf("[")
@@ -83,29 +83,29 @@ class YosLrcFactory(private val formatText: Boolean = true) {
                                 if (nextMinutes != null && nextSeconds != null) {
                                     val nextTime = (nextMinutes * 60 + nextSeconds) * 1000
                                     if (nextTime - time <= 4200) {
-                                        // 忽略当前行的处理，进行下一行的处理
+                                        // Skip current line, process next line
                                         break
                                     }
                                 }
                             }
                         }
                     } else {
-                        // 这是最后一行，且为空行
+                        // This is the last line and it's empty
                         break
                     }
                 }
 
                 val nextTimeIndex = remainingLine.substring(timeAfter + 1).indexOf("[")
 
-                // 逐行起始或逐字末尾
+                // Line start or word end
                 var lyric = remainingLine.substring(0, timeIndex)
 
                 if (lyric.isEmpty()) {
-                    // 句子起始
+                    // Sentence start
                     lyric = ""
                     currentLinePairs.add(time to lyric.replace(Regex("(?!\\n)\\s+"), " "))
                 } else {
-                    // 正常句子成分
+                    // Normal sentence component
                     if (/*lyric.isNotBlank() && */lyric.trim() != "//") {
                         currentLinePairs.add(
                             time to lyric.replace(Regex("(?!\\n)\\s+"), " ")
@@ -143,7 +143,7 @@ class YosLrcFactory(private val formatText: Boolean = true) {
     }
 
     private fun processOtherSide(lrcEntries: List<List<Pair<Float, String>>>): List<List<Pair<Float, String>>> {
-        // 对唱处理
+        // Duet handling
         val otherSideResult = mutableStateListOf<Boolean>()
         var otherSide = false
         var lastSinger: String? = null
@@ -160,12 +160,12 @@ class YosLrcFactory(private val formatText: Boolean = true) {
                 otherSide = !otherSide
             } else if (lines.size > 1) {
                 val currentSinger = lines[1].second
-                println("检查：$currentSinger")
+                println("checking: $currentSinger")
                 if (currentSinger.matches(Regex(".+\\s*:\\s*"))) {
-                    println("符合要求：$lyric")
+                    println("matches: $lyric")
                     deleteType = 0
                     if (lastSinger != null && lastSinger == currentSinger) {
-                        // 保持 otherSide 不变
+                        // Keep otherSide unchanged
                     } else {
                         if (otherSideFirstTime) {
                             otherSide = !otherSide

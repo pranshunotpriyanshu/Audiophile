@@ -1,14 +1,14 @@
 package com.pryvn.audiophile.code.utils.lrc
 
 /**
- * YosLyricView 媒体事件接口
+ * YosLyricView media event interface
  *
- * 之后可能在此接口实现更多其它功能
+ * More features may be added to this interface in the future
  */
 interface YosMediaEvent {
     /**
-     * 进度跳转事件
-     * @param position 要跳转到的进度
+     * Seek event
+     * @param position Target position to seek to
      */
     fun onSeek(position: Int)
 }

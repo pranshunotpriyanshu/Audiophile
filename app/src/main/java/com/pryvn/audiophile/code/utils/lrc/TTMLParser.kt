@@ -1,7 +1,5 @@
 package com.pryvn.audiophile.code.utils.lrc
 
-import org.w3c.dom.Document
-import org.w3c.dom.NodeList
 import java.io.ByteArrayInputStream
 import javax.xml.parsers.DocumentBuilderFactory
 

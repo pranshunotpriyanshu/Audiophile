@@ -76,8 +76,8 @@ fun MusicQualityIndicator() {
             }
         }
 
-        //println("质量接收 ${musicBitrate.intValue} ${musicSamplingRate.intValue}")
-        //println("质量接收 无损 ${isLossless.value} ${isHiRes.value} ${isDolby.value}")
+        //println("quality recv ${musicBitrate.intValue} ${musicSamplingRate.intValue}")
+        //println("quality recv lossless ${isLossless.value} ${isHiRes.value} ${isDolby.value}")
 
         AnimatedVisibility(
             showDetail.value,
@@ -102,7 +102,7 @@ fun MusicQualityIndicator() {
                         )
                     }
                 } else if (isLossless.value || isHiRes.value) {
-                    //println("重组 音质标签")
+                    //println("Recompose quality badge")
                     Box(
                         Modifier
                             .fillMaxWidth()

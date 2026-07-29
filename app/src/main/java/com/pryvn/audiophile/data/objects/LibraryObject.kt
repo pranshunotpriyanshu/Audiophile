@@ -3,7 +3,6 @@ package com.pryvn.audiophile.data.objects
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
-import com.pryvn.audiophile.data.libraries.Folder
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 
 @Stable

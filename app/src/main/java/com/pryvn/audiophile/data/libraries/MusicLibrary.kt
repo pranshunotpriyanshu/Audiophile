@@ -116,7 +116,7 @@ data class YosStringWrapper(val value: String) : Parcelable
 
 @Stable
 object MusicLibrary {
-    // yos_player_core 负责歌曲列表 V1、播放状态记录
+    // yos_player_core handles playlist V1 and playback state recording
 
     private const val mmkvID = "yos_player_core"
     private const val playListKey = "yos_play_list_v1"
@@ -369,21 +369,21 @@ object MusicLibrary {
     }*/
 
     private fun updateFolderVisibility(folder: Folder, hide: Boolean) {
-        println("文件夹 显示状态更改")
+        println("folder visibility change")
         if (hide) {
-            println("文件夹 将隐藏 $folder")
+            println("folder will hide $folder")
             if (folders.any { it.path == folder.path }) {
                 // folders = folders - folder
-                println("文件夹 匹配成功")
-                println("文件夹 已将 ${folder.path} 隐藏")
+                println("folder matched")
+                println("folder ${folder.path} hidden")
                 hideFoldersSaver = hideFoldersSaver.plus(YosStringWrapper(folder.path))
             }
         } else {
-            println("文件夹 将显示 $folder")
+            println("folder will show $folder")
             if (hideFolders.any { it == folder.path }) {
                 // folders = folders + folder
-                println("文件夹 匹配成功")
-                println("文件夹 已将 ${folder.path} 显示")
+                println("folder matched")
+                println("folder ${folder.path} shown")
                 hideFoldersSaver = hideFoldersSaver.minus(YosStringWrapper(folder.path))
             }
         }
@@ -463,7 +463,7 @@ object MusicLibrary {
                 readerConfiguration
             )
 
-            // 有层级结构的result.folderStructure.folderList[""].folderList
+            // Hierarchical: result.folderStructure.folderList[""].folderList
             // val folderList = result.folderStructure.folderList
 
             songSaver = result.songList.fastMap {
@@ -490,13 +490,13 @@ object MusicLibrary {
                 folder !in hideFolders
             }*/
 
-            println("基本扫描: ${result.songList}")
-            println("文件夹: $folders")
+            println("basic scan: ${result.songList}")
+            println("folders: $folders")
             println("SongSaver: $songSaver")
             println("Songs: $songs")
 
-            println("prepare 媒体库扫描完毕，尝试保存播放列表")
-            println("prepare 媒体库扫描完毕，保存播放列表")
+            println("prepare: media library scan complete, trying to save playlist")
+            println("prepare: media library scan complete, saving playlist")
 
             updatePlayList(
                 PlayListV1(

@@ -14,7 +14,7 @@ import com.pryvn.audiophile.ui.theme.headlineDark
 import com.pryvn.audiophile.ui.theme.withNight
 
 /**
- * 设置项目的横向分割线
+ * Settings item horizontal divider
  */
 @Composable
 fun Divider(modifier: Modifier = Modifier) =
@@ -28,7 +28,7 @@ fun Divider(modifier: Modifier = Modifier) =
     )
 
 /**
- * 设置区块的填充，一般在 ListHeader 上面
+ * Settings section padding, usually above ListHeader
  */
 @Composable
 fun GroupSpacer(modifier: Modifier = Modifier) =
@@ -38,7 +38,7 @@ fun GroupSpacer(modifier: Modifier = Modifier) =
     )
 
 /**
- * 设置区块的填充，一般在 ListHeader 上面
+ * Settings section padding, usually above ListHeader
  */
 @Composable
 fun GroupSpacerMedium(modifier: Modifier = Modifier) =

@@ -46,8 +46,6 @@ import com.pryvn.audiophile.code.utils.lyrics.LyricsEntryBridge
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
-import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
-import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -63,13 +61,13 @@ private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
 /**
- * YosLyricView 主控件
- * @param lrcEntriesLambda 处理完毕的 Lrc 文本 (每个条目是 List<Pair<Float, String>>)
- * @param liveTimeLambda 当前歌曲进度 (毫秒)
- * @param mediaEvent YosLyricView 媒体事件
- * @param translationLambda 是否开启翻译
- * @param blurLambda 是否启用模糊效果
- * @param uiConfig YosLyricView UI 控制
+ * YosLyricView main widget
+ * @param lrcEntriesLambda Processed LRC text (each entry is List<Pair<Float, String>>)
+ * @param liveTimeLambda Current song progress (milliseconds)
+ * @param mediaEvent YosLyricView media event
+ * @param translationLambda Whether to enable translation
+ * @param blurLambda Whether to enable blur effect
+ * @param uiConfig YosLyricView UI config
  */
 @Composable
 fun YosLyricView(

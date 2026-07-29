@@ -8,11 +8,11 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 
 /**
- * 在 Compose 上实现 Add 的效果。
+ * Implements Add blend effect in Compose.
  *
- * 注意：如果要使用 .alpha() 设置透明度，则必须在该 Modifier 之后，或者使用 .graphicLayer { this.alpha = 0.5f } 类此。
+ * Note: if using .alpha() for transparency, it must be placed after this Modifier, or use .graphicLayer { this.alpha = 0.5f } instead.
  *
- * —— By pryvn
+ * -- By pryvn
  */
 @Composable
 fun Modifier.overlayEffect() = this.drawWithCache {
