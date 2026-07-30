@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
@@ -503,14 +505,11 @@ fun LazyItemScope.LyricItem(
 
     val liveTime = remember(mainLyric) { mutableIntStateOf(liveTimeLambda()) }
 
-    // Update liveTime if needed
-    LaunchedEffect(isLyricEmpty, isNotOneByOne.value) {
-        if (isLyricEmpty() || !isNotOneByOne.value) {
-            while (true) {
-                withContext(Dispatchers.Main) { liveTime.intValue = liveTimeLambda() }
-                delay(50L)
-            }
-        }
+    // Update liveTime via snapshotFlow instead of polling loop
+    LaunchedEffect(liveTimeLambda) {
+        snapshotFlow { liveTimeLambda() }
+            .distinctUntilChanged()
+            .collect { liveTime.intValue = it }
     }
 
     Column(
@@ -579,15 +578,13 @@ fun LazyItemScope.LyricItem(
                     animationSpec = tween(durationMillis = 0, delayMillis = if (isTopLambda()) 260 else 0)
                 )
 
-                val blurModifier = remember(mainLyric) {
-                    derivedStateOf {
-                        if (blur() == 0f) Modifier
-                        else Modifier.blur(blurValue.value, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    }
-                }
-
                 Column(
-                    Modifier.then(blurModifier.value).fillMaxWidth(),
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (blur() == 0f) Modifier
+                            else Modifier.blur(blurValue.value, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                        ),
                     horizontalAlignment = viewAlign
                 ) {
                     val textAlign = if (otherSide) TextAlign.End else TextAlign.Start

@@ -1546,6 +1546,8 @@ fun ColumnScope.Album(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(albumUrl())
                         .crossfade(MotionTokens.Duration.normal)
+                        .memoryCacheKey(albumUrl().toString())
+                        .diskCacheKey(albumUrl().toString())
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1625,9 +1627,19 @@ fun HeroArtworkLayer(
     animatedCoverOverlay: @Composable BoxScope.() -> Unit = {}
 ) {
     val url = albumUrl()
+    val urlString = url.toString()
 
-        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-            val painter = rememberAsyncImagePainter(model = url, contentScale = ContentScale.Crop)
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val request = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .crossfade(true)
+            .memoryCacheKey(urlString)
+            .diskCacheKey(urlString)
+            .build()
+        val painter = rememberAsyncImagePainter(
+            model = request,
+            contentScale = ContentScale.Crop
+        )
             val artworkModifier = Modifier
                 .padding(top = topSpacingDp)
                 .fillMaxWidth()
@@ -2648,10 +2660,13 @@ fun NowPlayingOverflowHeader(
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        val thumbUrl = song.thumb?.toString() ?: ""
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(song.thumb)
                 .crossfade(true)
+                .memoryCacheKey(thumbUrl)
+                .diskCacheKey(thumbUrl)
                 .build(),
             contentDescription = null,
             modifier = Modifier

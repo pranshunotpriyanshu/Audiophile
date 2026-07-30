@@ -72,56 +72,63 @@ fun YosFloatingLight(
         }
     }
 
-    YosWrapper {
-        val useBackground = remember("YosFloatingLight_useBackground") {
-            derivedStateOf {
-                album() == null
-            }
-        }
-
-        // Static background image (no Ken Burns animation)
-        YosWrapper {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current).data(data = drawable.value)
-                    .crossfade(true).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = modifier
-                    .drawWithCache {
-                        onDrawBehind {
-                            if (useBackground.value) {
-                                drawRect(Color.Black)
-                            }
-                        }
-                    }
-            )
-        }
-
-        // Dimming overlay: visible when on Lyrics page
-        YosWrapper {
-            val dimmed = remember("YosFloatingLight_dimmed") {
+YosWrapper {
+            val useBackground = remember("YosFloatingLight_useBackground") {
                 derivedStateOf {
-                    nowPage() == NowPlayingPage.Lyric
+                    album() == null
                 }
             }
+            val albumUri = album().toString()
 
-            val alpha = animateFloatAsState(
-                targetValue = if (dimmed.value) 0.618f else 0f, animationSpec = tween(
-                    durationMillis = 300,
-                    easing = FastOutSlowInEasing
+            // Static background image (no Ken Burns animation)
+            YosWrapper {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current).data(data = drawable.value)
+                        .crossfade(true)
+                        .memoryCacheKey(albumUri)
+                        .diskCacheKey(albumUri)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = modifier
+                        .drawWithCache {
+                            onDrawBehind {
+                                if (useBackground.value) {
+                                    drawRect(Color.Black)
+                                }
+                            }
+                        }
                 )
-            )
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(data = drawable.value)
-                    .crossfade(true).build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        this.alpha = alpha.value
-                    },
-                colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
+            }
+
+            // Dimming overlay: visible when on Lyrics page
+            YosWrapper {
+                val dimmed = remember("YosFloatingLight_dimmed") {
+                    derivedStateOf {
+                        nowPage() == NowPlayingPage.Lyric
+                    }
+                }
+
+                val alpha = animateFloatAsState(
+                    targetValue = if (dimmed.value) 0.618f else 0f, animationSpec = tween(
+                        durationMillis = 300,
+                        easing = FastOutSlowInEasing
+                    )
+                )
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(data = drawable.value)
+                        .crossfade(true)
+                        .memoryCacheKey(albumUri)
+                        .diskCacheKey(albumUri)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            this.alpha = alpha.value
+                        },
+                    colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
             )
         }
     }

@@ -3,9 +3,11 @@ package com.pryvn.audiophile.ui.widgets
 import android.content.Context
 import android.view.WindowManager
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.AnimatedVisibility
@@ -55,6 +57,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -179,20 +183,16 @@ fun LyricsV2(
         androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricFontSize)
     }
 
-    // Sync with external changes (from settings screen)
+    // Sync with external changes (from settings screen) via snapshotFlow
     LaunchedEffect(Unit) {
-        val job = scope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(200)
-                if (lyricFontWeight != SettingsLibrary.LyricFontWeight) {
-                    lyricFontWeight = SettingsLibrary.LyricFontWeight
-                }
-                if (lyricFontSize != SettingsLibrary.LyricFontSize) {
-                    lyricFontSize = SettingsLibrary.LyricFontSize
-                }
-            }
-        }
-        // Job is automatically cancelled when LaunchedEffect leaves composition
+        snapshotFlow { SettingsLibrary.LyricFontWeight }
+            .distinctUntilChanged()
+            .collect { lyricFontWeight = it }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { SettingsLibrary.LyricFontSize }
+            .distinctUntilChanged()
+            .collect { lyricFontSize = it }
     }
 
     // ── Map setting string to FontWeight ──
@@ -435,8 +435,7 @@ fun LyricsV2(
                             ),
                             blendMode = BlendMode.DstIn,
                         )
-                    }
-                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
+                    },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             itemsIndexed(
@@ -1198,60 +1197,16 @@ private fun LyricsLineLrcBounce(
     val effectiveFontSize = if (isAllBackground) fontSize * 0.82f else fontSize
     val fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold
     val fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal
-    val scaleAnimatables = remember(words.size) { List(words.size) { Animatable(1f) } }
-    val floatAnimatables = remember(words.size) { List(words.size) { Animatable(0f) } }
 
-    LaunchedEffect(isActive) {
-        if (!isActive || bounceFactor == 0f) return@LaunchedEffect
-        words.indices.forEach { i ->
-            launch {
-                delay(i * 40L)
-                try {
-                    scaleAnimatables[i].animateTo(
-                        targetValue = 1f + 0.045f * bounceFactor,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessHigh,
-                            ),
-                    )
-                    scaleAnimatables[i].animateTo(
-                        targetValue = 1f,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                    )
-                } finally {
-                    withContext(NonCancellable) { scaleAnimatables[i].snapTo(1f) }
-                }
-            }
-            launch {
-                delay(i * 40L)
-                try {
-                    floatAnimatables[i].animateTo(
-                        targetValue = -5f * bounceFactor,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessHigh,
-                            ),
-                    )
-                    floatAnimatables[i].animateTo(
-                        targetValue = 0f,
-                        animationSpec =
-                            spring(
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
-                            ),
-                    )
-                } finally {
-                    withContext(NonCancellable) { floatAnimatables[i].snapTo(0f) }
-                }
-            }
-        }
-    }
+    // Single spring animation for the entire line instead of per-word Animatables
+    val bounceProgress by animateFloatAsState(
+        targetValue = if (isActive) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        label = "lineBounceProgress"
+    )
 
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -1265,14 +1220,16 @@ private fun LyricsLineLrcBounce(
         words.forEachIndexed { i, word ->
             LrcBouncingWord(
                 text = word,
-                scaleAnim = scaleAnimatables[i],
-                floatAnim = floatAnimatables[i],
+                progress = bounceProgress,
+                wordIndex = i,
                 color = textColor,
                 fontSize = effectiveFontSize,
                 lineSpacing = lineSpacing,
                 fontWeight = fontWeight,
                 fontStyle = fontStyle,
                 lyricsFontFamily = lyricsFontFamily,
+                bounceFactor = bounceFactor,
+                isActive = isActive,
             )
         }
     }
@@ -1281,21 +1238,30 @@ private fun LyricsLineLrcBounce(
 @Composable
 private fun LrcBouncingWord(
     text: String,
-    scaleAnim: Animatable<Float, AnimationVector1D>,
-    floatAnim: Animatable<Float, AnimationVector1D>,
+    progress: Float,
+    wordIndex: Int,
     color: Color,
     fontSize: Float,
     lineSpacing: Float,
     fontWeight: FontWeight,
     fontStyle: FontStyle,
     lyricsFontFamily: FontFamily?,
+    bounceFactor: Float,
+    isActive: Boolean,
 ) {
+    // Staggered animation using progress with word-index delay
+    val staggeredProgress = (progress - wordIndex * 0.05f).coerceIn(0f, 1f)
+    val easedProgress = (1f - (1f - staggeredProgress) * (1f - staggeredProgress)) * staggeredProgress // easeOutCubic
+    
+    val scale = 1f + 0.045f * bounceFactor * easedProgress
+    val transY = -5f * bounceFactor * easedProgress
+
     Text(
         text = text,
         style =
             MaterialTheme.typography.headlineMedium.copy(
                 fontSize = fontSize.sp,
-                fontWeight = fontWeight,
+                fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
                 fontStyle = fontStyle,
                 lineHeight = (fontSize * lineSpacing).sp,
                 fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
@@ -1303,9 +1269,9 @@ private fun LrcBouncingWord(
         color = color,
         modifier =
             Modifier.graphicsLayer {
-                scaleX = scaleAnim.value
-                scaleY = scaleAnim.value
-                translationY = floatAnim.value
+                scaleX = scale
+                scaleY = scale
+                translationY = transY
             },
     )
 }
