@@ -41,10 +41,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -71,9 +73,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderPositions
@@ -88,9 +92,14 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -100,12 +109,12 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -141,10 +150,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastMap
 import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.drawable.toDrawable
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -180,6 +191,7 @@ import com.pryvn.audiophile.code.SystemMediaControlResolver
 import com.pryvn.audiophile.code.VolumeChangeReceiver
 import com.pryvn.audiophile.code.YosPlaybackService
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
+import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
 import com.pryvn.audiophile.ui.UI
@@ -190,6 +202,7 @@ import com.pryvn.audiophile.code.utils.player.FadeExo.fadePlay
 import com.pryvn.audiophile.code.player.SleepTimer
 import com.pryvn.audiophile.code.player.SleepTimerState
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
+import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
@@ -216,6 +229,13 @@ import com.pryvn.audiophile.ui.widgets.YosLyricView
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
 import com.pryvn.audiophile.ui.widgets.audio.MusicQualityIndicator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
+import com.pryvn.audiophile.ui.pages.library.FloatingMenu
+import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
+import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
+import com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet
+import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
+import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
+import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
 import com.pryvn.audiophile.ui.widgets.basic.rememberAnimatedAlbumCoverState
@@ -236,7 +256,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.IconButton
 
 
 @Stable
@@ -506,15 +528,13 @@ fun NowPlaying(
         val overflowSheetOpen = remember { mutableStateOf(false) }
         val snapshotSong = remember { mutableStateOf<YosMediaItem?>(null) }
         val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
-        val forceLocalFs = remember { mutableStateOf(false) }
-        val effectiveFs = fsEnabled || forceLocalFs.value
-        val fsAlbum = effectiveFs && nowPageLambda() == Album
+        val fsAlbum = fsEnabled && nowPageLambda() == Album
 
         val lrcEntries: MutableState<List<List<Pair<Float, String>>>> =
             MediaViewModelObject.lrcEntries
         val bitmap: MutableState<Uri?> = MediaViewModelObject.bitmap
 
-        // Extract album palette color globally (Solid bg gradient depends on this, decoupled from blur layer rendering)
+        // 全局统一提取专辑主色调（Solid 背景渐变依赖此数据，与是否渲染模糊层解耦）
         val paletteContext = LocalContext.current
         LaunchedEffect(bitmap.value) {
             if (bitmap.value == null) return@LaunchedEffect
@@ -548,7 +568,6 @@ fun NowPlaying(
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
             musicPlaying
         }
-        LaunchedEffect(thisMusicPlaying.value?.uri) { forceLocalFs.value = false }
 
         val lastClickTime = rememberSaveable(key = "NowPlaying_lastClickTime") {
             mutableLongStateOf(0L)
@@ -585,9 +604,9 @@ fun NowPlaying(
             MainViewModelObject.nowPage
         }*/
 
-        println("Recompose: NowPlaying")
+        println("重组：NowPlaying")
 
-        // Touch timeout
+        // 触摸超时
         YosWrapper {
             LaunchedEffect(showControl.value, nowPageLambda(), lastClickTime.longValue) {
                 if (nowPageLambda() != Lyric && !showControl.value) {
@@ -605,17 +624,17 @@ fun NowPlaying(
             }
         }
 
-        // ── Background layer (always below all content) ──────────────────
-        // User can choose in settings: Solid (album palette gradient) or Blurred (blurred album art, matching original).
-        // This choice persists across Pause/Play/Lyrics/Queue/Album pages as the single base background.
+        // ── 背景层（始终位于所有内容之下）──────────────────────────────
+        // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
+        // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
         val heroAlpha by animateFloatAsState(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
-        val bgMode = if (effectiveFs) "Solid" else SettingsLibrary.NowPlayingBackground
+        val bgMode = if (fsEnabled) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
-            // Blurred album art (matching original: blur + saturation boost + slow KenBurns + flowing light vignette)
+            // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
             YosWrapper {
                 YosFloatingLight(
                     album = { bitmap.value },
@@ -626,7 +645,7 @@ fun NowPlaying(
                 )
             }
 
-            // Dynamic album art color gradient (overlaid on blurred bg, low-alpha tint, matching original)
+            // 动态专辑艺术颜色渐变（叠在模糊背景之上，低透明度着色，与最初版本一致）
             YosWrapper {
                 val vibrant = MediaViewModelObject.paletteVibrantColor.value
                 val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
@@ -660,7 +679,7 @@ fun NowPlaying(
                 )
             }
         } else {
-            // Solid background: use album art dominant color (extracted by LaunchedEffect above)
+            // 纯色背景：取专辑封面的主色调（由上方全局 LaunchedEffect 提取）
             YosWrapper {
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
@@ -677,7 +696,7 @@ fun NowPlaying(
             }
         }
 
-        // ── Fullscreen static artwork: page-level hero layer ─────────────
+        // ── 全屏静态封面：页面级英雄层 ─────────────────
         var contentWrapperTopY by remember { mutableStateOf(Float.MAX_VALUE) }
         var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
         val artworkMaxHeightDp = with(density) {
@@ -687,7 +706,7 @@ fun NowPlaying(
         val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
             music = thisMusicPlaying.value,
             isPlaying = isPlayingStatusLambda(),
-            active = fsAlbum,
+            active = fsEnabled && fsAlbum,
             fullscreenArtwork = true
         )
         if (fsAlbum || heroAlpha > 0f) {
@@ -707,7 +726,7 @@ fun NowPlaying(
             }
         }
 
-        // Display area
+        // 实际显示区
         // Reference box to track the Surface's root position for artwork sizing
         Box(Modifier.onGloballyPositioned { coords ->
             contentWrapperTopY = coords.localToRoot(Offset.Zero).y
@@ -744,38 +763,42 @@ fun NowPlaying(
                 derivedStateOf { showControl.value && alphaAnim.value != 0f }
             }
 
-            println("Recompose: main content area")
+            println("重组：主功能区")
 
             if (!isLandscape) {
 
-            // Lyrics: always composed in tree, visibility controlled via alpha to avoid gesture interception
-            YosWrapper {
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.ModulateAlpha
-                            this.alpha = alphaAnim.value
-                        }
-                ) {
-                    Lyric(
-                        lrcEntries = { displayLrcEntries.value },
-                        weightLambda = { showControl.value },
-                        translationLambda = { translation.value },
-                        onBackClick = {
-                            showControl.value = true
-                            lastClickTime.longValue =
-                                TimeUtils.getNowMills()
-                        },
-                        mainViewModel = mainViewModel,
-                        mediaViewModel = mediaViewModel,
-                        wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
-                        active = nowPageLambda() == Lyric,
-                    )
+            // 歌词：仅当活动或过渡中才组合，避免拦截主屏手势
+            val isLyricPage = nowPageLambda() == Lyric
+            val showInlineLyrics = isLyricPage || alphaAnim.value > 0f
+            if (showInlineLyrics) {
+                YosWrapper {
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                compositingStrategy = CompositingStrategy.ModulateAlpha
+                                this.alpha = alphaAnim.value
+                            }
+                    ) {
+                        Lyric(
+                            lrcEntries = { displayLrcEntries.value },
+                            weightLambda = { showControl.value },
+                            translationLambda = { translation.value },
+                            onBackClick = {
+                                showControl.value = true
+                                lastClickTime.longValue =
+                                    TimeUtils.getNowMills()
+                            },
+                            mainViewModel = mainViewModel,
+                            mediaViewModel = mediaViewModel,
+                            wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                            active = isLyricPage,
+                        )
+                    }
                 }
             }
 
-            // Drag handle
+            // 这是小把手
             if (!fsAlbum) YosWrapper {
                 Column(Modifier.fillMaxWidth()) {
                     Box(
@@ -798,7 +821,7 @@ fun NowPlaying(
                 }
             }
 
-            // Main view
+            // 主 View
             YosWrapper {
                 SharedTransitionLayout {
                     Crossfade(
@@ -825,7 +848,7 @@ Album ->
                                                 showNowPlaying() &&
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
-                                            if (effectiveFs) {
+                                            if (fsEnabled) {
                                                 Box(Modifier.weight(1f)) { }
                                             } else {
                                                 Album(
@@ -838,8 +861,7 @@ Album ->
                                                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
-                                                    active = active,
-                                                    onLocalArtworkFound = { forceLocalFs.value = true }
+                                                    active = active
                                                 )
                                             }
                                             Row(
@@ -894,20 +916,20 @@ Album ->
                                         }
                                      }
                                }
-                                Lyric ->
+Lyric ->
                                   Column(Modifier.fillMaxSize()) {
                                       YosWrapper {
                                           val isVisible = nowPageLambda() == Lyric
                                           PlayingBar(
-                                              modifier = if (effectiveFs) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
                                                   visible = isVisible
                                               ),
-                                             albumUrlLambda = {
-                                                 thisMusicPlaying.value?.thumb
-                                             },
+                                              albumUrlLambda = {
+                                                  thisMusicPlaying.value?.thumb
+                                              },
                                              musicPlayingLambda = { thisMusicPlaying.value },
                                              navController = navController,
                                              onMinimizeNowPlaying = onMinimizeNowPlaying,
@@ -941,7 +963,7 @@ Album ->
                                     }
                                 }
 
-                            PlayingList ->
+PlayingList ->
                                 YosWrapper {
                                     Column(
                                         Modifier
@@ -949,15 +971,15 @@ Album ->
                                     ) {
                                         val isVisible = nowPageLambda() == PlayingList
                                           PlayingBar(
-                                              modifier = if (effectiveFs) Modifier else Modifier.sharedElementWithCallerManagedVisibility(
+                                              modifier = Modifier.sharedElementWithCallerManagedVisibility(
                                                   sharedContentState = rememberSharedContentState(
                                                       key = ShareAlbumKey
                                                   ),
                                                   visible = isVisible
                                               ),
                                              albumUrlLambda = {
-                                                 thisMusicPlaying.value?.thumb
-                                             },
+                                                  thisMusicPlaying.value?.thumb
+                                              },
                                              musicPlayingLambda = { thisMusicPlaying.value },
                                              navController = navController,
                                              onMinimizeNowPlaying = onMinimizeNowPlaying,
@@ -993,7 +1015,7 @@ Album ->
                 }
             }
 
-            // Music controls
+            // 音乐控制
             YosWrapper {
                 Column(
                     Modifier
@@ -1006,7 +1028,7 @@ Album ->
                             .fillMaxHeight(0.437f)
                             .fillMaxWidth()
                     ) {
-                        println("Recompose: controls outer")
+                        println("重组：控制区域外部")
 
                         YosWrapper {
                             if (showControl.value) {
@@ -1431,6 +1453,7 @@ Album ->
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
                                     wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                                    active = false
                                 )
                             } else {
                                 PlayingList(
@@ -1470,8 +1493,7 @@ fun ColumnScope.Album(
     albumUrl: () -> Uri?,
     isPlaying: () -> Boolean,
     music: () -> YosMediaItem?,
-    active: Boolean,
-    onLocalArtworkFound: (() -> Unit)? = null
+    active: Boolean
 ) {
     val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
 
@@ -1516,10 +1538,6 @@ fun ColumnScope.Album(
             active = active,
             fullscreenArtwork = fsEnabled
         )
-
-        LaunchedEffect(animatedAlbumCoverState.localArtworkFound) {
-            if (animatedAlbumCoverState.localArtworkFound) onLocalArtworkFound?.invoke()
-        }
 
         if (fsEnabled) {
             YosWrapper {
@@ -2001,11 +2019,7 @@ fun PlayingList(
                                             },
                                             itemClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    if (song.mediaId != null && song.uri?.scheme != "file" && song.uri?.scheme != "content") {
-                                                        MediaController.playOnline(song.mediaId, song.title)
-                                                    } else {
-                                                        MediaController.prepare(song, listOf(song))
-                                                    }
+                                                    MediaController.prepare(song, upNext)
                                                 }
                                             },
                                         )
@@ -2255,14 +2269,14 @@ fun Lyric(
     val lyDensity = LocalDensity.current
     val statusBarHeight = with(lyDensity) { WindowInsets.statusBars.getTop(this).toDp() }
 
-    println("Recompose: YosLyricView outer 2")
+    println("重组：YosLyricView 外层 2")
 
     Column(
         Modifier
             .fillMaxSize()
     ) {
         YosWrapper {
-            println("Recompose: YosLyricView outer 1")
+            println("重组：YosLyricView 外层 1")
 
             Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
@@ -2366,7 +2380,7 @@ fun Lyric(
                                 canvas.restore()
                             }
                         }
-                        .pointerInput(active) {
+                        .pointerInput(Unit) {
                             if (!active) {
                                 awaitPointerEventScope {
                                     while (true) {
@@ -3091,10 +3105,10 @@ fun PlayerControl(
                 .padding(bottom = 15.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            println("Recompose: controls inner")
+            println("重组：控制区域内部")
 
             YosWrapper {
-                // Lifecycle effect
+                // 启动作用
                 YosWrapper {
                     val lifecycleState =
                         LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
@@ -3134,7 +3148,7 @@ fun PlayerControl(
                     }
                 }
 
-                // Seekbar
+                // 进度条
                 YosWrapper {
                     Box {
                     val seekBarHeight by animateDpAsState(
@@ -3220,9 +3234,9 @@ fun PlayerControl(
                     }
                 }
 
-// Control buttons & progress text
+// 控制按钮&进度文本
                 YosWrapper {
-                    //println("Recompose: controls inner - buttons & progress")
+                    //println("重组：控制区域内部 - 控制按钮&进度文本")
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -3338,8 +3352,7 @@ fun PlayerControl(
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .padding(12.dp),
-                                            size = 35.dp,
-                                            spinnerRes = R.raw.ios_spinner_white
+                                            size = 35.dp
                                         )
                                         "pause" -> Icon(
                                             painterResource(id = R.drawable.ic_nowplaying_pause),
@@ -3385,7 +3398,7 @@ fun PlayerControl(
                     }
                 }
 
-            // Volume control
+            // 音量调节
             YosWrapper {
                 Box {
                     if (SettingsLibrary.NowPlayingShowVolumeBar) {
@@ -3394,10 +3407,10 @@ fun PlayerControl(
                 }
             }
 
-            // Bottom: lyrics & playlist
+            // 底部 歌词&播放列表
             YosWrapper {
                 Box {
-                    //println("Recompose: controls inner - bottom bar")
+                    //println("重组：控制区域内部 - 底部栏")
                     Row(
                         modifier = Modifier
                             .overlayEffect()
@@ -3480,11 +3493,11 @@ fun PlayerControl(
                 }
             }
 
-            // Margin padding
+            // 边距填充
             /*YosWrapper {
                 Spacer(modifier = Modifier.navigationBarsHeight(5.dp))
             }*/
-            // Device name display, moved to AirPlay bottom handling
+            // 为显示设备名称，迁移到 AirPlay 底部处理
         }
     }
 } // Close LyricsInteractionController.Provider
