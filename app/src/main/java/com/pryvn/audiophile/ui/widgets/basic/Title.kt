@@ -487,7 +487,7 @@ private fun TitleBar(
                                 HazeMaterials
                                     .thick(Color.White withNight Color.Black)
                                     .copy(
-                                        blurRadius = 32.dp,
+                                        blurRadius = 16.dp,
                                         backgroundColor = Color.White withNight Color.Black,
                                         tint = (Color.White withNight Color.Black).copy(alpha = 0.7f)
                                     )

@@ -1555,7 +1555,7 @@ fun ColumnScope.Album(
                             scaleX = continuationScale
                             scaleY = continuationScale
                         }
-                        .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                        .blur(radius = 40.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                 )
             }
         }
@@ -1899,38 +1899,6 @@ fun PlayingList(
 
                         LazyColumn(state = lazyListState, modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer {
-                                compositingStrategy = CompositingStrategy.Offscreen
-                            }
-                            .drawWithCache {
-                                onDrawWithContent {
-                                    val colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Black,
-                                        Color.Transparent
-                                    )
-
-                                    drawContent()
-
-                                    drawRect(
-                                        brush = Brush.verticalGradient(colors),
-                                        blendMode = BlendMode.DstIn
-                                    )
-                                }
-                            }
                         ) {
                             item("blank_before") {
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -3161,7 +3129,7 @@ fun PlayerControl(
                             .fillMaxWidth()
                             .height(48.dp)
                             .overlayEffect()
-                            .graphicsLayer(alpha = seekbarAlpha)
+                            .alpha(seekbarAlpha)
                             .pointerInput(Unit) {
                                 if (isLoading.value) return@pointerInput
                                 detectTapGestures(
@@ -3264,7 +3232,7 @@ fun PlayerControl(
                                     color = Color.White.copy(alpha = 0.3f),
                                     modifier = Modifier
                                         .overlayEffect()
-                                        .graphicsLayer(alpha = seekbarAlpha)
+                                        .alpha(seekbarAlpha)
                                 )
                                 Text(
                                     text = remainingTime.value,
@@ -3274,7 +3242,7 @@ fun PlayerControl(
                                     color = Color.White.copy(alpha = 0.3f),
                                     modifier = Modifier
                                         .overlayEffect()
-                                        .graphicsLayer(alpha = seekbarAlpha)
+                                        .alpha(seekbarAlpha)
                                 )
                             }
                         }

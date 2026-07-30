@@ -126,7 +126,7 @@ private class MenuBlurView(
                 return@request
             }
             Thread {
-                val blurred = BitmapResolver.blurBitmap(bitmap, 25)
+                val blurred = BitmapResolver.blurBitmap(bitmap, 12)
                 bitmap.recycle()
                 post {
                     if (isAttachedToWindow) {

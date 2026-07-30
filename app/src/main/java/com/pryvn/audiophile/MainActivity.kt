@@ -666,7 +666,7 @@ class MainActivity : ComponentActivity() {
                                                                     color
                                                                 )
                                                                 .copy(
-                                                                    blurRadius = 48.dp
+                                                                    blurRadius = 24.dp
                                                                 )
                                                         )
                                                         .drawWithCache {
@@ -1005,7 +1005,7 @@ class MainActivity : ComponentActivity() {
                                                                                        color
                                                                                     )
                                                                                     .copy(
-                                                                                        blurRadius = 48.dp
+                                                                                        blurRadius = 24.dp
                                                                                     )
                                                                             )
                                                                     )

@@ -8,19 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -38,8 +30,8 @@ enum class ImageQuality {
 private fun getSizeFromQuality(quality: ImageQuality): Int {
     return when (quality) {
         ImageQuality.RAW -> 0
-        ImageQuality.LOW -> 128
-        ImageQuality.HIGH -> 400
+        ImageQuality.LOW -> 96
+        ImageQuality.HIGH -> 300
     }
 }
 
@@ -55,10 +47,6 @@ fun ShadowImage(
     imageQuality: ImageQuality
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
-    val density = LocalDensity.current
-    val shadowAlphaPx = remember(dataLambda()) {
-        with(density) { shadowAlpha.dp.toPx() }
-    }
     val url = dataLambda()
     AsyncImage(
         model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
@@ -84,34 +72,11 @@ fun ShadowImage(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .clip(shape)
             .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
-            .graphicsLayer {
-                compositingStrategy = CompositingStrategy.Offscreen
-                clip = true
-                this.shape = shape
-                /*this.shape = shape
-                shadowElevation = shadowAlphaPx
-                spotShadowColor = Color.Black.copy(alpha = 0.8f)*/
-            }
             .drawWithCache {
                 onDrawWithContent {
                     drawContent()
-                    val outline = shape.createOutline(
-                        Size(size.width, size.height),
-                        LayoutDirection.Ltr,
-                        density
-                    )
-                    drawOutline(
-                        outline = outline,
-                        color = Color.Gray.copy(alpha = 0.1f),
-                        style = Stroke(width = 12f)
-                    )
-                    drawOutline(
-                        outline = outline,
-                        color = Color.Gray.copy(alpha = 0.5f),
-                        style = Stroke(width = 12f),
-                        blendMode = BlendMode.Overlay
-                    )
                 }
             }
 
@@ -132,12 +97,8 @@ fun ShadowImageWithCache(
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
     val url = dataLambda()
-    val density = LocalDensity.current
-    val baseModifier = modifier.fillMaxWidth().aspectRatio(1f)
-    val clippedModifier = baseModifier.graphicsLayer {
-        clip = true
-        this.shape = shape
-    }
+    val baseModifier = modifier.fillMaxWidth().aspectRatio(1f).clip(shape)
+    val clippedModifier = baseModifier
     Box {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
@@ -165,28 +126,9 @@ fun ShadowImageWithCache(
             contentScale = ContentScale.Crop,
             modifier = clippedModifier
                 .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                }
                 .drawWithCache {
                     onDrawWithContent {
                         drawContent()
-                        val outline = shape.createOutline(
-                            Size(size.width, size.height),
-                            LayoutDirection.Ltr,
-                            density
-                        )
-                        drawOutline(
-                            outline = outline,
-                            color = Color.Gray.copy(alpha = 0.1f),
-                            style = Stroke(width = 12f)
-                        )
-                        drawOutline(
-                            outline = outline,
-                            color = Color.Gray.copy(alpha = 0.5f),
-                            style = Stroke(width = 12f),
-                            blendMode = BlendMode.Overlay
-                        )
                     }
                 }
         )
@@ -202,7 +144,7 @@ fun CachedArtworkImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
-    size: Int = 300,
+    size: Int = 200,
     precision: Precision = Precision.INEXACT,
 ) {
     AsyncImage(

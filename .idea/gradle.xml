@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
@@ -10,6 +11,14 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/lyrics" />
+            <option value="$PROJECT_DIR$/lyrics/betterlyrics" />
+            <option value="$PROJECT_DIR$/lyrics/kugou" />
+            <option value="$PROJECT_DIR$/lyrics/lrclib" />
+            <option value="$PROJECT_DIR$/lyrics/paxsenix" />
+            <option value="$PROJECT_DIR$/lyrics/simpmusic" />
+            <option value="$PROJECT_DIR$/lyrics/unison" />
+            <option value="$PROJECT_DIR$/lyrics/youlyplus" />
             <option value="$PROJECT_DIR$/overscroll_core" />
           </set>
         </option>
