@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -83,6 +84,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -706,7 +708,7 @@ fun LyricsV2(
                             Column {
                                 if (item.words != null && isSynced) {
                                     LyricsLineV2(
-                                        words = item.words!!,
+                                        words = item.words,
                                         isActive = isActive,
                                         isPast = isPast,
                                         currentPositionMs = currentPositionMs,
@@ -835,29 +837,37 @@ private fun LyricsLineV2(
     val mainWords = words.filter { !it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
     val bgWords = words.filter { it.isBackground && !it.startTime.isNaN() && !it.endTime.isNaN() }
 
-    val lineGlowAlpha: Float
-    val lineGlowRadius: Float
-    if (isActive && (mainWords.isNotEmpty() || bgWords.isNotEmpty())) {
-        val allTimed = if (mainWords.isNotEmpty()) mainWords else bgWords
-        val earliestStartMs = allTimed.minOf { (it.startTime * 1000).toLong() }
-        val latestEndMs = allTimed.maxOf { (it.endTime * 1000).toLong() }
-        val lineDuration = (latestEndMs - earliestStartMs).coerceAtLeast(1L)
-        val lineProgress = ((currentPositionMs - earliestStartMs).toFloat() / lineDuration).coerceIn(0f, 1f)
-        val lineGlowProgress = (lineProgress * 2f).coerceAtMost(1f)
-        lineGlowAlpha = lineGlowProgress * 0.45f * glowFactor
-        lineGlowRadius = lineGlowProgress * 12f * glowFactor
-    } else {
-        lineGlowAlpha = 0f
-        lineGlowRadius = 0f
+    val lineText = mainWords.joinToString(separator = "") { it.text }
+    val isCjk = remember(lineText) { isCjkText(lineText) }
+
+    fun expandWord(word: WordTimestamp): List<WordTimestamp> {
+        if (!isCjk || word.text.length <= 3) return listOf(word)
+        val chars = word.text.toList()
+        val wordStartMs = (word.startTime * 1000).toLong()
+        val wordEndMs = (word.endTime * 1000).toLong()
+        val duration = wordEndMs - wordStartMs
+        return chars.mapIndexed { charIdx, char ->
+            val cStart = wordStartMs + (duration * charIdx / chars.size)
+            val cEnd = wordStartMs + (duration * (charIdx + 1) / chars.size)
+            WordTimestamp(
+                text = char.toString(),
+                startTime = cStart / 1000.0,
+                endTime = cEnd / 1000.0,
+                isBackground = word.isBackground,
+            )
+        }
     }
 
-    if (mainWords.isNotEmpty()) {
+    val expandedMain = remember(mainWords, isCjk) { mainWords.flatMap { expandWord(it) } }
+    val expandedBg = remember(bgWords, isCjk) { bgWords.flatMap { expandWord(it) } }
+
+    if (expandedMain.isNotEmpty()) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = arrangement,
         ) {
             var prevWasNewline = false
-            mainWords.forEachIndexed { wordIndex, word ->
+            expandedMain.forEachIndexed { wordIndex, word ->
                 if (word.text == " ") {
                     Text(
                         text = " ",
@@ -890,7 +900,7 @@ private fun LyricsLineV2(
                 }
                 prevWasNewline = false
 
-AnimatedWordV2(
+                AnimatedWordV2(
                     word = word,
                     wordIndex = wordIndex,
                     isLineActive = isActive,
@@ -899,11 +909,10 @@ AnimatedWordV2(
                     textColor = textColor,
                     inactiveAlpha = inactiveAlpha,
                     fontSize = if (isLineAllBackground) baseFontSize * 0.82f else baseFontSize,
-isBackground = isLineAllBackground,
+                    isBackground = isLineAllBackground,
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
-                    lineGlowAlpha = lineGlowAlpha,
-                    lineGlowRadius = lineGlowRadius,
+                    glowFactor = glowFactor,
                     fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
@@ -911,15 +920,15 @@ isBackground = isLineAllBackground,
         }
     }
 
-    if (bgWords.isNotEmpty()) {
-        val spacerHeight = if (mainWords.isNotEmpty()) 4.dp else 0.dp
-        if (mainWords.isNotEmpty()) Spacer(modifier = Modifier.height(spacerHeight))
+    if (expandedBg.isNotEmpty()) {
+        val spacerHeight = if (expandedMain.isNotEmpty()) 4.dp else 0.dp
+        if (expandedMain.isNotEmpty()) Spacer(modifier = Modifier.height(spacerHeight))
 
         FlowRow(
             modifier = Modifier.fillMaxWidth().alpha(0.85f),
             horizontalArrangement = arrangement,
         ) {
-            bgWords.forEachIndexed { wordIndex, word ->
+            expandedBg.forEachIndexed { wordIndex, word ->
                 if (word.text == " ") {
                     Text(
                         text = " ",
@@ -933,9 +942,9 @@ isBackground = isLineAllBackground,
                     return@forEachIndexed
                 }
 
-AnimatedWordV2(
+                AnimatedWordV2(
                     word = word,
-                    wordIndex = wordIndex + mainWords.size,
+                    wordIndex = wordIndex + expandedMain.size,
                     isLineActive = isActive,
                     isLinePast = isPast,
                     currentPositionMs = currentPositionMs,
@@ -945,14 +954,26 @@ AnimatedWordV2(
                     isBackground = true,
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
-                    lineGlowAlpha = lineGlowAlpha,
-                    lineGlowRadius = lineGlowRadius,
+                    glowFactor = glowFactor,
                     fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
             }
         }
     }
+}
+
+private fun isCjkText(text: String): Boolean = text.any { isCjkChar(it) }
+
+private fun isCjkChar(c: Char): Boolean {
+    val code = c.code
+    return code in 0x4E00..0x9FFF ||
+        code in 0x3400..0x4DBF ||
+        code in 0xF900..0xFAFF ||
+        code in 0x3040..0x309F ||
+        code in 0x30A0..0x30FF ||
+        code in 0xAC00..0xD7AF ||
+        code in 0x1100..0x11FF
 }
 
 // -----------------------------------------------------------------
@@ -1017,10 +1038,10 @@ private fun AnimatedWordV2(
     lyricsFontFamily: FontFamily?,
     isRtl: Boolean,
     bounceFactor: Float,
-    lineGlowAlpha: Float,
-    lineGlowRadius: Float,
+    glowFactor: Float,
     fillTransitionWidth: Float,
 ) {
+    val density = LocalDensity.current.density
     val wordStartMs = (word.startTime * 1000).toLong()
     val wordEndMs = (word.endTime * 1000).toLong()
     val wordDuration = (wordEndMs - wordStartMs).coerceAtLeast(1L)
@@ -1037,30 +1058,50 @@ private fun AnimatedWordV2(
 
     val sinProgress = kotlin.math.sin(progress * kotlin.math.PI).toFloat()
     val wordScale = 1f + (0.015f * bounceFactor * sinProgress)
-    val floatOffset = if (isWordActive) -4f * bounceFactor * sinProgress else 0f
+    val targetFloat = if (isWordActive) -4f * bounceFactor * sinProgress else 0f
+    val floatOffset by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetFloat,
+        animationSpec =
+            androidx.compose.animation.core.tween(
+                durationMillis = if (isWordActive) 50 else 350,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing,
+            ),
+        label = "v2FloatOffset",
+    )
 
-    val glowDecay =
-        if (isWordActive) 1f
-        else if (isWordComplete && isLineActive) {
-            val timeSinceEndMs = currentPositionMs - wordEndMs
-            (1f - (timeSinceEndMs / 600f)).coerceIn(0f, 1f)
-        } else 0f
-    val wordGlowAlpha = lineGlowAlpha * glowDecay
-    val wordGlowRadius = lineGlowRadius * glowDecay
+    val glowProgress = (progress * 2f).coerceAtMost(1f)
+    val wordGlowAlpha = if (isWordActive) glowProgress * 0.45f * glowFactor else 0f
+    val wordGlowRadius = if (isWordActive) glowProgress * 12f * glowFactor else 0f
 
     val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
     val fontWeight = if (isLineActive || isLinePast) FontWeight.ExtraBold else FontWeight.SemiBold
     val baseColor = textColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha)
     val fillColor = textColor.copy(alpha = if (isBackground) 0.75f else 1f)
+    val glowPadding = 10.dp
 
     Box(
         modifier =
-            Modifier.graphicsLayer {
-                clip = false
-                translationY = floatOffset * density
-                scaleX = wordScale
-                scaleY = wordScale
-            },
+            Modifier
+                .layout { measurable, constraints ->
+                    val glowPaddingPx = glowPadding.roundToPx()
+                    val looseConstraints = Constraints(
+                        minWidth = 0,
+                        maxWidth = constraints.maxWidth,
+                        minHeight = 0,
+                        maxHeight = Constraints.Infinity,
+                    )
+                    val placeable = measurable.measure(looseConstraints)
+                    val coreWidth = (placeable.width - glowPaddingPx * 2).coerceAtLeast(0)
+                    val coreHeight = (placeable.height - glowPaddingPx * 2).coerceAtLeast(0)
+                    layout(coreWidth, coreHeight) {
+                        placeable.place(-glowPaddingPx, -glowPaddingPx)
+                    }
+                }.graphicsLayer {
+                    clip = false
+                    translationY = floatOffset * density
+                    scaleX = wordScale
+                    scaleY = wordScale
+                },
     ) {
         // Layer 1: Base text (always dimmed)
         Text(
@@ -1074,6 +1115,7 @@ private fun AnimatedWordV2(
                     fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
                 ),
             color = baseColor,
+            modifier = Modifier.padding(glowPadding),
         )
 
         // Layer 2: Filled overlay with liquid sweep mask + glow
@@ -1126,9 +1168,9 @@ private fun AnimatedWordV2(
                                         ),
                                     blendMode = BlendMode.DstIn,
                                 )
-                            }
+                            }.padding(glowPadding)
                     } else {
-                        Modifier
+                        Modifier.padding(glowPadding)
                     },
             )
         }
