@@ -1347,7 +1347,8 @@ class YosPlaybackService : MediaSessionService() {
 
                         println("quality: sample rate: ${MediaViewModelObject.samplingRate.intValue}, bitrate: ${MediaViewModelObject.bitrate.intValue}")
 
-                        // Fetch online lyrics with cancellation guard
+                        // Fetch lyrics with cancellation guard. Embedded lyrics have
+                        // top priority: if the current song has them, never hit the API.
                         MediaViewModelObject.isLoadingLyrics.value = true
                         LyricsProcessor.resetLyricsState()
                         val lyricsJob = com.pryvn.audiophile.code.MediaController.newLyricsFetchJob()
@@ -1356,6 +1357,28 @@ class YosPlaybackService : MediaSessionService() {
                             val videoIdAtFetch = currentTrack?.mediaId
                             try {
                                 if (currentTrack != null) {
+                                    val embeddedLyrics = try {
+                                        AudioMetadataUtils.loadEmbeddedLyrics(
+                                            this@YosPlaybackService,
+                                            currentTrack.uri
+                                        )
+                                    } catch (e: Exception) {
+                                        println("Embedded lyrics read failed: ${e.message}")
+                                        null
+                                    }
+                                    if (embeddedLyrics != null && embeddedLyrics.isNotBlank()) {
+                                        if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
+                                        ensureActive()
+                                        LyricsProcessor.applyLyrics(
+                                            AudiophileLyrics("Embedded", embeddedLyrics, isWordSynced = TTMLParser.isTtml(embeddedLyrics)),
+                                            { lrcEntries.value = it }
+                                        )
+                                        if (musicPlaying.value?.mediaId == videoIdAtFetch) {
+                                            MediaViewModelObject.isLoadingLyrics.value = false
+                                        }
+                                        return@launch
+                                    }
+
                                     val cacheKey = videoIdAtFetch ?: (currentTrack.title ?: "unknown")
                                     val cached = MediaViewModelObject.lyricsCache[cacheKey]
                                     if (cached != null) {
@@ -1424,15 +1447,27 @@ class YosPlaybackService : MediaSessionService() {
                                     ensureActive()
                                     val key = track.mediaId ?: (track.title ?: "unknown")
                                     if (!MediaViewModelObject.lyricsCache.containsKey(key)) {
-                                        val lyrics = ArchiveTuneApis.fetchLyrics(
-                                            title = track.title,
-                                            artist = track.artists,
-                                            album = track.album,
-                                            durationMs = track.duration,
-                                            videoId = track.mediaId
-                                        )
-                                        if (lyrics != null && lyrics.text.isNotBlank()) {
-                                            MediaViewModelObject.lyricsCache[key] = lyrics.text
+                                        val embeddedLyrics = try {
+                                            AudioMetadataUtils.loadEmbeddedLyrics(
+                                                this@YosPlaybackService,
+                                                track.uri
+                                            )
+                                        } catch (e: Exception) {
+                                            null
+                                        }
+                                        if (embeddedLyrics != null && embeddedLyrics.isNotBlank()) {
+                                            MediaViewModelObject.lyricsCache[key] = embeddedLyrics
+                                        } else {
+                                            val lyrics = ArchiveTuneApis.fetchLyrics(
+                                                title = track.title,
+                                                artist = track.artists,
+                                                album = track.album,
+                                                durationMs = track.duration,
+                                                videoId = track.mediaId
+                                            )
+                                            if (lyrics != null && lyrics.text.isNotBlank()) {
+                                                MediaViewModelObject.lyricsCache[key] = lyrics.text
+                                            }
                                         }
                                         if (MediaViewModelObject.lyricsCache.size > 20) {
                                             val keys = MediaViewModelObject.lyricsCache.keys.toList()

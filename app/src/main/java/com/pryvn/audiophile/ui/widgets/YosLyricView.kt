@@ -183,6 +183,9 @@ fun YosLyricView(
     val currentLyricIndex = remember { MainViewModelObject.syncLyricIndex }
     val enableLyricScroll = remember { mutableStateOf(true) }
 
+    // Shared snapshot position so snapshotFlow collectors re-emit (liveTimeLambda is not snapshot state).
+    val liveTimeState = remember { mutableIntStateOf(liveTimeLambda()) }
+
     val height = rememberSaveable { mutableIntStateOf(0) }
     val space = 0.dp
 
@@ -301,7 +304,7 @@ fun YosLyricView(
                     mainTextBasicColor = mainTextBasicColor,
                     subTextBasicColor = subTextBasicColor,
                     otherSide = otherSide,
-                    liveTimeLambda = liveTimeLambda,
+                    liveTimeLambda = { liveTimeState.intValue },
                     measurer = measurer,
                     isLyricEmpty = { isLyricEmpty.value },
                     nextTime = {
@@ -389,6 +392,7 @@ fun YosLyricView(
         var stableCount = 0
         while (isActive) {
             val liveTime = liveTimeLambda()
+            liveTimeState.intValue = liveTime
             val targetPos = liveTime + LRC_LEAD_MS + LYRIC_VISUAL_TUNING_OFFSET_MS
             val nextIdx = lrcEntries.indexOfFirst { line -> line.first().first > targetPos }
             val newIdx = when {

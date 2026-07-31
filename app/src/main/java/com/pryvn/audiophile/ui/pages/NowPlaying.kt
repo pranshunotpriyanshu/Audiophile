@@ -161,6 +161,7 @@ import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
+import coil.size.Size as CoilSize
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
@@ -1542,12 +1543,14 @@ fun ColumnScope.Album(
         if (fsEnabled) {
             YosWrapper {
                 val continuationScale = 1f + 0.18f * scale.value
+                // Optimized: Load small image (64px) + small GPU blur (15dp) = visually similar but much lighter on GPU
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(albumUrl())
                         .crossfade(MotionTokens.Duration.normal)
-                        .memoryCacheKey(albumUrl().toString())
-                        .diskCacheKey(albumUrl().toString())
+                        .size(CoilSize(64, 64)) // Decode at 64px - much faster
+                        .memoryCacheKey(albumUrl().toString() + "_blur")
+                        .diskCacheKey(albumUrl().toString() + "_blur")
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -1557,7 +1560,7 @@ fun ColumnScope.Album(
                             scaleX = continuationScale
                             scaleY = continuationScale
                         }
-                        .blur(radius = 40.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                        .blur(radius = 15.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                 )
             }
         }
