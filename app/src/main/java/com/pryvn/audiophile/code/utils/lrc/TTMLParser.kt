@@ -220,6 +220,10 @@ object TTMLParser {
     fun parseSyncedLrc(lrcText: String): List<ParsedLine> {
         val lines = mutableListOf<ParsedLine>()
         val rawLines = lrcText.lines().filter { it.isNotBlank() }
+        // Apple Music / QQ Music enhanced LRC carries a vocal-agent marker right after
+        // the line timestamp, e.g. "[00:06.118]v1:<00:06.118>Yeah, ..." or "v2000:"/"bg:".
+        // Strip it so it does not leak into the rendered lyric text.
+        val voicePrefixRegex = Regex("""^(v\d+|bg):\s*""")
         for (rawLine in rawLines) {
             val timeMatches = lrcTimeRegex.findAll(rawLine)
             val times = timeMatches.map { match ->
@@ -230,17 +234,26 @@ object TTMLParser {
             if (times.isEmpty()) continue
             val textPart = rawLine.replace(lrcTimeRegex, "").trim()
             if (textPart.isBlank()) continue
+            val voiceMatch = voicePrefixRegex.find(textPart)
+            val lyricText = if (voiceMatch != null) {
+                textPart.substring(voiceMatch.range.last + 1).trim()
+            } else {
+                textPart
+            }
+            if (lyricText.isBlank()) continue
+            val isBackground = voiceMatch?.groupValues?.get(1) == "bg"
+            val agent = voiceMatch?.groupValues?.get(1)
             val lineStart = times.first()
             val lineEnd = times.last() + 2.0
 
             val wordRegex = Regex("""<(\d{2}:\d{2}(?:\.\d{2,3})?)>""")
-            val wordMatches = wordRegex.findAll(textPart).toList()
+            val wordMatches = wordRegex.findAll(lyricText).toList()
             if (wordMatches.isNotEmpty()) {
                 val words = mutableListOf<ParsedWord>()
                 var lastEnd = lineStart
                 var lastIndex = 0
                 for (wm in wordMatches) {
-                    val before = textPart.substring(lastIndex, wm.range.first).trim()
+                    val before = lyricText.substring(lastIndex, wm.range.first).trim()
                     if (before.isNotBlank()) {
                         val wordEnd = parseLrcTimeToSec(wm.groupValues[1])
                         words.add(ParsedWord(before, lastEnd, wordEnd))
@@ -248,15 +261,15 @@ object TTMLParser {
                     }
                     lastIndex = wm.range.last + 1
                 }
-                val remaining = textPart.substring(lastIndex).trim()
+                val remaining = lyricText.substring(lastIndex).trim()
                 if (remaining.isNotBlank()) {
                     words.add(ParsedWord(remaining, lastEnd, lineEnd))
                 }
                 if (words.isNotEmpty()) {
-                    lines.add(ParsedLine(textPart, lineStart, lineEnd, words))
+                    lines.add(ParsedLine(lyricText, lineStart, lineEnd, words, isBackground, agent))
                 }
             } else {
-                lines.add(ParsedLine(textPart, lineStart, lineEnd, emptyList()))
+                lines.add(ParsedLine(lyricText, lineStart, lineEnd, emptyList(), isBackground, agent))
             }
         }
         return lines

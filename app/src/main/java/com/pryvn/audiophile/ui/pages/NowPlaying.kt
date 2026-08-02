@@ -36,6 +36,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -792,7 +794,6 @@ fun NowPlaying(
                             },
                             mainViewModel = mainViewModel,
                             mediaViewModel = mediaViewModel,
-                            wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
                             active = isLyricPage,
                         )
                     }
@@ -1056,8 +1057,12 @@ PlayingList ->
                             ) {
                                  AnimatedVisibility(
                                      visible = showControl.value,
-                                     enter = fadeIn(),
-                                     exit = fadeOut()
+                                     enter = fadeIn() + expandVertically(
+                                         expandFrom = Alignment.Top,
+                                         initialHeight = { (it / 1.4).toInt() }),
+                                     exit = fadeOut() + shrinkVertically(
+                                         shrinkTowards = Alignment.Top,
+                                         targetHeight = { (it / 1.4).toInt() })
                                  ) {
                                         YosWrapper {
                                             Row(
@@ -1453,7 +1458,6 @@ PlayingList ->
                                     },
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
-                                    wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
                                     active = false
                                 )
                             } else {
@@ -2244,7 +2248,6 @@ fun Lyric(
     mainViewModel: MainViewModel,
     mediaViewModel: MediaViewModel,
     onBackClick: () -> Unit,
-    wordSyncedLambda: () -> Boolean = { false },
     active: Boolean = true,
 ) = YosWrapper {
 
@@ -2290,7 +2293,6 @@ fun Lyric(
                         subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
                     ),
                     weightLambda = weightLambda,
-                    wordSyncedLambda = wordSyncedLambda,
                     modifier = Modifier.drawWithCache {
                         onDrawWithContent {
                             val overlayPaint = Paint().apply {

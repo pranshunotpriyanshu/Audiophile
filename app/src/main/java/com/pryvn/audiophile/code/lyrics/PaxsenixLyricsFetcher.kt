@@ -3,6 +3,7 @@ package com.pryvn.audiophile.code.lyrics
 import com.pryvn.audiophile.code.api.AudiophileLyrics
 import com.pryvn.audiophile.code.utils.lrc.PaxsenixLyricsParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
+import com.pryvn.audiophile.code.utils.lrc.wordSyncedToEntries
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
@@ -150,8 +151,7 @@ object PaxsenixLyricsFetcher {
                         },
                     )
                 }
-                val lrcText = PaxsenixLyricsParser.ttmlToLrc(text)
-                lrcEntriesSetter(lrcFactory.formatLrcEntries(lrcText))
+                lrcEntriesSetter(wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value))
                 return@withContext lyrics
             } else {
                 MediaViewModelObject.clearWordSync()
@@ -177,8 +177,7 @@ object PaxsenixLyricsFetcher {
                         },
                     )
                 }
-                val lrcText = toLrcFormat(parsed)
-                lrcEntriesSetter(lrcFactory.formatLrcEntries(lrcText))
+                lrcEntriesSetter(wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value))
                 return@withContext lyrics
             } else {
                 MediaViewModelObject.clearWordSync()

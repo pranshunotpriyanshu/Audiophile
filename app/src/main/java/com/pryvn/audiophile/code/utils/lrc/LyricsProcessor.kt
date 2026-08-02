@@ -5,6 +5,28 @@ import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
 
+/**
+ * Converts word-synced lines into the App 2 lyric-view entry shape:
+ * each line is [(lineStart, ""), (wordStart_i, word_i)..., (lineStart, "")].
+ * The trailing pair is the translation slot (blank here), the leading empty
+ * pair marks the sentence start. This lets the copied App 2 view drive the
+ * per-word gradient fill/bounce off the word start times.
+ */
+fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, String>>> {
+    MediaViewModelObject.otherSideForLines.clear()
+    MediaViewModelObject.otherSideForLines.addAll(List(lines.size) { false })
+    return lines.map { line ->
+        buildList {
+            val startMs = line.startTimeMs.toFloat()
+            add(startMs to "")
+            line.words.filter { !it.isBackground }.forEach { word ->
+                add(word.startTimeMs.toFloat() to word.text)
+            }
+            add(startMs to "")
+        }
+    }
+}
+
 object LyricsProcessor {
 
     fun applyLyrics(
@@ -41,8 +63,8 @@ object LyricsProcessor {
                             },
                         )
                     }
-                    val lrcText = TTMLParser.ttmlToLrc(text)
-                    lrcEntriesSetter(lrcFactory.formatLrcEntries(lrcText))
+                    val lrcEntries = wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value)
+                    lrcEntriesSetter(lrcEntries)
                 } else {
                     clearWordSync()
                     lrcEntriesSetter(lrcFactory.formatLrcEntries(text))
