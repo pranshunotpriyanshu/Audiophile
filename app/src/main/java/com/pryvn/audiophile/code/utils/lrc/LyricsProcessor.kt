@@ -6,25 +6,47 @@ import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
 
 /**
- * Converts word-synced lines into the App 2 lyric-view entry shape:
- * each line is [(lineStart, ""), (wordStart_i, word_i)..., (lineStart, "")].
- * The trailing pair is the translation slot (blank here), the leading empty
- * pair marks the sentence start. This lets the copied App 2 view drive the
- * per-word gradient fill/bounce off the word start times.
+ * Converts word-synced lines into the lyric-view entry shape:
+ * each line is [(lineStart, ""), (wordEnd_i, word_i)..., (lineStart, "")].
+ * Word timestamps use the word END time, mirroring Shourya's TtmlFactory
+ * (segment end takes priority). The trailing pair is the translation slot,
+ * the leading empty pair marks the sentence start.
  */
 fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, String>>> {
     MediaViewModelObject.otherSideForLines.clear()
-    MediaViewModelObject.otherSideForLines.addAll(List(lines.size) { false })
+    MediaViewModelObject.otherSideForLines.addAll(
+        lines.map { it.agent?.equals("v2", ignoreCase = true) == true }
+    )
+    MediaViewModelObject.lyricLineTransliterations.clear()
+    MediaViewModelObject.lyricLineTransliterations.addAll(lines.map { it.transliteration })
+    MediaViewModelObject.lyricLineSubtitles.clear()
+    MediaViewModelObject.lyricLineSubtitles.addAll(lines.map { it.subtitle })
     return lines.map { line ->
         buildList {
             val startMs = line.startTimeMs.toFloat()
             add(startMs to "")
-            line.words.filter { !it.isBackground }.forEach { word ->
-                add(word.startTimeMs.toFloat() to word.text)
+            line.words.forEach { word ->
+                val text = word.text.trimEnd()
+                // Insert one natural space between words; keep CJK scripts and
+                // duet markers ("：" / ":") tight so other-side detection and
+                // the view's padding check keep working.
+                val withSpacing = when {
+                    text.isEmpty() || text.last().isCjkChar() || text.endsWith("：") || text.endsWith(":") -> text
+                    else -> "$text "
+                }
+                add(word.endTimeMs.toFloat() to withSpacing)
             }
             add(startMs to "")
         }
     }
+}
+
+private fun Char.isCjkChar(): Boolean {
+    val c = code
+    return c in 0x3040..0x30FF || // Hiragana / Katakana
+        c in 0x3400..0x4DBF || // CJK Extension A
+        c in 0x4E00..0x9FFF || // CJK Unified Ideographs
+        c in 0xF900..0xFAFF    // CJK Compatibility Ideographs
 }
 
 object LyricsProcessor {
@@ -61,6 +83,9 @@ object LyricsProcessor {
                                     isBackground = word.isBackground,
                                 )
                             },
+                            agent = line.agent,
+                            transliteration = line.transliteration,
+                            subtitle = line.subtitle,
                         )
                     }
                     val lrcEntries = wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value)

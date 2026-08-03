@@ -2,6 +2,7 @@ package com.pryvn.audiophile.code.utils.lrc
 
 import java.io.ByteArrayInputStream
 import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Document
 
 data class ParsedWord(
     val text: String,
@@ -16,7 +17,10 @@ data class ParsedLine(
     val endTime: Double,
     val words: List<ParsedWord> = emptyList(),
     val isBackground: Boolean = false,
-    val agent: String? = null
+    val agent: String? = null,
+    val key: String? = null,
+    val transliteration: String? = null,
+    val subtitle: String? = null
 )
 
 object TTMLParser {
@@ -46,6 +50,9 @@ object TTMLParser {
             val pTags = doc.getElementsByTagNameNS("*", "p")
             if (pTags.length == 0) return parseTtmlRegex(ttml)
 
+            val transliterationByKey = doc.parseMetadataTextByKey("transliterations")
+            val subtitleByKey = doc.parseMetadataTextByKey("subtitles")
+
             for (i in 0 until pTags.length) {
                 val p = pTags.item(i)
                 val begin = p.attributes?.getNamedItem("begin")?.textContent
@@ -54,9 +61,10 @@ object TTMLParser {
                     ?: p.attributes?.getNamedItemNS("*", "end")?.textContent
                 val agent = p.attributes?.getNamedItemNS("*", "agent")?.textContent
                     ?: p.attributes?.getNamedItem("agent")?.textContent
+                val key = p.attributes?.getNamedItem("key")?.textContent
+                    ?: p.attributes?.getNamedItemNS("*", "key")?.textContent
 
                 val startTime = parseTtmlTime(begin)
-                val endTime = if (end != null) parseTtmlTime(end) else startTime + 3.0
 
                 val words = mutableListOf<ParsedWord>()
                 val spans = p.childNodes
@@ -94,6 +102,15 @@ object TTMLParser {
 
                 val isBackground = agent != null || words.any { it.isBackground }
 
+                // 行结束时间：优先取 end 属性；缺失时回退到最后一个词/字/字符的
+                // 结束时间，最后才回退到行开始时间（与 Shourya TtmlFactory 一致），
+                // 避免范围重叠导致多行同时高亮。
+                val endTime = if (end != null) {
+                    parseTtmlTime(end)
+                } else {
+                    words.lastOrNull()?.endTime ?: startTime
+                }
+
                 if (!hasWordTiming && plainText.isNotBlank()) {
                     val chars = mutableListOf<ParsedWord>()
                     val charList = plainText.toList()
@@ -111,14 +128,28 @@ object TTMLParser {
                         }
                     }
                     if (chars.isNotEmpty()) {
-                        lines.add(ParsedLine(plainText, startTime, endTime, chars, isBackground, agent))
+                        lines.add(
+                            ParsedLine(
+                                plainText, startTime, endTime, chars, isBackground, agent,
+                                key, transliterationByKey[key], subtitleByKey[key]
+                            )
+                        )
                     } else if (plainText.isNotBlank()) {
-                        lines.add(ParsedLine(plainText, startTime, endTime, emptyList(), isBackground, agent))
+                        lines.add(
+                            ParsedLine(
+                                plainText, startTime, endTime, emptyList(), isBackground, agent,
+                                key, transliterationByKey[key], subtitleByKey[key]
+                            )
+                        )
                     }
                 } else if (hasWordTiming) {
-                    lines.add(ParsedLine(plainText.ifBlank {
-                        words.joinToString("") { it.text }
-                    }, startTime, endTime, words, isBackground, agent))
+                    lines.add(
+                        ParsedLine(
+                            plainText.ifBlank { words.joinToString("") { it.text } },
+                            startTime, endTime, words, isBackground, agent,
+                            key, transliterationByKey[key], subtitleByKey[key]
+                        )
+                    )
                 }
             }
             return lines.sortedBy { it.startTime }
@@ -138,7 +169,6 @@ object TTMLParser {
             val end = match.groupValues[2]
             val content = match.groupValues[3]
             val startTime = parseTtmlTime(begin)
-            val endTime = if (end.isNotBlank()) parseTtmlTime(end) else startTime + 3.0
             val isBackground = content.contains("role=\"x-bg\"") || content.contains("class=\"x-bg\"")
             val agent = Regex("""ttm:agent="([^"]+)"""").find(content)?.groupValues?.get(1)
 
@@ -169,6 +199,12 @@ object TTMLParser {
                 }
             }
 
+            val endTime = if (end.isNotBlank()) {
+                parseTtmlTime(end)
+            } else {
+                words.lastOrNull()?.endTime ?: startTime
+            }
+
             if (!hasWordTiming) {
                 val chars = mutableListOf<ParsedWord>()
                 val charList = plainText.toList()
@@ -188,6 +224,60 @@ object TTMLParser {
             }
         }
         return lines.sortedBy { it.startTime }
+    }
+
+    private fun Document.parseMetadataTextByKey(containerLocalName: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        descendantsByLocalName(containerLocalName).forEach { containerElement ->
+            containerElement.descendantsByLocalName("text").forEach { textElement ->
+                val textKey = textElement.readAttribute("for") ?: return@forEach
+                val text = textElement.textContent.normalizeMetadataText()
+                if (text.isNotBlank() && !result.containsKey(textKey)) {
+                    result[textKey] = text
+                }
+            }
+        }
+        return result
+    }
+
+    private fun org.w3c.dom.Node.descendantsByLocalName(localName: String): List<org.w3c.dom.Element> {
+        val result = mutableListOf<org.w3c.dom.Element>()
+        fun visit(node: org.w3c.dom.Node) {
+            val childNodes = node.childNodes
+            for (childIndex in 0 until childNodes.length) {
+                val childNode = childNodes.item(childIndex)
+                if (childNode.nodeType == org.w3c.dom.Node.ELEMENT_NODE) {
+                    val childElement = childNode as org.w3c.dom.Element
+                    if (childElement.localName == localName ||
+                        childElement.tagName.substringAfter(':') == localName
+                    ) {
+                        result.add(childElement)
+                    }
+                    visit(childElement)
+                }
+            }
+        }
+        visit(this)
+        return result
+    }
+
+    private fun org.w3c.dom.Element.readAttribute(localName: String): String? {
+        if (hasAttribute(localName)) {
+            return getAttribute(localName).takeIf { it.isNotBlank() }
+        }
+        for (attributeIndex in 0 until attributes.length) {
+            val attribute = attributes.item(attributeIndex)
+            if (attribute.localName == localName ||
+                attribute.nodeName.substringAfter(':') == localName
+            ) {
+                return attribute.nodeValue.takeIf { it.isNotBlank() }
+            }
+        }
+        return null
+    }
+
+    private fun String.normalizeMetadataText(): String {
+        return replace(Regex("\\s+"), " ").trim()
     }
 
     fun parseTtmlTime(value: String): Double {

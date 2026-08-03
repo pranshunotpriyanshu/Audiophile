@@ -152,7 +152,7 @@ object SettingsLibrary {
     var LyricFontSize by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "settings_performance_lyric_font_size",
-        initialValue = 26f
+        initialValue = 30.5f
     )
 
     /**
@@ -173,6 +173,16 @@ object SettingsLibrary {
         dataSaverInterface = SettingsSaver,
         key = "settings_performance_lyric_blur_effect",
         initialValue = true
+    )
+
+    /**
+     * Smart word-by-word lyrics: animate a linear gradient over non word-synced lines
+     */
+    @Stable
+    var LyricSmartWbw by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_performance_lyric_smart_wbw_lyric",
+        initialValue = false
     )
 
     /**

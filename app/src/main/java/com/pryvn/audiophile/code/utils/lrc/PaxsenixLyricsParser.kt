@@ -41,7 +41,6 @@ object PaxsenixLyricsParser {
                 ?: p.attributes?.getNamedItem("agent")?.textContent
 
             val startTime = parseTtmlTime(begin)
-            val endTime = if (end != null) parseTtmlTime(end) else startTime + 3.0
 
             val words = mutableListOf<ParsedWord>()
             val spans = p.childNodes
@@ -79,6 +78,12 @@ object PaxsenixLyricsParser {
 
             val isBackground = agent != null || words.any { it.isBackground }
 
+            val endTime = if (end != null) {
+                parseTtmlTime(end)
+            } else {
+                words.lastOrNull()?.endTimeMs?.div(1000.0) ?: startTime
+            }
+
             if (!hasWordTiming && plainText.isNotBlank()) {
                 val chars = mutableListOf<ParsedWord>()
                 val charList = plainText.toList()
@@ -114,7 +119,6 @@ object PaxsenixLyricsParser {
             val end = match.groupValues[2]
             val content = match.groupValues[3]
             val startTime = parseTtmlTime(begin)
-            val endTime = if (end.isNotBlank()) parseTtmlTime(end) else startTime + 3.0
             val isBackground = content.contains("role=\"x-bg\"") || content.contains("class=\"x-bg\"")
             val agent = Regex("""ttm:agent="([^"]+)"""").find(content)?.groupValues?.get(1)
 
@@ -135,6 +139,12 @@ object PaxsenixLyricsParser {
                 } else if (wText.isNotBlank()) {
                     plainText = wText
                 }
+            }
+
+            val endTime = if (end.isNotBlank()) {
+                parseTtmlTime(end)
+            } else {
+                words.lastOrNull()?.endTimeMs?.div(1000.0) ?: startTime
             }
 
             if (!hasWordTiming && plainText.isNotBlank()) {

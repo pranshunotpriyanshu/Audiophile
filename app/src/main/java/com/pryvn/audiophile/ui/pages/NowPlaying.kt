@@ -255,6 +255,7 @@ import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
 import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
+import com.pryvn.audiophile.ui.widgets.LyricShareContent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import sh.calvin.reorderable.ReorderableItem
@@ -785,6 +786,18 @@ fun NowPlaying(
                     ) {
                         Lyric(
                             lrcEntries = { displayLrcEntries.value },
+                            lineEndTimes = {
+                                MediaViewModelObject.wordSyncedLines.value.map { it.endTimeMs.toFloat() }
+                            },
+                            lineTransliterations = {
+                                MediaViewModelObject.lyricLineTransliterations
+                            },
+                            lineSubtitles = {
+                                MediaViewModelObject.lyricLineSubtitles
+                            },
+                            isTtmlLyrics = {
+                                MediaViewModelObject.hasWordSyncedLyrics.value
+                            },
                             weightLambda = { showControl.value },
                             translationLambda = { translation.value },
                             onBackClick = {
@@ -794,7 +807,6 @@ fun NowPlaying(
                             },
                             mainViewModel = mainViewModel,
                             mediaViewModel = mediaViewModel,
-                            active = isLyricPage,
                         )
                     }
                 }
@@ -1102,13 +1114,13 @@ PlayingList ->
                                                                                 result.onSuccess { translatedText ->
                                                                                     val translatedLines = translatedText.lines().map { it.trim() }
                                                                                     if (translatedLines.isNotEmpty()) {
-                                                                                        val newEntries = lrcEntries.value.mapIndexedNotNull { index, group ->
+                                                                                        val newEntries = lrcEntries.value.mapIndexed { index, group ->
                                                                                             val tl = translatedLines.getOrNull(index)?.takeIf { it.isNotBlank() }
                                                                                             if (tl != null) {
                                                                                                 val time = group.first().first
                                                                                                 group + (time to tl)
                                                                                             } else {
-                                                                                                null
+                                                                                                group
                                                                                             }
                                                                                         }
                                                                                         if (newEntries.isNotEmpty()) {
@@ -1450,6 +1462,14 @@ PlayingList ->
                             if (nowPageLambda() == Lyric) {
                                 Lyric(
                                     lrcEntries = { displayLrcEntries.value },
+                                    lineEndTimes = {
+                                        MediaViewModelObject.wordSyncedLines.value.map { it.endTimeMs.toFloat() }
+                                    },
+                                    lineTransliterations = { emptyList() },
+                                    lineSubtitles = { emptyList() },
+                                    isTtmlLyrics = {
+                                        MediaViewModelObject.hasWordSyncedLyrics.value
+                                    },
                                     weightLambda = { false },
                                     translationLambda = { translation.value },
                                     onBackClick = {
@@ -1458,7 +1478,6 @@ PlayingList ->
                                     },
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
-                                    active = false
                                 )
                             } else {
                                 PlayingList(
@@ -2241,143 +2260,129 @@ fun LazyItemScope.QueueMusicListItem(
 }
 
 @Composable
-fun Lyric(
+private fun Lyric(
     lrcEntries: () -> List<List<Pair<Float, String>>>,
+    lineEndTimes: () -> List<Float>,
+    lineTransliterations: () -> List<String?>,
+    lineSubtitles: () -> List<String?>,
+    isTtmlLyrics: () -> Boolean,
     weightLambda: () -> Boolean,
     translationLambda: () -> Boolean,
     mainViewModel: MainViewModel,
     mediaViewModel: MediaViewModel,
-    onBackClick: () -> Unit,
-    active: Boolean = true,
+    onBackClick: () -> Unit
 ) = YosWrapper {
 
     val context = LocalContext.current
     val lyDensity = LocalDensity.current
     val statusBarHeight = with(lyDensity) { WindowInsets.statusBars.getTop(this).toDp() }
 
-    println("重组：YosLyricView 外层 2")
-
     Column(
         Modifier
             .fillMaxSize()
     ) {
         YosWrapper {
-            println("重组：YosLyricView 外层 1")
-
             Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
-                val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
-                val lyricTextColor =
-                    if (dominantBackground.luminance() < 0.4f)
-                        Color.White
-                    else
-                        Color.Black
-                YosLyricView(
-                    //mediaViewModel = mediaViewModel,
-                    lrcEntriesLambda = lrcEntries,
-                    liveTimeLambda = {
-                        (mediaControl?.currentPosition ?: 0).toInt()
-                    },
-                    mediaEvent = object : YosMediaEvent {
-                        override fun onSeek(position: Int) {
-                            mediaControl?.seekTo(position.toLong())
+            YosLyricView(
+                //mediaViewModel = mediaViewModel,
+                lrcEntriesLambda = lrcEntries,
+                lineEndTimesLambda = lineEndTimes,
+                lineTransliterationsLambda = lineTransliterations,
+                lineSubtitlesLambda = lineSubtitles,
+                isTtmlLyricsLambda = isTtmlLyrics,
+                liveTimeLambda = {
+                    (mediaControl?.currentPosition ?: 0).toInt()
+                },
+                mediaEvent = object : YosMediaEvent {
+                    override fun onSeek(position: Int) {
+                        mediaControl?.seekTo(position.toLong())
+                    }
+                },
+                translationLambda = translationLambda,
+                blurLambda = {
+                    SettingsLibrary.LyricBlurEffect
+                },
+                uiConfig = YosUIConfig(
+                    noLrcText = stringResource(id = R.string.tip_no_lyrics)
+                ),
+                weightLambda = weightLambda,
+                modifier = Modifier.drawWithCache {
+                    onDrawWithContent {
+                        val overlayPaint = Paint().apply {
+                            blendMode = BlendMode.Plus
+                        }
+                        val rect = Rect(0f, 0f, size.width, size.height)
+                        val canvas = this.drawContext.canvas
+
+                        canvas.saveLayer(rect, overlayPaint)
+
+                        val colors = if (weightLambda()) {
+                            listOf(
+                                Color.Transparent,
+                                Color(0x59000000),
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color(0x59000000),
+                                Color(0x21000000),
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Transparent
+                            )
+                        } else {
+                            listOf(
+                                Color.Transparent,
+                                Color(0x59000000),
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                /*Color(0xD9000000),
+                                Color(0xA6000000),
+                                Color(0x73000000),
+                                Color(0x59000000),
+                                Color(0x3F000000),
+                                Color(0x21000000),
+                                Color(0x0C000000),*/
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black,
+                                Color.Black
+                            )
+                        }
+
+                        drawContent()
+
+                            drawRect(
+                                brush = Brush.verticalGradient(colors),
+                                blendMode = BlendMode.DstIn
+                            )
+
+                            canvas.restore()
                         }
                     },
-                    translationLambda = translationLambda,
-                    blurLambda = {
-                        SettingsLibrary.LyricBlurEffect
-                    },
-                    uiConfig = YosUIConfig(
-                        noLrcText = stringResource(id = R.string.tip_no_lyrics),
-                        mainTextBasicColor = lyricTextColor.toArgb().toLong(),
-                        subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
-                    ),
-                    weightLambda = weightLambda,
-                    modifier = Modifier.drawWithCache {
-                        onDrawWithContent {
-                            val overlayPaint = Paint().apply {
-                                blendMode = BlendMode.Plus
-                            }
-                            val rect = Rect(0f, 0f, size.width, size.height)
-                            val canvas = this.drawContext.canvas
-
-                            canvas.saveLayer(rect, overlayPaint)
-
-                            val colors = if (weightLambda()) {
-                                listOf(
-                                    Color.Transparent,
-                                    Color(0x59000000),
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color(0x59000000),
-                                    Color(0x21000000),
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent
-                                )
-                            } else {
-                                listOf(
-                                    Color.Transparent,
-                                    Color(0x59000000),
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    /*Color(0xD9000000),
-                                    Color(0xA6000000),
-                                    Color(0x73000000),
-                                    Color(0x59000000),
-                                    Color(0x3F000000),
-                                    Color(0x21000000),
-                                    Color(0x0C000000),*/
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black
-                                )
-                            }
-
-                            drawContent()
-
-                                drawRect(
-                                    brush = Brush.verticalGradient(colors),
-                                    blendMode = BlendMode.DstIn
-                                )
-
-                                canvas.restore()
-                            }
-                        }
-                        .pointerInput(Unit) {
-                            if (!active) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        awaitPointerEvent()
-                                    }
-                                }
-                            }
-                        },
-                    onBackClick = onBackClick
-                )
-            }
+                onBackClick = onBackClick
+            )
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2496,6 +2501,7 @@ fun NowPlayingOverflowSheet(
     val navigationDirection = remember {
         mutableIntStateOf(SheetNavigationForward)
     }
+    val scope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -2531,6 +2537,31 @@ fun NowPlayingOverflowSheet(
                         navigationDirection.intValue = SheetNavigationForward
                         screen = OverflowScreen.SleepTimer
                     },
+                    onPickLyricShare = {
+                        navigationDirection.intValue = SheetNavigationForward
+                        screen = OverflowScreen.LyricShare
+                    },
+                    onRefetchLyrics = {
+                        onDismiss()
+                        scope.launch(Dispatchers.IO) {
+                            val track = song ?: return@launch
+                            MediaViewModelObject.isLoadingLyrics.value = true
+                            LyricsProcessor.resetLyricsState()
+                            MediaViewModelObject.lrcEntries.value = emptyList()
+                            MediaViewModelObject.otherSideForLines.clear()
+                            val lyrics = ArchiveTuneApis.fetchLyrics(
+                                title = track.title,
+                                artist = track.artists,
+                                album = track.album,
+                                durationMs = track.duration,
+                                videoId = track.mediaId,
+                            )
+                            if (lyrics != null && lyrics.text.isNotBlank()) {
+                                LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
+                            }
+                            MediaViewModelObject.isLoadingLyrics.value = false
+                        }
+                    },
                 )
 
                 OverflowScreen.Playlist -> PlayListPickerContent(
@@ -2549,12 +2580,21 @@ fun NowPlayingOverflowSheet(
                         screen = OverflowScreen.Menu
                     },
                 )
+
+                OverflowScreen.LyricShare -> LyricShareContent(
+                    song = song,
+                    onBack = {
+                        navigationDirection.intValue = SheetNavigationBackward
+                        screen = OverflowScreen.Menu
+                    },
+                    onDone = onDismiss,
+                )
             }
         }
     }
 }
 
-enum class OverflowScreen { Menu, Playlist, SleepTimer }
+enum class OverflowScreen { Menu, Playlist, SleepTimer, LyricShare }
 
 enum class OverflowLibraryTarget(val route: String)
 {
@@ -2571,10 +2611,13 @@ fun OverflowMenuBody(
     onDismiss: () -> Unit,
     onPickPlaylist: () -> Unit,
     onPickSleepTimer: () -> Unit,
+    onPickLyricShare: () -> Unit,
+    onRefetchLyrics: () -> Unit,
 ) {
     val addToPlaylistLabel = stringResource(R.string.now_playing_overflow_add_to_playlist)
     val sleepTimerLabel = stringResource(R.string.now_playing_overflow_sleep_timer)
     val refetchLyricsLabel = stringResource(R.string.now_playing_overflow_refetch_lyrics)
+    val shareLyricsLabel = stringResource(R.string.now_playing_overflow_share_lyrics)
 
     val sleepTimerActive = SleepTimer.state.value is SleepTimerState.Active
     val accent = MaterialTheme.colorScheme.primary
@@ -2604,8 +2647,9 @@ fun OverflowMenuBody(
     }
 
     val items = remember(
-        addToPlaylistLabel, sleepTimerLabel, refetchLyricsLabel, sleepTimerActive, accent,
-        onPickPlaylist, onPickSleepTimer, onRefetchLyrics,
+        addToPlaylistLabel, sleepTimerLabel, refetchLyricsLabel, shareLyricsLabel,
+        sleepTimerActive, accent,
+        onPickPlaylist, onPickSleepTimer, onRefetchLyrics, onPickLyricShare,
     ) {
         listOf(
             ActionItem(
@@ -2623,6 +2667,11 @@ fun OverflowMenuBody(
                 iconRes = R.drawable.ic_refresh,
                 label = refetchLyricsLabel,
                 onClick = onRefetchLyrics,
+            ),
+            ActionItem(
+                iconRes = R.drawable.ic_action_share,
+                label = shareLyricsLabel,
+                onClick = onPickLyricShare,
             ),
         )
     }

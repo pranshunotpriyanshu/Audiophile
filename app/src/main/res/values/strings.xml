@@ -42,6 +42,7 @@
     <string name="settings_others_about_desc">About Audiophile.</string>
     <string name="settings_audio_fade_in_out_desc">Volume fades in / out when playing / pausing.</string>
     <string name="tip_no_lyrics">Lyrics not ready</string>
+    <string name="tip_no_lyrics_tip">Try granting access from Library Overview.</string>
     <string name="tip_scan_finished">Scan finished, total %d songs.</string>
     <string name="settings_performance">Appearance</string>
     <string name="settings_audio_exoplayer_decode_hardware_audio_track_playback_params">Hardware-level Audio Speed Adjustment</string>
@@ -93,6 +94,8 @@
     <string name="normal_button_sort_descending">Descending</string>
     <string name="settings_performance_lyric_blur_effect">Lyric Blur</string>
     <string name="settings_performance_lyric_blur_effect_desc">Blur effect of the lyrics view, which may cause performance issues.</string>
+    <string name="settings_performance_lyric_smart_wbw_lyric">Smart Word-by-Word Lyrics</string>
+    <string name="settings_performance_lyric_smart_wbw_lyric_desc">Display non-word-by-word lyrics with a linear gradient that follows the singing speed, for a similar word-by-word effect.</string>
     <string name="settings_performance_lyric_title">Lyric Display</string>
     <string name="settings_performance_lyric_style">Style</string>
     <string name="settings_performance_lyric_others">Others</string>
@@ -206,6 +209,15 @@
     <string name="now_playing_overflow_add_to_playlist">Add to Playlist</string>
     <string name="now_playing_overflow_sleep_timer">Sleep Timer</string>
     <string name="now_playing_overflow_refetch_lyrics">Refetch Lyrics</string>
+    <string name="now_playing_overflow_share_lyrics">Share Lyrics</string>
+    <string name="lyric_share_save">Save</string>
+    <string name="lyric_share_subtitle">%d / 14 Lines</string>
+    <string name="lyric_share_title">%d Lines Selected</string>
+    <string name="lyric_share_to">Share to</string>
+    <string name="tip_lyric_share_save_fail">Save Failed</string>
+    <string name="tip_lyric_share_save_success">Saved</string>
+    <string name="tip_lyric_share_to_fail">Sharing Error</string>
+    <string name="tip_lyric_share_to_fail_desc">No sharable apps found</string>
     <string name="playlist_overflow_play_next">Play next</string>
     <string name="playlist_play_next_toast_one">Added 1 song to play next</string>
     <string name="playlist_play_next_toast_other">Added %s songs to play next</string>

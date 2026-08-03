@@ -54,6 +54,7 @@ object PaxsenixLyricsFetcher {
                                     isBackground = w.isBackground,
                                 )
                             },
+                            agent = line.voice,
                         )
                     }
                     val lrcText = toLrcFormat(parsed)
@@ -78,6 +79,7 @@ object PaxsenixLyricsFetcher {
                                     isBackground = w.isBackground,
                                 )
                             },
+                            agent = line.voice,
                         )
                     }
                     val lrcText = toLrcFormat(parsed)
@@ -149,6 +151,7 @@ object PaxsenixLyricsFetcher {
                                 isBackground = w.isBackground,
                             )
                         },
+                        agent = line.voice,
                     )
                 }
                 lrcEntriesSetter(wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value))
@@ -175,6 +178,7 @@ object PaxsenixLyricsFetcher {
                                 isBackground = w.isBackground,
                             )
                         },
+                        agent = line.voice,
                     )
                 }
                 lrcEntriesSetter(wordSyncedToEntries(MediaViewModelObject.wordSyncedLines.value))

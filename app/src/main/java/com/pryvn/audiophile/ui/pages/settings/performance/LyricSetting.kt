@@ -119,6 +119,19 @@ fun LyricSetting(navController: NavController) =
                         }
 
                         ListHeader(content = stringResource(id = R.string.settings_performance_lyric_blur_effect_desc))
+
+                        RoundColumn {
+                            SwitchItem(
+                                title = stringResource(id = R.string.settings_performance_lyric_smart_wbw_lyric),
+                                onClick = {
+                                    SettingsLibrary.LyricSmartWbw =
+                                        !SettingsLibrary.LyricSmartWbw
+                                },
+                                checkedLambda = { SettingsLibrary.LyricSmartWbw }
+                            )
+                        }
+
+                        ListHeader(content = stringResource(id = R.string.settings_performance_lyric_smart_wbw_lyric_desc))
                         GroupSpacer()
                     }
                 }

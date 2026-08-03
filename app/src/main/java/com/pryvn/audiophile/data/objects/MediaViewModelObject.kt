@@ -19,7 +19,10 @@ data class WordSyncedLine(
     val text: String,
     val startTimeMs: Long,
     val endTimeMs: Long,
-    val words: List<WordSyncedWord> = emptyList()
+    val words: List<WordSyncedWord> = emptyList(),
+    val agent: String? = null,
+    val transliteration: String? = null,
+    val subtitle: String? = null
 )
 
 enum class PlaybackLoadingState {
@@ -61,10 +64,15 @@ object MediaViewModelObject {
     val wordSyncedLines: MutableState<List<WordSyncedLine>> = mutableStateOf(emptyList())
     val hasWordSyncedLyrics: MutableState<Boolean> = mutableStateOf(false)
 
+    val lyricLineTransliterations = mutableStateListOf<String?>()
+    val lyricLineSubtitles = mutableStateListOf<String?>()
+
     val playbackLoadingState: MutableState<PlaybackLoadingState> = mutableStateOf(PlaybackLoadingState.Idle)
 
     fun clearWordSync() {
         hasWordSyncedLyrics.value = false
         wordSyncedLines.value = emptyList()
+        lyricLineTransliterations.clear()
+        lyricLineSubtitles.clear()
     }
 }
