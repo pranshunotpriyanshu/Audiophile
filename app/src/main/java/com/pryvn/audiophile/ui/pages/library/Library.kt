@@ -51,6 +51,13 @@ fun Library(navController: NavController) =
                             }
                             LibraryDivider()
                             SmallLabelItem(
+                                icon = painterResource(id = R.drawable.ic_library_link_icon_artists),
+                                label = stringResource(id = R.string.page_library_artists)
+                            ) {
+                                navController.toUI(UI.OnlineArtistsList)
+                            }
+                            LibraryDivider()
+                            SmallLabelItem(
                                 icon = painterResource(id = R.drawable.ic_library_link_icon_songs),
                                 label = stringResource(id = R.string.page_library_playlists)
                             ) {

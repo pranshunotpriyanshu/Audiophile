@@ -1,6 +1,8 @@
 package com.pryvn.audiophile.code.api
 
 import kotlinx.serialization.json.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.code.api.innertube.SearchFilter
 import com.pryvn.audiophile.code.api.innertube.models.*
@@ -138,21 +140,68 @@ object YouTubeApi {
                 it.contains("song", ignoreCase = true) -> SearchFilter.FILTER_SONG
                 it.contains("album", ignoreCase = true) -> SearchFilter.FILTER_ALBUM
                 it.contains("artist", ignoreCase = true) -> SearchFilter.FILTER_ARTIST
-                it.contains("playlist", ignoreCase = true) -> SearchFilter.FILTER_FEATURED_PLAYLIST
+                it.contains("playlist", ignoreCase = true) -> SearchFilter.FILTER_COMMUNITY_PLAYLIST
                 else -> null
             }
         }
-        val result = if (innertubeFilter != null) {
-            YouTube.search(query, innertubeFilter).getOrThrow()
-        } else {
-            YouTube.search(query, SearchFilter.FILTER_SONG).getOrThrow()
-        }
 
-        val songs = result.items.filterIsInstance<SongItem>().map { it.toYTSongItem() }
-        YTSearchResult(
-            items = songs.distinctBy { it.videoId },
-            continuation = result.continuation,
-        )
+        if (innertubeFilter != null) {
+            val result = YouTube.search(query, innertubeFilter).getOrThrow()
+            val songs = result.items.filterIsInstance<SongItem>().map { it.toYTSongItem() }
+            val albums = result.items.filterIsInstance<AlbumItem>().map {
+                YTAlbumSearchItem(browseId = it.browseId, title = it.title, artist = it.artists?.firstOrNull()?.name, thumbnailUrl = it.thumbnail)
+            }
+            val artists = result.items.filterIsInstance<ArtistItem>().map {
+                YTArtistSearchItem(browseId = it.id, name = it.title, thumbnailUrl = it.thumbnail)
+            }
+            val playlists = result.items.filterIsInstance<PlaylistItem>().map {
+                YTPlaylist(id = it.id, title = it.title, thumbnailUrl = it.thumbnail, author = it.author?.name, songCount = it.songCountText?.filter { c -> c.isDigit() }?.toIntOrNull())
+            }
+            YTSearchResult(
+                items = songs.distinctBy { it.videoId },
+                sections = listOf(
+                    YTSearchSection("Songs", songs = songs),
+                    YTSearchSection("Albums", albums = albums),
+                    YTSearchSection("Artists", artists = artists),
+                    YTSearchSection("Community Playlists", playlists = playlists),
+                ).filter { it.songs.isNotEmpty() || it.albums.isNotEmpty() || it.artists.isNotEmpty() || it.playlists.isNotEmpty() },
+                continuation = result.continuation,
+            )
+        } else {
+            // No filter: search all content types in parallel
+            coroutineScope {
+                val songResult = async { YouTube.search(query, SearchFilter.FILTER_SONG).getOrNull() }
+                val albumResult = async { YouTube.search(query, SearchFilter.FILTER_ALBUM).getOrNull() }
+                val artistResult = async { YouTube.search(query, SearchFilter.FILTER_ARTIST).getOrNull() }
+                val playlistResult = async { YouTube.search(query, SearchFilter.FILTER_COMMUNITY_PLAYLIST).getOrNull() }
+
+            val songs = songResult.await()?.items
+                ?.filterIsInstance<SongItem>()?.map { it.toYTSongItem() }
+                ?.distinctBy { it.videoId } ?: emptyList()
+            val albums = albumResult.await()?.items
+                ?.filterIsInstance<AlbumItem>()?.map {
+                    YTAlbumSearchItem(browseId = it.browseId, title = it.title, artist = it.artists?.firstOrNull()?.name, thumbnailUrl = it.thumbnail)
+                } ?: emptyList()
+            val artists = artistResult.await()?.items
+                ?.filterIsInstance<ArtistItem>()?.map {
+                    YTArtistSearchItem(browseId = it.id, name = it.title, thumbnailUrl = it.thumbnail)
+                } ?: emptyList()
+            val playlists = playlistResult.await()?.items
+                ?.filterIsInstance<PlaylistItem>()?.map {
+                    YTPlaylist(id = it.id, title = it.title, thumbnailUrl = it.thumbnail, author = it.author?.name, songCount = it.songCountText?.filter { c -> c.isDigit() }?.toIntOrNull())
+                } ?: emptyList()
+
+            YTSearchResult(
+                items = songs,
+                sections = listOf(
+                    YTSearchSection("Songs", songs = songs),
+                    YTSearchSection("Albums", albums = albums),
+                    YTSearchSection("Artists", artists = artists),
+                    YTSearchSection("Community Playlists", playlists = playlists),
+                ).filter { it.songs.isNotEmpty() || it.albums.isNotEmpty() || it.artists.isNotEmpty() || it.playlists.isNotEmpty() },
+            )
+            }
+        }
     }
 
     suspend fun searchContinuation(continuation: String): Result<YTSearchResult> = runCatching {

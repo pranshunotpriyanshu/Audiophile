@@ -7,10 +7,8 @@
       <stop offset="100%" stop-color="#ef3b52"/>
     </radialGradient>
   </defs>
-
   <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad)"/>
-
-  <g transform="translate(85.333,-70.781) scale(0.152381)">
+  <g transform="translate(284.444,201.183) scale(0.081270)">
     <g transform="translate(0.000000,7296.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none">
       <path d="M17935 52010 c-99 -5 -209 -13 -245 -19 -36 -6 -101 -11 -145 -11
 -99 0 -589 -63 -750 -96 -66 -14 -199 -40 -295 -58 -96 -19 -208 -43 -248 -55

@@ -1,6 +1,9 @@
 package com.pryvn.audiophile.ui.pages.ytmusic
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,8 +29,10 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
@@ -39,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,8 +66,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,6 +86,7 @@ import com.pryvn.audiophile.code.api.YTArtist
 import com.pryvn.audiophile.code.api.YTArtistSearchItem
 import com.pryvn.audiophile.code.api.YTPlaylist
 import com.pryvn.audiophile.code.api.YTSongItem
+import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
@@ -98,6 +109,16 @@ import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+
+private enum class SourceMode { Audiophile, Library }
+
+private enum class SearchResultCategory(val label: String) {
+    TopResults("Top Results"),
+    Artists("Artists"),
+    Albums("Albums"),
+    Songs("Songs"),
+    CommunityPlaylists("Community Playlists")
+}
 
 private data class GenreCategory(
     val name: String,
@@ -129,12 +150,29 @@ fun SearchPage(navController: NavController) {
         }
     }
 
-    BackHandler(
-        enabled = contentState != SearchContentState.Idle
-    ) {
-        focusManager.clearFocus()
-        keyboardController?.hide()
-        viewModel.clearQuery()
+    var sourceMode by remember { mutableStateOf(SourceMode.Audiophile) }
+    var selectedCategory by remember { mutableStateOf(SearchResultCategory.TopResults) }
+    var hasSubmittedSearch by remember { mutableStateOf(false) }
+    var recommendations by remember { mutableStateOf<List<YTSongItem>>(emptyList()) }
+    var isLoadingRecommendations by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isFocused, sourceMode) {
+        if (uiState.isFocused && sourceMode == SourceMode.Audiophile && uiState.query.isBlank()) {
+            isLoadingRecommendations = true
+            try {
+                val result = YouTubeApi.recentlyPlayedSongs(10)
+                result.onSuccess { songs ->
+                    recommendations = songs
+                }.onFailure {
+                    recommendations = emptyList()
+                }
+            } catch (_: Exception) {
+                recommendations = emptyList()
+            }
+            isLoadingRecommendations = false
+        } else {
+            recommendations = emptyList()
+        }
     }
 
     val density = LocalDensity.current
@@ -144,13 +182,87 @@ fun SearchPage(navController: NavController) {
     val allSongs = remember { MusicLibrary.songs }
 
     val history by ListeningHistory.history.collectAsState()
-    val recentRows = remember(history, allSongs) {
-        history.mapNotNull { entry ->
-            entry.toSearchYosMediaItem(allSongs)?.let { entry to it }
-        }
+    val recentRows = remember(history, allSongs, sourceMode) {
+        history
+            .let { entries ->
+                if (sourceMode == SourceMode.Library) entries.filter { it.source == PlaybackSource.LOCAL }
+                else entries
+            }
+            .mapNotNull { entry ->
+                entry.toSearchYosMediaItem(allSongs)?.let { entry to it }
+            }
     }
 
     val genreCategories = remember(allSongs) { buildGenreCategories(allSongs) }
+
+    val libraryResults = remember(uiState.query, allSongs) {
+        val q = uiState.query.trim().lowercase()
+        if (q.isEmpty()) emptyList()
+        else allSongs.filter { song ->
+            (song.title ?: "").lowercase().contains(q) ||
+                    (song.artists ?: "").lowercase().contains(q) ||
+                    (song.album ?: "").lowercase().contains(q)
+        }.take(30)
+    }
+
+    val libraryContentState = remember(sourceMode, uiState, libraryResults) {
+        if (sourceMode != SourceMode.Library) null
+        else when {
+            uiState.query.isBlank() -> SearchContentState.Idle
+            libraryResults.isNotEmpty() -> SearchContentState.Results
+            else -> SearchContentState.Empty
+        }
+    }
+
+    val activeContentState = libraryContentState ?: contentState
+
+    val searchBarDisplayText: AnnotatedString? = if (hasSubmittedSearch && !uiState.isFocused && uiState.query.isNotBlank()) {
+        buildAnnotatedString {
+            append(uiState.query)
+            withStyle(SpanStyle(color = Color.Gray.copy(alpha = 0.6f))) {
+                append(" in ${sourceMode.name}")
+            }
+        }
+    } else null
+
+    val showResults = activeContentState == SearchContentState.Results ||
+            (sourceMode == SourceMode.Library && uiState.query.isNotBlank() && libraryResults.isNotEmpty())
+
+    val allOnlineResults = remember(uiState.resultsSections) {
+        uiState.resultsSections.flatMap { it.items }
+    }
+
+    val filteredOnlineResults = remember(allOnlineResults, selectedCategory) {
+        when (selectedCategory) {
+            SearchResultCategory.TopResults -> allOnlineResults
+            SearchResultCategory.Artists -> allOnlineResults.filterIsInstance<YTArtistSearchItem>()
+            SearchResultCategory.Albums -> allOnlineResults.filterIsInstance<YTAlbumSearchItem>()
+            SearchResultCategory.Songs -> allOnlineResults.filterIsInstance<YTSongItem>()
+            SearchResultCategory.CommunityPlaylists -> allOnlineResults.filterIsInstance<YTPlaylist>()
+        }
+    }
+
+    val filteredLibraryResults = remember(libraryResults, selectedCategory) {
+        when (selectedCategory) {
+            SearchResultCategory.TopResults -> libraryResults
+            SearchResultCategory.Songs -> libraryResults
+            else -> emptyList()
+        }
+    }
+
+    LaunchedEffect(sourceMode) {
+        selectedCategory = SearchResultCategory.TopResults
+        if (uiState.query.isNotBlank() && sourceMode == SourceMode.Audiophile && hasSubmittedSearch) {
+            viewModel.performSearch(uiState.query)
+        }
+    }
+
+    BackHandler(
+        enabled = hasSubmittedSearch && !uiState.isFocused
+    ) {
+        hasSubmittedSearch = false
+        selectedCategory = SearchResultCategory.TopResults
+    }
 
     SongOverflowSheet(
         isOpen = songOverflowSheetOpen,
@@ -197,19 +309,135 @@ fun SearchPage(navController: NavController) {
                 onValueChange = viewModel::onQueryChange,
                 onSearch = {
                     if (uiState.query.isNotBlank()) {
-                        viewModel.performSearch(uiState.query)
+                        hasSubmittedSearch = true
+                        selectedCategory = SearchResultCategory.TopResults
+                        if (sourceMode == SourceMode.Audiophile) {
+                            viewModel.performSearch(uiState.query)
+                        }
                         focusManager.clearFocus()
                         keyboardController?.hide()
                     }
                 },
-                onClear = viewModel::clearQuery,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { viewModel.onSearchFocusChanged(it.isFocused) }
+                onClear = {
+                    hasSubmittedSearch = false
+                    selectedCategory = SearchResultCategory.TopResults
+                    viewModel.clearQuery()
+                },
+                displayText = searchBarDisplayText,
+                onFocusChanged = { focused ->
+                    viewModel.onSearchFocusChanged(focused)
+                },
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        // Source Selector — only visible when search bar is active
+        AnimatedVisibility(
+            visible = uiState.isFocused,
+            enter = expandVertically(expandFrom = androidx.compose.ui.Alignment.Top),
+            exit = shrinkVertically(shrinkTowards = androidx.compose.ui.Alignment.Top)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 8.dp)
+                    .clip(YosRoundedCornerShape(14.dp))
+                    .background(Color.Gray.copy(alpha = 0.12f))
+            ) {
+                SourceMode.entries.forEach { mode ->
+                    val isSelected = sourceMode == mode
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                            .clip(YosRoundedCornerShape(10.dp))
+                            .then(
+                                if (isSelected) Modifier.background(Color.Gray.copy(alpha = 0.18f))
+                                else Modifier
+                            )
+                            .then(
+                                if (isSelected) Modifier.background(
+                                    Color.Transparent
+                                )
+                                else Modifier
+                            )
+                            .clickable {
+                                if (sourceMode != mode) {
+                                    sourceMode = mode
+                                    selectedCategory = SearchResultCategory.TopResults
+                                    hasSubmittedSearch = false
+                                    if (uiState.query.isNotBlank() && mode == SourceMode.Audiophile) {
+                                        viewModel.performSearch(uiState.query)
+                                        hasSubmittedSearch = true
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .clip(YosRoundedCornerShape(10.dp))
+                                    .background(Color.White.copy(alpha = 0.12f))
+                            )
+                        }
+                        Text(
+                            text = when (mode) {
+                                SourceMode.Audiophile -> "Audiophile"
+                                SourceMode.Library -> "Library"
+                            },
+                            color = if (isSelected) Color.White else Color.Gray,
+                            fontSize = 15.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontFamily = SfProFontFamily
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Category Bar — only visible when showing search results
+        if (showResults) {
+            val scrollState = rememberScrollState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState)
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SearchResultCategory.entries.forEach { category ->
+                    val isSelected = selectedCategory == category
+                    Box(
+                        modifier = Modifier
+                            .clip(YosRoundedCornerShape(20.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                else Color.Transparent
+                            )
+                            .clickable {
+                                selectedCategory = category
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = category.label,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary
+                            else Color.Gray.copy(alpha = 0.7f),
+                            fontSize = 14.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontFamily = SfProFontFamily,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -217,7 +445,57 @@ fun SearchPage(navController: NavController) {
                 .overScrollVertical(),
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
         ) {
-            if (contentState == SearchContentState.Idle) {
+            if (sourceMode == SourceMode.Library && uiState.query.isNotBlank()) {
+                // Library search results
+                if (filteredLibraryResults.isEmpty()) {
+                    item { EmptyView(Modifier.fillMaxWidth()) }
+                } else {
+                    items(filteredLibraryResults, key = { "lib_${it.uri}" }) { song ->
+                        SearchSongRow(
+                            song = song,
+                            onPlay = {
+                                scope.launch(Dispatchers.IO) {
+                                    MediaController.prepare(song, filteredLibraryResults)
+                                }
+                            },
+                            onOverflow = {
+                                selectedSongForMenu.value = song
+                                songOverflowSheetOpen.value = true
+                            }
+                        )
+                    }
+                }
+            } else if (activeContentState == SearchContentState.Idle) {
+                // Show recommendations when search bar is focused + Audiophile source
+                if (uiState.isFocused && sourceMode == SourceMode.Audiophile && recommendations.isNotEmpty()) {
+                    item("RecommendationsHeader") {
+                        Text(
+                            text = "Recently Played",
+                            color = Color.Black withNight Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 10.dp, top = 4.dp)
+                        )
+                    }
+                    items(recommendations, key = { "rec_${it.videoId}" }) { song ->
+                        SearchSongRow(
+                            song = YosMediaItem(
+                                uri = Uri.parse("ytmusic://${song.videoId}"),
+                                mediaId = song.videoId,
+                                title = song.title,
+                                artists = song.artists.joinToString(", ") { it.name },
+                                thumb = song.thumbnailUrl?.let { Uri.parse(it) }
+                            ),
+                            onPlay = {
+                                scope.launch(Dispatchers.IO) {
+                                    MediaController.playOnline(song)
+                                }
+                            },
+                            onOverflow = { }
+                        )
+                    }
+                }
+
                 // Quick Shortcuts
                 item("SearchCategories") {
                     Text(
@@ -260,7 +538,7 @@ fun SearchPage(navController: NavController) {
                         SearchShortcutPill(
                             label = "Artists",
                             iconRes = R.drawable.ic_library_link_icon_artists,
-                            onClick = { navController.toUI(UI.LocalArtists) },
+                            onClick = { navController.toUI(UI.OnlineArtistsList) },
                             modifier = Modifier.weight(1f)
                         )
                         SearchShortcutPill(
@@ -375,7 +653,7 @@ fun SearchPage(navController: NavController) {
                 }
             } else {
                 // Search Content View
-                when (contentState) {
+                when (activeContentState) {
                     SearchContentState.Loading -> {
                         item { LoadingView(Modifier.fillMaxWidth().padding(vertical = 60.dp)) }
                     }
@@ -392,12 +670,58 @@ fun SearchPage(navController: NavController) {
                         }
                     }
                     SearchContentState.Results -> {
-                        items(uiState.resultsSections) { section ->
-                            ResultsSection(section, onSongClick = { song ->
-                                scope.launch(Dispatchers.IO) {
-                                    MediaController.playOnline(song)
+                        if (selectedCategory == SearchResultCategory.TopResults) {
+                            items(filteredOnlineResults.size, key = { idx ->
+                                when (val item = filteredOnlineResults[idx]) {
+                                    is YTSongItem -> "top_song_${item.videoId}"
+                                    is YTAlbumSearchItem -> "top_album_${item.browseId}"
+                                    is YTArtistSearchItem -> "top_artist_${item.browseId}"
+                                    is YTPlaylist -> "top_playlist_${item.id}"
+                                    else -> "top_unknown_$idx"
                                 }
-                            })
+                            }) { idx ->
+                                when (val item = filteredOnlineResults[idx]) {
+                                    is YTSongItem -> SearchResultRowWithCategory(
+                                        song = item,
+                                        category = "Song",
+                                        onClick = { song ->
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.playOnline(song)
+                                            }
+                                        }
+                                    )
+                                    is YTAlbumSearchItem -> AlbumResultRowWithCategory(item, "Album")
+                                    is YTArtistSearchItem -> ArtistResultRowWithCategory(item, "Artist") {
+                                        LibraryObject.setTargetBrowseId(item.browseId)
+                                        navController.toUI(UI.OnlineArtistInfo)
+                                    }
+                                    is YTPlaylist -> PlaylistResultRowWithCategory(item, "Playlist")
+                                }
+                            }
+                        } else {
+                            items(filteredOnlineResults.size, key = { idx ->
+                                when (val item = filteredOnlineResults[idx]) {
+                                    is YTSongItem -> "song_${item.videoId}"
+                                    is YTAlbumSearchItem -> "album_${item.browseId}"
+                                    is YTArtistSearchItem -> "artist_${item.browseId}"
+                                    is YTPlaylist -> "playlist_${item.id}"
+                                    else -> "unknown_$idx"
+                                }
+                            }) { idx ->
+                                when (val item = filteredOnlineResults[idx]) {
+                                    is YTSongItem -> AppleSearchResultRow(item) { song ->
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.playOnline(song)
+                                        }
+                                    }
+                                    is YTAlbumSearchItem -> AppleAlbumSearchRow(item)
+                                    is YTArtistSearchItem -> AppleArtistSearchRow(item) {
+                                        LibraryObject.setTargetBrowseId(item.browseId)
+                                        navController.toUI(UI.OnlineArtistInfo)
+                                    }
+                                    is YTPlaylist -> ApplePlaylistSearchRow(item)
+                                }
+                            }
                         }
                     }
                     SearchContentState.Empty -> {
@@ -807,11 +1131,12 @@ private fun AppleAlbumSearchRow(album: YTAlbumSearchItem) {
 }
 
 @Composable
-private fun AppleArtistSearchRow(artist: YTArtistSearchItem) {
+private fun AppleArtistSearchRow(artist: YTArtistSearchItem, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -976,6 +1301,257 @@ private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f).copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = 10.dp)
             )
+        }
+    }
+}
+
+// ─── Category-First Result Rows (for Top Results) ──────────────────────────
+
+@Composable
+private fun SearchResultRowWithCategory(
+    song: YTSongItem,
+    category: String,
+    onClick: (YTSongItem) -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onClick(song) }
+            )
+            .scale(if (isPressed) 0.98f else 1f)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = song.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = song.title,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            val subtitle = buildString {
+                append(category)
+                if (song.artists.isNotEmpty()) {
+                    append("  \u2022  ")
+                    append(song.artists.joinToString(", ") { it.name })
+                }
+                song.album?.name?.let {
+                    append("  \u2022  ")
+                    append(it)
+                }
+            }
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (song.durationSeconds != null) {
+            val min = song.durationSeconds / 60
+            val sec = song.durationSeconds % 60
+            Text(
+                text = "%d:%02d".format(min, sec),
+                fontSize = 13.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f).copy(alpha = 0.6f),
+                modifier = Modifier.padding(start = 10.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumResultRowWithCategory(
+    album: YTAlbumSearchItem,
+    category: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = album.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = album.title,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            val subtitle = buildString {
+                append(category)
+                album.artist?.let {
+                    append("  \u2022  ")
+                    append(it)
+                }
+            }
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistResultRowWithCategory(
+    artist: YTArtistSearchItem,
+    category: String,
+    onClick: () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = artist.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(CircleShape)
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = artist.name,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = category,
+                fontSize = 13.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaylistResultRowWithCategory(
+    playlist: YTPlaylist,
+    category: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = playlist.thumbnailUrl,
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = playlist.title,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            val subtitle = buildString {
+                append(category)
+                if (playlist.author != null || playlist.songCount != null) {
+                    append("  \u2022  ")
+                    if (playlist.author != null) append(playlist.author)
+                    if (playlist.songCount != null) {
+                        if (playlist.author != null) append("  \u2022  ")
+                        append("${playlist.songCount} songs")
+                    }
+                }
+            }
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

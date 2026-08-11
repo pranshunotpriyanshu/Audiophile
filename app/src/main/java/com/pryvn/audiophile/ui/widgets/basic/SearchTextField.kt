@@ -21,17 +21,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,10 +55,13 @@ fun SearchTextField(
     modifier: Modifier = Modifier,
     requestFocusSignal: Int = 0,
     onClear: (() -> Unit)? = null,
+    displayText: AnnotatedString? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val fontSize = 17.sp
+    var isFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(requestFocusSignal) {
         if (requestFocusSignal > 0) {
@@ -61,6 +69,8 @@ fun SearchTextField(
             keyboardController?.show()
         }
     }
+
+    val showDisplayText = displayText != null && !isFocused
 
     Surface(color = Color.Transparent, contentColor = MaterialTheme.colorScheme.onBackground) {
         Row(
@@ -77,11 +87,19 @@ fun SearchTextField(
                     .weight(1f)
                     .padding(horizontal = 10.dp)
             ) {
-                if (text.isEmpty()) {
+                if (text.isEmpty() && !showDisplayText) {
                     Text(
                         placeholder,
                         fontSize = fontSize,
                         modifier = Modifier.alpha(0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (showDisplayText) {
+                    Text(
+                        text = displayText!!,
+                        fontSize = fontSize,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -91,7 +109,7 @@ fun SearchTextField(
                     onValueChange = onValueChange,
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = Color.Black withNight Color.White,
+                        color = if (showDisplayText) Color.Transparent else (Color.Black withNight Color.White),
                         fontSize = fontSize
                     ),
                     keyboardActions = KeyboardActions(onSearch = {
@@ -104,8 +122,15 @@ fun SearchTextField(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRequester(focusRequester),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { state ->
+                            isFocused = state.isFocused
+                            onFocusChanged?.invoke(state.isFocused)
+                        },
+                    cursorBrush = SolidColor(
+                        if (showDisplayText) Color.Transparent
+                        else MaterialTheme.colorScheme.primary
+                    )
                 )
             }
 
