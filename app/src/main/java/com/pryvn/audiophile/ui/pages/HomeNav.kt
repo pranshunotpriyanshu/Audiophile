@@ -11,7 +11,7 @@ import androidx.navigation.NavController
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.ui.pages.library.Library
-import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
+import com.pryvn.audiophile.ui.pages.ytmusic.SearchPage
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 
 @Composable
@@ -49,12 +49,7 @@ fun HomeNav(
         ) { page ->
             when (page) {
                 0 -> Home(navController, imageViewModel)
-                1 -> YTMusicSearchScreen(
-                    showBackButton = false,
-                    initialQuery = null,
-                    isMoodGenreBrowse = false,
-                    navController = navController
-                )
+                1 -> SearchPage(navController)
                 2 -> Library(navController)
             }
         }

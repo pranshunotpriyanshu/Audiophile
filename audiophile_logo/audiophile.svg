@@ -1,40 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="1024dp"
-    android:height="1024dp"
-    android:viewportWidth="1024"
-    android:viewportHeight="1024">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#ff8fa0"/>
+      <stop offset="35%" stop-color="#fd5568"/>
+      <stop offset="100%" stop-color="#ef3b52"/>
+    </radialGradient>
+  </defs>
 
-    <!-- background -->
-    <path android:pathData="M0,0h1024v1024h-1024z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="radial"
-                android:centerX="512.0"
-                android:centerY="512.0"
-                android:gradientRadius="716.8">
-                <item android:offset="0.0" android:color="#FFFF8FA0"/>
-                <item android:offset="0.35" android:color="#FFFD5568"/>
-                <item android:offset="1.0" android:color="#FFEF3B52"/>
-            </gradient>
-        </aapt:attr>
-    </path>
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad)"/>
 
-    <!-- white music note shapes -->
-    <group
-        android:translateX="85.333"
-        android:translateY="-70.781"
-        android:scaleX="0.152381"
-        android:scaleY="0.152381">
-        <group
-            android:translateX="0"
-            android:translateY="7296"
-            android:scaleX="0.1"
-            android:scaleY="-0.1">
-            <path
-                android:fillColor="#FFFFFFFF"
-                android:pathData="M17935 52010 c-99 -5 -209 -13 -245 -19 -36 -6 -101 -11 -145 -11
+  <g transform="translate(85.333,-70.781) scale(0.152381)">
+    <g transform="translate(0.000000,7296.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none">
+      <path d="M17935 52010 c-99 -5 -209 -13 -245 -19 -36 -6 -101 -11 -145 -11
 -99 0 -589 -63 -750 -96 -66 -14 -199 -40 -295 -58 -96 -19 -208 -43 -248 -55
 -40 -12 -112 -29 -160 -37 -48 -8 -152 -37 -232 -64 -80 -26 -161 -51 -180
 -54 -78 -15 -130 -31 -225 -74 -55 -24 -154 -63 -220 -87 -66 -23 -172 -65
@@ -255,7 +233,6 @@
 128 -146 172 -234 329 -671 780 -967 999 -91 67 -413 266 -490 303 -304 145
 -794 327 -985 365 -74 15 -187 40 -250 55 -272 68 -451 90 -775 94 -143 3
 -276 2 -295 0z"/>
-        </group>
-    </group>
-
-</vector>
+    </g>
+  </g>
+</svg>

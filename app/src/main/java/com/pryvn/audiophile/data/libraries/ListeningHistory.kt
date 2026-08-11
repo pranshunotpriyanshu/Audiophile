@@ -59,6 +59,11 @@ object ListeningHistory {
         saveToStorage()
     }
 
+    fun clear() {
+        _history.value = emptyList()
+        mmkv.removeValueForKey(historyKey)
+    }
+
     private fun loadFromStorage() {
         try {
             val json = mmkv.decodeString(historyKey)

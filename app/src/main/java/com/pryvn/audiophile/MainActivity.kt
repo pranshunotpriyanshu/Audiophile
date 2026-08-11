@@ -752,7 +752,7 @@ class MainActivity : ComponentActivity() {
                                                 add(
                                                     NavItem(
                                                         stringResource(id = R.string.page_home_title),
-                                                        R.drawable.ic_app_logo
+                                                        R.drawable.ic_uitabbar_home
                                                     )
                                                 )
                                                 add(

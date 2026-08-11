@@ -261,4 +261,8 @@
     <string name="sleep_timer_custom_minutes">Minutes</string>
     <string name="animated_artwork_not_found">No animated artwork found</string>
     <string name="animated_artwork_api_failed">API failed</string>
+    <string name="home_recently_played_title">Recently Played</string>
+    <string name="album_action_favorite">Favorite album</string>
+    <string name="album_action_unfavorite">Remove album from favorites</string>
+    <string name="page_library_search_album_tracks">Search in Album</string>
 </resources>
