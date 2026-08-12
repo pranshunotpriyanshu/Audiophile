@@ -1726,9 +1726,10 @@ fun PlayingList(
                 .fillMaxWidth()
                 .fillMaxHeight(0.545f),
         ) {
-            val hide = remember("PlayingList_hide") {
+            val hide = remember {
                 derivedStateOf {
-                    nextInQueue.isEmpty() && upNext.isEmpty()
+                    MediaController.nextInQueueMusicList.value.isEmpty() &&
+                        (MediaController.playingMusicList.value ?: emptyList()).isEmpty()
                 }
             }
 
@@ -1984,7 +1985,7 @@ fun PlayingList(
                                             },
                                             itemClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    MediaController.skipToNextInQueueItem(index)
+                                                    MediaController.playQueueItemByMediaId(song.mediaId)
                                                 }
                                             },
                                         )
@@ -2028,7 +2029,7 @@ fun PlayingList(
                                             },
                                             itemClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    MediaController.prepare(song, upNext)
+                                                    MediaController.playQueueItemByMediaId(song.mediaId)
                                                 }
                                             },
                                         )

@@ -19,6 +19,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
@@ -45,10 +46,18 @@ import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 import com.pryvn.audiophile.MainActivity
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController.mediaControl
@@ -113,6 +122,13 @@ object MediaController {
 
     @Stable
     var mediaSession: MediaSession? = null
+
+    // The real, in-process session player (ExoPlayer-backed). Unlike the
+    // client-side `mediaControl` MediaController, its timeline mutations are
+    // synchronous, so queue reads/writes against it never observe a stale,
+    // lagging timeline.
+    @Stable
+    var realPlayer: Player? = null
 
     fun onServiceRunning() {
         val handler by lazy { Handler(Looper.getMainLooper()) }
@@ -317,10 +333,37 @@ object MediaController {
 
     // ── Auto-Queue (Smart Radio) ──────────────────────────────────────────
     private var autoQueueJob: Job? = null
+    private var queueResolveJob: Job? = null
     private val autoQueueLock = Any()
 
-    @Volatile
-    private var lastAutoQueuedVideoId: String? = null
+    private const val AUTO_QUEUE_TARGET_SIZE = 20
+    private const val AUTO_QUEUE_REFILL_THRESHOLD = 5
+    private const val AUTO_QUEUE_REFILL_PAGES = 3
+    private const val AUTO_QUEUE_PARALLEL_CHUNK = 8
+    private const val AUTO_QUEUE_REPLACEMENT_ATTEMPTS = 5
+    private val autoQueueResolveSemaphore = Semaphore(4)
+
+    // Process-lifetime set of every video ID Auto-Queue has ever inserted.
+    private val generatedAutoQueueIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // Session-lifetime cache of successfully resolved stream URLs.
+    private val resolvedStreamUrls = ConcurrentHashMap<String, String>()
+
+    // IDs whose stream resolution failed, so they are never attempted again
+    // or re-inserted during this process lifetime.
+    private val failedResolveIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // IDs currently being resolved, so no video is resolved concurrently
+    // by overlapping Auto-Queue jobs.
+    private val activeResolveIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // Candidate pool kept after insertion, used to replace failed items.
+    private val pendingAutoQueueCandidates = ConcurrentLinkedDeque<SongItem>()
+
+    private data class PlayableQueueItem(
+        val appItem: YosMediaItem,
+        val mediaItem: YosMediaItem,
+    )
 
     /**
      * Checks if the queue is nearing its end and, if so and auto-queue is enabled,
@@ -333,11 +376,16 @@ object MediaController {
         if (currentVideoId == null) return
         if (currentVideoId == lastAutoQueuedVideoId) return
 
-        val controller = mediaControl ?: return
-        val queueSize = controller.mediaItemCount
+        // The real session player is authoritative and synchronous; fall back
+        // to the client controller only if the service hasn't published it yet.
+        val player = realPlayer ?: mediaControl ?: return
+
+        // Don't refill while repeat-one keeps replaying the same song.
+        if (player.repeatMode == REPEAT_MODE_ONE) return
 
         // Threshold: auto-queue kicks in when <= 2 items remain after current
-        val currentIndex = controller.currentMediaItemIndex
+        val queueSize = player.mediaItemCount
+        val currentIndex = player.currentMediaItemIndex
         val remaining = queueSize - currentIndex - 1
         if (remaining > 2) return
 
@@ -350,32 +398,451 @@ object MediaController {
             lastAutoQueuedVideoId = currentVideoId
             val seedArtistNames = currentSong.artistsList.orEmpty()
 
-            val recommended = SmartRadioQueue.fetchRecommendations(
-                seedVideoId = currentVideoId,
-                seedArtistIds = emptyList(),
-                seedArtistNames = seedArtistNames,
-            )
+            Log.d("AutoQueue", "Auto-queue triggered. Seed=$currentVideoId")
+            val pool = runCatching {
+                SmartRadioQueue.fetchRecommendations(
+                    seedVideoId = currentVideoId,
+                    seedArtistIds = emptyList(),
+                    seedArtistNames = seedArtistNames,
+                )
+            }.getOrElse { e ->
+                Log.e("AutoQueue", "Recommendation fetch failed: ${e.message}")
+                emptyList()
+            }
 
-            if (recommended.isEmpty()) return@launch
+            val excludedIds = buildAutoQueueExcludedIds(player, currentVideoId)
+            val candidates = pool.filter {
+                it.id.isNotBlank() &&
+                    it.id !in failedResolveIds &&
+                    excludedIds.add(it.id)
+            }
+            if (candidates.isEmpty()) return@launch
 
-            // Convert SongItem → YosMediaItem with ytmusic:// deferred resolution
-            val existingIds = currentQueueSnapshot(controller).mapNotNull { it.mediaId }.toSet()
-            val newItems = recommended
-                .filter { it.id !in existingIds && it.id != currentVideoId }
-                .take(20)
-                .map { songItem ->
-                    toYosMediaItemFromSongItem(songItem)
-                }
+            // Queue items are created immediately from the recommendations.
+            // Streams are resolved lazily afterwards; the queue never waits.
+            val insertedSongs = candidates.take(AUTO_QUEUE_TARGET_SIZE)
+            val queueItems = insertedSongs.map { toYosMediaItemFromSongItem(it) }
+            val mediaItems = queueItems.map { it.toMediaItem() }
 
-            if (newItems.isEmpty()) return@launch
+            generatedAutoQueueIds.addAll(insertedSongs.map { it.id })
+            candidates.drop(AUTO_QUEUE_TARGET_SIZE).forEach { pendingAutoQueueCandidates.add(it) }
+            Log.d("AutoQueue", "Generated ${insertedSongs.size} recommendations (${candidates.size} usable)")
 
             withContext(Dispatchers.Main) {
-                controller.runCatching {
-                    addMediaItems(mediaItemCount, newItems.map { it.toMediaItem() })
-                    prepare()
-                    saveQueueState()
+                // A cancelled/stale job must not mutate the timeline or UI state.
+                ensureActive()
+
+                val inserted = player.runCatching {
+                    addMediaItems(mediaItemCount, mediaItems)
+                }.isSuccess
+                if (!inserted) return@withContext
+
+                // Immediately publish the new queue to the UI & persistence.
+                // Use the real player so the snapshot reflects the just-added
+                // items synchronously — the client MediaController lags.
+                syncQueueStateFromController(player, musicPlaying.value)
+                saveQueueState()
+                Log.d(
+                    "AutoQueue",
+                    "Inserted ${mediaItems.size} items; queue UI state synchronized " +
+                        "(playingMusicList=${playingMusicList.value?.size}, nextInQueue=${nextInQueueMusicList.value.size})"
+                )
+
+                // If the previous song already ended while we were fetching,
+                // nudge playback into the freshly appended items.
+                if (player.playbackState == Player.STATE_ENDED) {
+                    player.seekToNextMediaItem()
+                    player.play()
                 }
             }
+
+            // Background, bounded stream resolution AFTER insertion — this
+            // never blocks the queue, the UI, or the current song.
+            startBackgroundQueueResolution(player)
+        }
+    }
+
+    /**
+     * Collects every ID that must never be auto-queued: the current song, the
+     * Media3 timeline, the mirrored queue state, previously generated IDs and
+     * known-failed IDs.
+     */
+    private suspend fun buildAutoQueueExcludedIds(
+        controller: Player,
+        currentVideoId: String,
+    ): MutableSet<String> {
+        val ids = mutableSetOf(currentVideoId)
+        ids.addAll(generatedAutoQueueIds)
+        ids.addAll(failedResolveIds)
+        withContext(Dispatchers.Main) {
+            for (index in 0 until controller.mediaItemCount) {
+                runCatching { controller.getMediaItemAt(index).mediaId }
+                    .getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { ids.add(it) }
+            }
+        }
+        currentQueueSnapshot(controller)
+            .mapNotNull { it.mediaId }
+            .forEach { ids.add(it) }
+        return ids
+    }
+
+    /**
+     * Resolves one recommendation's playable stream. Returns null after logging
+     * when resolution fails, so a single failure discards only that candidate
+     * and can never abort the whole Auto-Queue job.
+     */
+    private suspend fun resolvePlayableCandidate(song: SongItem): PlayableQueueItem? {
+        // Never resolve the same video ID concurrently across overlapping jobs.
+        if (!activeResolveIds.add(song.id)) return null
+        return try {
+            val resolved = resolveStreamUrl(
+                song.id,
+                song.title,
+                song.artists.map { it.name },
+                song.duration,
+            )
+            resolvedStreamUrls[song.id] = resolved.url
+            Log.d("AutoQueue", "Resolved stream for ${song.id}: ${resolved.url.take(80)}")
+            PlayableQueueItem(
+                appItem = toYosMediaItemFromSongItem(song),
+                mediaItem = toResolvedYosMediaItem(song, resolved.url),
+            )
+        } catch (e: Exception) {
+            failedResolveIds.add(song.id)
+            Log.e("AutoQueue", "Stream resolution failed for ${song.id} (${song.title}): ${e.message}")
+            null
+        } finally {
+            activeResolveIds.remove(song.id)
+        }
+    }
+
+    /**
+     * Background resolution for upcoming queued items. Runs in bounded
+     * parallel batches (Semaphore(4)); resolved items are swapped into the
+     * Media3 timeline with their real stream URL — except the current item,
+     * which the playback path updates itself. Failed items are removed and
+     * replaced from the pending candidate pool.
+     */
+    private fun startBackgroundQueueResolution(controller: Player) {
+        queueResolveJob?.cancel()
+        queueResolveJob = CoroutineScope(Dispatchers.IO).launch {
+            val items = snapshotUpcomingUnresolvedItems(controller)
+            if (items.isEmpty()) return@launch
+            Log.d("AutoQueue", "Background resolution started for ${items.size} upcoming items")
+            // Resolve the next few songs first, then work through the rest.
+            val prioritized = items.take(3) + items.drop(3)
+            var resolvedCount = 0
+            for (chunk in prioritized.chunked(AUTO_QUEUE_PARALLEL_CHUNK)) {
+                if (!coroutineContext.isActive) return@launch
+                coroutineScope {
+                    chunk.map { (index, videoId) ->
+                        async(Dispatchers.IO) {
+                            autoQueueResolveSemaphore.withPermit {
+                                if (resolveQueueItemInBackground(controller, index, videoId)) resolvedCount++
+                            }
+                        }
+                    }.awaitAll()
+                }
+            }
+            Log.d("AutoQueue", "Background resolution finished: $resolvedCount resolved")
+        }
+    }
+
+    /**
+     * Snapshots (index, videoId) of every upcoming item whose stream is still
+     * unresolved (`ytmusic://` scheme).
+     */
+    private suspend fun snapshotUpcomingUnresolvedItems(controller: Player): List<Pair<Int, String>> {
+        return withContext(Dispatchers.Main) {
+            val currentIndex = controller.currentMediaItemIndex.coerceAtLeast(0)
+            (currentIndex + 1 until controller.mediaItemCount).mapNotNull { index ->
+                val item = runCatching { controller.getMediaItemAt(index) }.getOrNull() ?: return@mapNotNull null
+                if (item.localConfiguration?.uri?.scheme != "ytmusic") return@mapNotNull null
+                item.mediaId.takeIf { it.isNotBlank() }?.let { index to it }
+            }
+        }
+    }
+
+    /**
+     * Resolves one upcoming queue item in the background. Returns true when it
+     * ended up with a playable URL (cached or freshly resolved). Also swaps
+     * the resolved URI into the Media3 timeline for non-current items, and
+     * removes + replaces the item when resolution fails.
+     */
+    private suspend fun resolveQueueItemInBackground(
+        controller: Player,
+        targetIndex: Int,
+        videoId: String,
+    ): Boolean {
+        if (videoId in failedResolveIds) return false
+        if (resolvedStreamUrls.containsKey(videoId)) return true
+
+        val resolved = if (activeResolveIds.add(videoId)) {
+            try {
+                val stream = resolveStreamUrl(videoId)
+                resolvedStreamUrls[videoId] = stream.url
+                stream
+            } catch (e: Exception) {
+                failedResolveIds.add(videoId)
+                Log.e("AutoQueue", "Background resolution failed for $videoId: ${e.message}")
+                withContext(Dispatchers.Main) { replaceFailedQueueItem(controller, videoId) }
+                return false
+            } finally {
+                activeResolveIds.remove(videoId)
+            }
+        } else {
+            return false
+        }
+
+        withContext(Dispatchers.Main) {
+            val index = indexOfVideoId(controller, videoId)
+            if (index == null || index == controller.currentMediaItemIndex) return@withContext
+            val item = runCatching { controller.getMediaItemAt(index) }.getOrNull() ?: return@withContext
+            if (item.localConfiguration?.uri?.scheme != "ytmusic") return@withContext
+            controller.replaceMediaItem(index, item.buildUpon().setUri(Uri.parse(resolved.url)).build())
+            Log.d("AutoQueue", "Timeline item $videoId updated with resolved stream")
+        }
+        return true
+    }
+
+    /**
+     * Called from the playback service when the current item changes. If the
+     * new current item is still unresolved, gives it high-priority resolution
+     * so playback continues without user intervention.
+     */
+    fun onCurrentItemChanged(player: Player) {
+        runCatching {
+            val current = player.currentMediaItem ?: return
+            val uri = current.localConfiguration?.uri
+            if (uri?.scheme != "ytmusic") {
+                // Current song is playable; keep the next few warm.
+                proactivelyResolveNextItems(player)
+                return
+            }
+            val videoId = current.mediaId.takeIf { it.isNotBlank() } ?: return
+            if (videoId in failedResolveIds) {
+                Log.d("AutoQueue", "Current item $videoId previously failed; replacing it")
+                currentItemResolveJob?.cancel()
+                currentItemResolveJob = CoroutineScope(Dispatchers.Main).launch {
+                    handleFailedCurrentItem(player, videoId)
+                }
+                return
+            }
+            val cached = resolvedStreamUrls[videoId]
+            if (cached != null) {
+                Log.d("AutoQueue", "Current item $videoId already resolved; applying cached stream")
+                CoroutineScope(Dispatchers.Main).launch {
+                    applyResolvedUriToCurrent(player, videoId, cached)
+                }
+            } else {
+                startHighPriorityCurrentResolution(player, videoId)
+            }
+        }
+    }
+
+    private var currentItemResolveJob: Job? = null
+
+    private fun startHighPriorityCurrentResolution(player: Player, videoId: String) {
+        if (!activeResolveIds.add(videoId)) return
+        currentItemResolveJob?.cancel()
+        currentItemResolveJob = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("AutoQueue", "High-priority resolution for current item $videoId")
+                val stream = resolveStreamUrl(videoId)
+                resolvedStreamUrls[videoId] = stream.url
+                withContext(Dispatchers.Main) {
+                    applyResolvedUriToCurrent(player, videoId, stream.url)
+                }
+            } catch (e: Exception) {
+                failedResolveIds.add(videoId)
+                Log.e("AutoQueue", "High-priority resolution FAILED for $videoId: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    handleFailedCurrentItem(player, videoId)
+                }
+            } finally {
+                activeResolveIds.remove(videoId)
+            }
+        }
+    }
+
+    /**
+     * Replaces the resolved URI into the current Media3 item and restarts
+     * playback, so the song plays without the user pressing Next again.
+     */
+    private suspend fun applyResolvedUriToCurrent(player: Player, videoId: String, url: String) {
+        val index = player.currentMediaItemIndex
+        if (index < 0 || index >= player.mediaItemCount) return
+        val current = runCatching { player.getMediaItemAt(index) }.getOrNull() ?: return
+        if (current.mediaId != videoId || current.localConfiguration?.uri?.scheme != "ytmusic") return
+        player.replaceMediaItem(index, current.buildUpon().setUri(Uri.parse(url)).build())
+        Log.d("AutoQueue", "Current item $videoId updated with resolved stream; resuming playback")
+        player.prepare()
+        player.fadePlayIfAvailable()
+    }
+
+    /**
+     * Called from the playback service on ExoPlayer errors while an unresolved
+     * item is current: routes back into high-priority resolution.
+     */
+    fun onPlaybackFailed(player: Player, error: PlaybackException) {
+        runCatching {
+            val current = player.currentMediaItem ?: return
+            if (current.localConfiguration?.uri?.scheme != "ytmusic") return
+            val videoId = current.mediaId.takeIf { it.isNotBlank() } ?: return
+            Log.d("AutoQueue", "Playback error on unresolved item $videoId (${error.errorCodeName}); resolving")
+            onCurrentItemChanged(player)
+        }
+    }
+
+    /**
+     * Removes a failed item from the timeline and replaces it with the next
+     * playable recommendation when one is available. Runs on the main thread.
+     */
+    private suspend fun handleFailedCurrentItem(player: Player, videoId: String) {
+        val controller = realPlayer ?: mediaControl ?: return
+        val index = indexOfVideoId(controller, videoId) ?: return
+        if (controller.currentMediaItemIndex != index) return
+
+        Log.d("AutoQueue", "Removing failed current item $videoId at index $index")
+        runCatching { controller.removeMediaItem(index) }
+        syncQueueStateFromController(controller, musicPlaying.value)
+        saveQueueState()
+
+        val replacement = fetchResolvedReplacement()
+        if (replacement != null) {
+            withContext(Dispatchers.Main) {
+                val insertAt = index.coerceAtMost(controller.mediaItemCount)
+                controller.addMediaItems(insertAt, listOf(replacement.mediaItem.toMediaItem()))
+                generatedAutoQueueIds.add(replacement.appItem.mediaId.orEmpty())
+                syncQueueStateFromController(controller, musicPlaying.value)
+                saveQueueState()
+                Log.d("AutoQueue", "Replaced failed item $videoId with ${replacement.appItem.mediaId}")
+                if (controller.playbackState != Player.STATE_ENDED) {
+                    controller.prepare()
+                    controller.fadePlayIfAvailable()
+                }
+            }
+        } else {
+            // No replacement could be resolved. Never leave the player stuck on
+            // the removed/errored item — advance so the valid following items
+            // already in the queue keep playing.
+            Log.d("AutoQueue", "No replacement available for failed current item $videoId; advancing to keep playback alive")
+            withContext(Dispatchers.Main) {
+                if (controller.mediaItemCount > 0) {
+                    controller.seekToNextMediaItem()
+                    controller.fadePlayIfAvailable()
+                }
+            }
+        }
+
+        // Keep the queue topped up after the removal/insertion.
+        maybeAutoQueue(musicPlaying.value?.mediaId)
+    }
+
+    /**
+     * Removes a failed upcoming item and replaces it at the same index with
+     * another playable recommendation. Runs on the main thread.
+     */
+    private suspend fun replaceFailedQueueItem(controller: Player, videoId: String) {
+        val index = indexOfVideoId(controller, videoId) ?: return
+        if (controller.currentMediaItemIndex == index) {
+            handleFailedCurrentItem(controller, videoId)
+            return
+        }
+
+        Log.d("AutoQueue", "Removing failed queue item $videoId at index $index")
+        runCatching { controller.removeMediaItem(index) }
+        syncQueueStateFromController(controller, musicPlaying.value)
+        saveQueueState()
+
+        val replacement = fetchResolvedReplacement()
+        if (replacement != null) {
+            val insertAt = index.coerceAtMost(controller.mediaItemCount)
+            controller.addMediaItems(insertAt, listOf(replacement.mediaItem.toMediaItem()))
+            generatedAutoQueueIds.add(replacement.appItem.mediaId.orEmpty())
+            syncQueueStateFromController(controller, musicPlaying.value)
+            saveQueueState()
+            Log.d("AutoQueue", "Replaced failed item $videoId with ${replacement.appItem.mediaId}")
+        } else {
+            Log.d("AutoQueue", "No replacement available for failed item $videoId")
+        }
+    }
+
+    /**
+     * Pops a playable replacement from the pending candidate pool, refilling
+     * the pool from a fresh related fetch when it runs dry. Returns null when
+     * no candidate can be resolved.
+     */
+    private suspend fun fetchResolvedReplacement(): PlayableQueueItem? {
+        var attempts = 0
+        while (attempts < AUTO_QUEUE_REPLACEMENT_ATTEMPTS) {
+            attempts++
+            var candidate = pendingAutoQueueCandidates.pollFirst()
+            if (candidate == null) {
+                refillPendingCandidates()
+                candidate = pendingAutoQueueCandidates.pollFirst() ?: return null
+            }
+            val resolved = resolvePlayableCandidate(candidate)
+            if (resolved != null) return resolved
+        }
+        return null
+    }
+
+    private suspend fun refillPendingCandidates() {
+        val seedId = musicPlaying.value?.mediaId ?: return
+        runCatching {
+            SmartRadioQueue.fetchRecommendations(seedId, emptyList(), musicPlaying.value?.artistsList.orEmpty())
+        }.getOrElse {
+            Log.e("AutoQueue", "Replacement pool fetch failed: ${it.message}")
+            emptyList()
+        }.forEach { song ->
+            if (song.id.isNotBlank() &&
+                song.id !in failedResolveIds &&
+                song.id !in generatedAutoQueueIds
+            ) {
+                pendingAutoQueueCandidates.add(song)
+            }
+        }
+        Log.d("AutoQueue", "Replacement pool refilled from seed $seedId")
+    }
+
+    /**
+     * Resolves the next few upcoming items ahead of playback so transition to
+     * them is seamless.
+     */
+    private fun proactivelyResolveNextItems(player: Player) {
+        queueResolveJob?.cancel()
+        queueResolveJob = CoroutineScope(Dispatchers.IO).launch {
+            val next = snapshotUpcomingUnresolvedItems(player).take(3)
+            if (next.isEmpty()) return@launch
+            coroutineScope {
+                next.map { (index, videoId) ->
+                    async(Dispatchers.IO) {
+                        autoQueueResolveSemaphore.withPermit {
+                            resolveQueueItemInBackground(player, index, videoId)
+                        }
+                    }
+                }.awaitAll()
+            }
+        }
+    }
+
+    private fun indexOfVideoId(player: Player, videoId: String): Int? {
+        for (index in 0 until player.mediaItemCount) {
+            if (runCatching { player.getMediaItemAt(index).mediaId }.getOrNull() == videoId) return index
+        }
+        return null
+    }
+
+    private fun Player.fadePlayIfAvailable() {
+        if (this is ExoPlayer) {
+            this.fadePlay()
+        } else if (this is androidx.media3.session.MediaController) {
+            this.fadePlay()
+        } else {
+            this.play()
         }
     }
 
@@ -385,7 +852,10 @@ object MediaController {
      */
     fun onSongEnded() {
         if (!SettingsLibrary.AutoQueueEnabled) return
-        val controller = mediaControl ?: return
+        // Use the authoritative, synchronous session player for end-of-queue
+        // detection so a lagging client controller can never wrongly skip a
+        // needed Auto-Queue refill (which would stall playback).
+        val controller = realPlayer ?: mediaControl ?: return
         val currentVideoId = controller.currentMediaItem?.mediaId
         val queueSize = controller.mediaItemCount
         val currentIndex = controller.currentMediaItemIndex
@@ -407,6 +877,25 @@ object MediaController {
         val thumbnailUrl = song.thumbnail
         return YosMediaItem(
             uri = Uri.parse("ytmusic://${song.id}"),
+            mediaId = song.id,
+            title = song.title,
+            artists = song.artists.joinToString(", ") { it.name },
+            album = song.album?.name,
+            thumb = thumbnailUrl?.let { Uri.parse(it) },
+            duration = (song.duration?.toLong() ?: 0L) * 1000L,
+            mimeType = "audio/mp4",
+        )
+    }
+
+    /**
+     * Same shape as [toYosMediaItemFromSongItem] but carrying the real playable
+     * stream URL, so the item can be handed to Media3 without deferred
+     * `ytmusic://` resolution. Never insert an unresolved URI as a queue item.
+     */
+    private fun toResolvedYosMediaItem(song: SongItem, streamUrl: String): YosMediaItem {
+        val thumbnailUrl = song.thumbnail
+        return YosMediaItem(
+            uri = Uri.parse(streamUrl),
             mediaId = song.id,
             title = song.title,
             artists = song.artists.joinToString(", ") { it.name },
@@ -1103,7 +1592,44 @@ object MediaController {
         return true
     }
 
-    private suspend fun currentQueueSnapshot(controller: androidx.media3.session.MediaController): List<YosMediaItem> {
+    /**
+     * Plays the queue item identified by its stable [mediaId] by locating it in
+     * the CURRENT Media3 timeline at click time. The index is computed from the
+     * live (real, synchronous) player, never from a stale positional snapshot
+     * captured at composition — so clicking a displayed song always plays that
+     * exact song regardless of how many tracks have been skipped or how the
+     * queue has shifted. Lazy stream resolution is preserved: seeking to a
+     * still-unresolved `ytmusic://` item triggers [onCurrentItemChanged], which
+     * resolves and plays that exact item.
+     */
+    suspend fun playQueueItemByMediaId(mediaId: String?) {
+        if (mediaId.isNullOrBlank()) return
+        val controller = realPlayer ?: mediaControl ?: return
+
+        val targetIndex = withContext(Dispatchers.Main) {
+            (0 until controller.mediaItemCount).firstOrNull { index ->
+                runCatching { controller.getMediaItemAt(index).mediaId }.getOrNull() == mediaId
+            }
+        }
+
+        if (targetIndex == null) {
+            Log.d("AutoQueue", "playQueueItemByMediaId: mediaId=$mediaId not found in current timeline")
+            return
+        }
+
+        Log.d("AutoQueue", "playQueueItemByMediaId: mediaId=$mediaId -> timeline index $targetIndex")
+        withContext(Dispatchers.Main) {
+            controller.seekTo(targetIndex, 0L)
+            controller.fadePlayIfAvailable()
+            // Sync queue state on the main thread — this reads the Player
+            // timeline (getMediaItemAt/getMediaItemCount) and must never run
+            // on a background dispatcher.
+            syncQueueStateFromController(controller, musicPlaying.value)
+            saveQueueState()
+        }
+    }
+
+    private suspend fun currentQueueSnapshot(controller: Player): List<YosMediaItem> {
         orderedPlayingMusicList.value.takeIf { it.isNotEmpty() }?.let {
             return it
         }
@@ -1111,6 +1637,7 @@ object MediaController {
         return withContext(Dispatchers.Main) {
             List(controller.mediaItemCount) { index ->
                 controller.getMediaItemAt(index).toYosMediaItem()
+                    .withPersistentIdentity()
             }
         }
     }
@@ -1160,10 +1687,38 @@ object MediaController {
         } else {
             List(controller.mediaItemCount) { index ->
                 controller.getMediaItemAt(index).toYosMediaItem()
+                    .withPersistentIdentity()
             }
         }
 
         syncQueueState(orderedQueue, controller.currentMediaItemIndex.coerceAtLeast(0), currentMusic)
+    }
+
+    /**
+     * Called from the playback service on every media item transition
+     * (natural, manual Next/Previous, auto-queue and queue skips). Media3's
+     * timeline is the source of truth when the mirrored queue diverges.
+     * Guarded so a queue-state sync problem can never break playback.
+     */
+    fun syncQueueAfterTransition(player: Player, mediaItem: MediaItem?) {
+        runCatching {
+            if (player.mediaItemCount == 0) return
+            syncQueueStateFromController(player, mediaItem?.toYosMediaItem())
+        }
+    }
+
+    /**
+     * Normalizes a timeline-derived item so online songs always keep their
+     * canonical `ytmusic://<videoId>` identity in the app queue state, even
+     * when the Media3 timeline already holds a resolved (expiring) stream URL.
+     * Persistence and restore rely on that identity.
+     */
+    private fun YosMediaItem.withPersistentIdentity(): YosMediaItem {
+        val scheme = uri?.scheme
+        if ((scheme == "http" || scheme == "https") && !mediaId.isNullOrBlank()) {
+            return copy(uri = Uri.parse("ytmusic://$mediaId"))
+        }
+        return this
     }
 
     fun saveQueueState() {
@@ -1617,9 +2172,20 @@ class YosPlaybackService : MediaSessionService() {
                     }
 
                     println("updating $mediaItem")
+                    // Keep Audiophile's mirrored queue state aligned with Media3's
+                    // actual timeline on every transition (natural, manual, automatic).
+                    com.pryvn.audiophile.code.MediaController.syncQueueAfterTransition(player, mediaItem)
+                    // Ensure the new current item has a playable stream, resolving
+                    // it now if it was not ready when added to the queue.
+                    com.pryvn.audiophile.code.MediaController.onCurrentItemChanged(player)
                     // Trigger auto-queue when nearing end of current queue
                     com.pryvn.audiophile.code.MediaController.maybeAutoQueue(mediaItem?.mediaId)
                     super.onMediaItemTransition(mediaItem, reason)
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    super.onPlayerError(error)
+                    com.pryvn.audiophile.code.MediaController.onPlaybackFailed(player, error)
                 }
 
                 /*override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1828,6 +2394,8 @@ class YosPlaybackService : MediaSessionService() {
         this.setMediaNotificationProvider(notificationProvider)
 
         setCustomButtons(forwardingPlayer)
+
+        com.pryvn.audiophile.code.MediaController.realPlayer = forwardingPlayer
 
         onServiceRunning()
     }
