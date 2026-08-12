@@ -70,6 +70,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -92,6 +93,7 @@ import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.PlaybackSource
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
@@ -246,8 +248,28 @@ fun SearchPage(navController: NavController) {
         when (selectedCategory) {
             SearchResultCategory.TopResults -> libraryResults
             SearchResultCategory.Songs -> libraryResults
-            else -> emptyList()
+            SearchResultCategory.Artists -> emptyList()
+            SearchResultCategory.Albums -> emptyList()
+            SearchResultCategory.CommunityPlaylists -> emptyList()
         }
+    }
+
+    val libraryArtists = remember(libraryResults) {
+        libraryResults
+            .groupBy { it.artists ?: "Unknown Artist" }
+            .map { (artist, songs) ->
+                Triple(artist, songs.firstOrNull()?.thumb, songs.size)
+            }
+            .sortedBy { it.first.lowercase() }
+    }
+
+    val libraryAlbums = remember(libraryResults) {
+        libraryResults
+            .groupBy { it.album ?: "Unknown Album" }
+            .map { (album, songs) ->
+                Triple(album, songs.firstOrNull()?.thumb, songs.size)
+            }
+            .sortedBy { it.first.lowercase() }
     }
 
     LaunchedEffect(sourceMode) {
@@ -410,7 +432,9 @@ fun SearchPage(navController: NavController) {
                     .padding(horizontal = 14.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                SearchResultCategory.entries.forEach { category ->
+                SearchResultCategory.entries
+                    .filter { it != SearchResultCategory.CommunityPlaylists }
+                    .forEach { category ->
                     val isSelected = selectedCategory == category
                     Box(
                         modifier = Modifier
@@ -446,25 +470,101 @@ fun SearchPage(navController: NavController) {
             contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
         ) {
             if (sourceMode == SourceMode.Library && uiState.query.isNotBlank()) {
-                // Library search results
-                if (filteredLibraryResults.isEmpty()) {
-                    item { EmptyView(Modifier.fillMaxWidth()) }
-                } else {
-                    items(filteredLibraryResults, key = { "lib_${it.uri}" }) { song ->
-                        SearchSongRow(
-                            song = song,
-                            onPlay = {
-                                scope.launch(Dispatchers.IO) {
-                                    MediaController.prepare(song, filteredLibraryResults)
-                                }
-                            },
-                            onOverflow = {
-                                selectedSongForMenu.value = song
-                                songOverflowSheetOpen.value = true
+                if (!SettingsLibrary.LocalMusicEnabled) {
+                    // Local music disabled - show enable message
+                    item("local_music_disabled") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp, horizontal = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Local music has been disabled",
+                                fontSize = 18.sp,
+                                fontFamily = SfProFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Tap the button below to enable local music and scan your device for songs.",
+                                fontSize = 14.sp,
+                                fontFamily = SfProFontFamily,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            androidx.compose.material3.Button(
+                                onClick = {
+                                    SettingsLibrary.LocalMusicEnabled = true
+                                    SettingsLibrary.RefreshEveryTime = true
+                                    scope.launch(Dispatchers.IO) {
+                                        MusicLibrary.scanMedia(context)
+                                    }
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "Enable Local Music",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontSize = 15.sp,
+                                    fontFamily = SfProFontFamily,
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
-                        )
+                        }
+                    }
+                } else {
+                when (selectedCategory) {
+                    SearchResultCategory.Artists -> {
+                        if (libraryArtists.isEmpty()) {
+                            item { EmptyView(Modifier.fillMaxWidth()) }
+                        } else {
+                            items(libraryArtists.size, key = { "lib_artist_${libraryArtists[it].first}" }) { idx ->
+                                val (artist, thumb, count) = libraryArtists[idx]
+                                LibraryArtistRow(artistName = artist, thumb = thumb, songCount = count)
+                            }
+                        }
+                    }
+                    SearchResultCategory.Albums -> {
+                        if (libraryAlbums.isEmpty()) {
+                            item { EmptyView(Modifier.fillMaxWidth()) }
+                        } else {
+                            items(libraryAlbums.size, key = { "lib_album_${libraryAlbums[it].first}" }) { idx ->
+                                val (album, thumb, count) = libraryAlbums[idx]
+                                LibraryAlbumRow(albumName = album, thumb = thumb, songCount = count)
+                            }
+                        }
+                    }
+                    else -> {
+                        // TopResults / Songs
+                        if (filteredLibraryResults.isEmpty()) {
+                            item { EmptyView(Modifier.fillMaxWidth()) }
+                        } else {
+                            items(filteredLibraryResults, key = { "lib_${it.uri}" }) { song ->
+                                SearchSongRow(
+                                    song = song,
+                                    onPlay = {
+                                        scope.launch(Dispatchers.IO) {
+                                            MediaController.prepare(song, filteredLibraryResults)
+                                        }
+                                    },
+                                    onOverflow = {
+                                        selectedSongForMenu.value = song
+                                        songOverflowSheetOpen.value = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
+                } // end else (LocalMusicEnabled)
             } else if (activeContentState == SearchContentState.Idle) {
                 // Show recommendations when search bar is focused + Audiophile source
                 if (uiState.isFocused && sourceMode == SourceMode.Audiophile && recommendations.isNotEmpty()) {
@@ -512,21 +612,23 @@ fun SearchPage(navController: NavController) {
                             .padding(bottom = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        SearchShortcutPill(
-                            label = "Songs",
-                            iconRes = R.drawable.ic_library_link_icon_songs,
-                            onClick = {
-                                LibraryObject.setTargetListWithTitle("All Songs", MusicLibrary.songs)
-                                navController.toUI(UI.NormalMusic)
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        SearchShortcutPill(
-                            label = "Albums",
-                            iconRes = R.drawable.ic_library_link_icon_album,
-                            onClick = { navController.toUI(UI.LocalAlbums) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        if (SettingsLibrary.LocalMusicEnabled) {
+                            SearchShortcutPill(
+                                label = "Songs",
+                                iconRes = R.drawable.ic_library_link_icon_songs,
+                                onClick = {
+                                    LibraryObject.setTargetListWithTitle("All Songs", MusicLibrary.songs)
+                                    navController.toUI(UI.NormalMusic)
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            SearchShortcutPill(
+                                label = "Albums",
+                                iconRes = R.drawable.ic_library_link_icon_album,
+                                onClick = { navController.toUI(UI.LocalAlbums) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
 
                     Row(
@@ -551,7 +653,7 @@ fun SearchPage(navController: NavController) {
                 }
 
                 // Genre Cards Section
-                if (genreCategories.isNotEmpty()) {
+                if (SettingsLibrary.LocalMusicEnabled && genreCategories.isNotEmpty()) {
                     item("GenreCategoriesHeader") {
                         Text(
                             text = "Browse Genres & Moods",
@@ -1687,3 +1789,101 @@ private fun HistoryEntry.toYTSongItem(): YTSongItem = YTSongItem(
     thumbnailUrl = thumbnailUrl,
     playlistId = null
 )
+
+@Composable
+private fun LibraryArtistRow(
+    artistName: String,
+    thumb: Uri?,
+    songCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = thumb?.toString(),
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(CircleShape)
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = artistName,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Artist • $songCount songs",
+                fontSize = 13.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryAlbumRow(
+    albumName: String,
+    thumb: Uri?,
+    songCount: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CachedArtworkImage(
+            url = thumb?.toString(),
+            contentDescription = null,
+            size = 128,
+            modifier = Modifier
+                .width(52.dp)
+                .height(52.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = albumName,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
+                fontWeight = userFontWeight(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Album • $songCount songs",
+                fontSize = 13.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}

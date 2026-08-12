@@ -554,12 +554,15 @@ fun NowPlaying(
                     if (thisBitmap != null) {
                         try {
                             val palette = Palette.from(thisBitmap).generate()
+                            val oldVibrant = MediaViewModelObject.paletteVibrantColor.value
+                            val oldDarkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
+                            val oldDarkMuted = MediaViewModelObject.paletteDarkMutedColor.value
                             MediaViewModelObject.paletteVibrantColor.value =
-                                palette?.vibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                                palette?.vibrantSwatch?.rgb?.let { Color(it) } ?: oldVibrant
                             MediaViewModelObject.paletteDarkVibrantColor.value =
-                                palette?.darkVibrantSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                                palette?.darkVibrantSwatch?.rgb?.let { Color(it) } ?: oldDarkVibrant
                             MediaViewModelObject.paletteDarkMutedColor.value =
-                                palette?.darkMutedSwatch?.rgb?.let { Color(it) } ?: Color.Black
+                                palette?.darkMutedSwatch?.rgb?.let { Color(it) } ?: oldDarkMuted
                         } catch (_: Exception) { }
                         thisBitmap.recycle()
                     }

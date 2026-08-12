@@ -919,10 +919,9 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         println("Recompose: playback bar & NowPlaying")
 
-                                        val isPlaying =
-                                            rememberSaveable(key = "MainActivity_isPlaying") {
-                                                MediaViewModelObject.isPlaying
-                                            }
+                                        // Read directly from MediaViewModelObject.isPlaying
+                                        // (no rememberSaveable — it creates a stale copy)
+                                        val isPlaying = MediaViewModelObject.isPlaying
 
                                         // NowPlaying
                                         YosWrapper {
@@ -1338,7 +1337,7 @@ class MainActivity : ComponentActivity() {
     }*/
 
     private fun loadMusic(context: Context, enforce: Boolean = false) {
-        val needRefresh = SettingsLibrary.RefreshEveryTime
+        val needRefresh = SettingsLibrary.RefreshEveryTime || MediaController.mainMusicList.isEmpty()
         if (needRefresh || enforce) {
             mediaViewModel.viewModelScope.launch(Dispatchers.IO) {
                 // Already restored in Application, this is background scan

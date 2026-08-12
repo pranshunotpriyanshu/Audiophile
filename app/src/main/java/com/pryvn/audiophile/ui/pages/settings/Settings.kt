@@ -240,6 +240,17 @@ fun Settings(navController: NavController) =
                                     }
                                 }
                             }
+
+                            Divider()
+                            SwitchItem(
+                                title = stringResource(id = R.string.settings_playback_auto_queue),
+                                desc = stringResource(id = R.string.settings_playback_auto_queue_desc),
+                                onClick = {
+                                    SettingsLibrary.AutoQueueEnabled =
+                                        !SettingsLibrary.AutoQueueEnabled
+                                },
+                                checkedLambda = { SettingsLibrary.AutoQueueEnabled }
+                            )
                         }
 
                         GroupSpacer()

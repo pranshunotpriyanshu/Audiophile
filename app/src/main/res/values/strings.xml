@@ -162,6 +162,8 @@
     <string name="settings_local_music">Local Music</string>
     <string name="settings_local_music_desc">Enable local music playback from device storage</string>
     <string name="settings_local_music_title">Local Music</string>
+    <string name="settings_playback_auto_queue">Auto Queue</string>
+    <string name="settings_playback_auto_queue_desc">Automatically generate a queue of related songs when playing online music</string>
     <string name="shazam_title">Shazam Recognition</string>
     <string name="shazam_listen">Listen</string>
     <string name="shazam_listening">Listening…</string>

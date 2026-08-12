@@ -1,5 +1,6 @@
 package com.pryvn.audiophile.ui.animation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -26,8 +27,8 @@ object MotionTokens {
         val transitionStiffness = 500f
         val transitionDamping = 0.80f
 
-        val colorStiffness = 600f
-        val colorDamping = 0.85f
+        val colorStiffness = 220f
+        val colorDamping = 0.88f
 
         val seekbarStiffness = 1000f
         val seekbarDamping = 0.78f
@@ -77,9 +78,9 @@ object MotionTokens {
         dampingRatio = Spring.transitionDamping,
     )
 
-    inline fun <reified T> colorSpring(): FiniteAnimationSpec<T> = spring(
-        stiffness = Spring.colorStiffness,
-        dampingRatio = Spring.colorDamping,
+    inline fun <reified T> colorSpring(): FiniteAnimationSpec<T> = tween(
+        durationMillis = 700,
+        easing = androidx.compose.animation.core.FastOutSlowInEasing
     )
 
     inline fun <reified T> seekbarSpring(): FiniteAnimationSpec<T> = spring(

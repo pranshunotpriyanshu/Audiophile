@@ -132,7 +132,7 @@ object SettingsLibrary {
     var RefreshEveryTime by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "settings_library_refresh_everytime",
-        initialValue = false
+        initialValue = true
     )
 
     /**
@@ -412,7 +412,15 @@ object SettingsLibrary {
     var LocalMusicEnabled by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "local_music_enabled",
-        initialValue = false
+        initialValue = true
+    )
+
+    // ---------- Auto Queue (Smart Radio) ----------
+    @Stable
+    var AutoQueueEnabled by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "auto_queue_enabled",
+        initialValue = true
     )
 
     // ---------- Shazam Integration ----------

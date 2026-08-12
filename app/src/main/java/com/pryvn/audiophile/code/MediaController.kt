@@ -59,7 +59,10 @@ import com.pryvn.audiophile.code.MediaController.playingMusicList
 import com.pryvn.audiophile.code.api.YTPlayerUtils
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
+import com.pryvn.audiophile.code.api.innertube.models.SongItem
+import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
+import com.pryvn.audiophile.code.SmartRadioQueue
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
@@ -69,6 +72,7 @@ import com.pryvn.audiophile.code.utils.player.FadeExo.fadePlay
 import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.MusicLibrary.toMediaItem
 import com.pryvn.audiophile.data.libraries.MusicLibrary.toYosMediaItem
+import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.PlayListV1
 import com.pryvn.audiophile.data.libraries.PlayStatus
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
@@ -311,6 +315,108 @@ object MediaController {
         ArchiveTuneAdapter.prefetch(nextVideoId)
     }
 
+    // ── Auto-Queue (Smart Radio) ──────────────────────────────────────────
+    private var autoQueueJob: Job? = null
+    private val autoQueueLock = Any()
+
+    @Volatile
+    private var lastAutoQueuedVideoId: String? = null
+
+    /**
+     * Checks if the queue is nearing its end and, if so and auto-queue is enabled,
+     * fetches related/suggested songs from YouTube and appends them to the player queue.
+     *
+     * Called when near the end of the queue or when a song ends with no next item.
+     */
+    fun maybeAutoQueue(currentVideoId: String? = null) {
+        if (!SettingsLibrary.AutoQueueEnabled) return
+        if (currentVideoId == null) return
+        if (currentVideoId == lastAutoQueuedVideoId) return
+
+        val controller = mediaControl ?: return
+        val queueSize = controller.mediaItemCount
+
+        // Threshold: auto-queue kicks in when <= 2 items remain after current
+        val currentIndex = controller.currentMediaItemIndex
+        val remaining = queueSize - currentIndex - 1
+        if (remaining > 2) return
+
+        // Don't auto-queue if the current song is local
+        val currentSong = musicPlaying.value ?: return
+        if (currentSong.uri?.scheme?.let { it == "file" || it == "content" } == true) return
+
+        autoQueueJob?.cancel()
+        autoQueueJob = CoroutineScope(Dispatchers.IO).launch {
+            lastAutoQueuedVideoId = currentVideoId
+            val seedArtistNames = currentSong.artistsList.orEmpty()
+
+            val recommended = SmartRadioQueue.fetchRecommendations(
+                seedVideoId = currentVideoId,
+                seedArtistIds = emptyList(),
+                seedArtistNames = seedArtistNames,
+            )
+
+            if (recommended.isEmpty()) return@launch
+
+            // Convert SongItem → YosMediaItem with ytmusic:// deferred resolution
+            val existingIds = currentQueueSnapshot(controller).mapNotNull { it.mediaId }.toSet()
+            val newItems = recommended
+                .filter { it.id !in existingIds && it.id != currentVideoId }
+                .take(20)
+                .map { songItem ->
+                    toYosMediaItemFromSongItem(songItem)
+                }
+
+            if (newItems.isEmpty()) return@launch
+
+            withContext(Dispatchers.Main) {
+                controller.runCatching {
+                    addMediaItems(mediaItemCount, newItems.map { it.toMediaItem() })
+                    prepare()
+                    saveQueueState()
+                }
+            }
+        }
+    }
+
+    /**
+     * Triggered when a song ends (STATE_ENDED) to ensure next-song playback
+     * and auto-queue generation happen promptly.
+     */
+    fun onSongEnded() {
+        if (!SettingsLibrary.AutoQueueEnabled) return
+        val controller = mediaControl ?: return
+        val currentVideoId = controller.currentMediaItem?.mediaId
+        val queueSize = controller.mediaItemCount
+        val currentIndex = controller.currentMediaItemIndex
+        val remaining = queueSize - currentIndex - 1
+
+        // If there are remaining items, playback will continue naturally.
+        // Only trigger auto-queue if this was the last meaningful item.
+        if (remaining > 0) return
+
+        currentVideoId?.let { maybeAutoQueue(it) }
+    }
+
+    /**
+     * Converts an InnerTube [SongItem] into a [YosMediaItem] using the
+     * deferred `ytmusic://` URI scheme so stream URLs are resolved lazily
+     * by [prepare].
+     */
+    private fun toYosMediaItemFromSongItem(song: SongItem): YosMediaItem {
+        val thumbnailUrl = song.thumbnail
+        return YosMediaItem(
+            uri = Uri.parse("ytmusic://${song.id}"),
+            mediaId = song.id,
+            title = song.title,
+            artists = song.artists.joinToString(", ") { it.name },
+            album = song.album?.name,
+            thumb = thumbnailUrl?.let { Uri.parse(it) },
+            duration = (song.duration?.toLong() ?: 0L) * 1000L,
+            mimeType = "audio/mp4",
+        )
+    }
+
     var lyricsFetchJob: Job? = null
     var playbackJob: Job? = null
 
@@ -479,7 +585,10 @@ object MediaController {
         musicPlaying.value = nextItem
         MediaViewModelObject.bitmap.value = nextItem.thumb
 
-        mediaControl?.seekToNextMediaItem()
+        CoroutineScope(Dispatchers.Main).launch {
+            mediaControl?.seekToNextMediaItem()
+            mediaControl?.fadePlay()
+        }
     }
 
     fun manualPrevious() {
@@ -494,7 +603,10 @@ object MediaController {
         musicPlaying.value = prevItem
         MediaViewModelObject.bitmap.value = prevItem.thumb
 
-        mediaControl?.seekToPrevious()
+        CoroutineScope(Dispatchers.Main).launch {
+            mediaControl?.seekToPrevious()
+            mediaControl?.fadePlay()
+        }
     }
 
     fun onCase(mediaItem: YosMediaItem) {
@@ -1505,6 +1617,8 @@ class YosPlaybackService : MediaSessionService() {
                     }
 
                     println("updating $mediaItem")
+                    // Trigger auto-queue when nearing end of current queue
+                    com.pryvn.audiophile.code.MediaController.maybeAutoQueue(mediaItem?.mediaId)
                     super.onMediaItemTransition(mediaItem, reason)
                 }
 
@@ -1546,6 +1660,8 @@ class YosPlaybackService : MediaSessionService() {
                         }
                         Player.STATE_ENDED -> {
                             MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.Idle
+                            // Trigger auto-queue when a song ends
+                            com.pryvn.audiophile.code.MediaController.onSongEnded()
                         }
                     }
                 }
