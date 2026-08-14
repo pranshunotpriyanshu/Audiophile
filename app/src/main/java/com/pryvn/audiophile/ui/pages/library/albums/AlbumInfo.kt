@@ -246,11 +246,11 @@ fontWeight = headingFontWeight()
                                     label = stringResource(id = R.string.normal_button_shuffle),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    MediaController.mediaControl?.shuffleModeEnabled = true
                                     scope.launch(Dispatchers.IO) {
                                         MediaController.prepare(
                                             songs.random(),
-                                            songs
+                                            songs,
+                                            shuffleModeEnabled = true
                                         )
                                     }
                                 }

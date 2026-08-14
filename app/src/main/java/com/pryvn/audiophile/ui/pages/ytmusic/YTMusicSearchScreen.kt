@@ -57,6 +57,7 @@ import com.pryvn.audiophile.code.api.YTPlaylist
 import com.pryvn.audiophile.code.api.YTSongItem
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.MediaController
+import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
@@ -362,13 +363,16 @@ fun YTMusicSearchScreen(
                                     )
                                 }
                             }
-                            SearchContentState.Results -> {
+                                SearchContentState.Results -> {
                                 items(uiState.resultsSections) { section ->
                                     ResultsSection(section, onSongClick = { song ->
                                         scope.launch(Dispatchers.IO) {
                                             Log.d("PlaybackDebug", "Search tap: videoId=${song.videoId} title=${song.title} artist=${song.artists.joinToString(", ") { it.name }} thumbnail=${song.thumbnailUrl}")
                                             MediaController.playOnline(song)
                                         }
+                                    }, onPlaylistClick = { playlist ->
+                                        LibraryObject.setTargetPlaylistId(playlist.id)
+                                        navController?.toUI(UI.OnlinePlaylist)
                                     })
                                 }
                             }
@@ -841,7 +845,8 @@ private fun RecentSearchRow(query: String, onClick: (String) -> Unit) {
 @Composable
 private fun ResultsSection(
     section: SearchResultSection,
-    onSongClick: (YTSongItem) -> Unit
+    onSongClick: (YTSongItem) -> Unit,
+    onPlaylistClick: (YTPlaylist) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -877,7 +882,7 @@ private fun ResultsSection(
                 is YTSongItem -> AppleSearchResultRow(item, onSongClick)
                 is YTAlbumSearchItem -> AppleAlbumSearchRow(item)
                 is YTArtistSearchItem -> AppleArtistSearchRow(item)
-                is YTPlaylist -> ApplePlaylistSearchRow(item)
+                is YTPlaylist -> ApplePlaylistSearchRow(item, onClick = { onPlaylistClick(item) })
             }
         }
     }
@@ -976,11 +981,15 @@ private fun AppleArtistSearchRow(artist: YTArtistSearchItem) {
 }
 
 @Composable
-private fun ApplePlaylistSearchRow(playlist: YTPlaylist) {
+private fun ApplePlaylistSearchRow(
+    playlist: YTPlaylist,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

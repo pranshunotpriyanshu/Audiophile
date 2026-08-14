@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,9 +56,6 @@ import androidx.compose.ui.platform.LocalDensity
 import com.cormor.overscroll.core.overScrollVertical
 import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
@@ -79,13 +77,13 @@ import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 
 @Composable
-fun OnlineAlbumInfo(navController: NavController) {
+fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
     Box(
         Modifier
             .fillMaxSize()
     ) {
         val browseId = rememberSaveable(key = "OnlineAlbumInfo_browseId") {
-            mutableStateOf(LibraryObject.getTargetBrowseId())
+            mutableStateOf(browseIdArg?.takeIf { it.isNotBlank() } ?: LibraryObject.getTargetBrowseId())
         }
 
         val hideMusic = remember("OnlineAlbumInfo_showMusic") {
@@ -112,20 +110,69 @@ fun OnlineAlbumInfo(navController: NavController) {
             }
         } else {
             val albumState = remember { mutableStateOf<AlbumPage?>(null) }
-            val playableSongs = remember { mutableStateOf<List<YosMediaItem>?>(null) }
+            val songsState = remember { mutableStateOf<List<YosMediaItem>>(emptyList()) }
             val isLoading = remember { mutableStateOf(true) }
+            val loadFailed = remember { mutableStateOf(false) }
+            val songsContinuation = remember { mutableStateOf<String?>(null) }
+            val isLoadingMore = remember { mutableStateOf(false) }
 
             LaunchedEffect(browseId.value) {
-                val page = YouTube.album(browseId.value).getOrNull()
-                albumState.value = page
+                isLoading.value = true
+                loadFailed.value = false
+                songsState.value = emptyList()
+                songsContinuation.value = null
+
+                // Lazy path: album metadata + the first song batch render
+                // immediately; the remaining songs stream in via continuation as
+                // the user scrolls. No stream URLs are resolved here.
+                var page = YouTube.albumFirstPage(browseId.value).getOrNull()
+                var firstBatch: List<SongItem>? = null
+                var firstContinuation: String? = null
+
                 if (page != null) {
-                    playableSongs.value = resolveStreamUrls(page.songs)
+                    if (page.songs.isNotEmpty() || page.songsContinuation != null) {
+                        // The album browse itself carries the tracklist.
+                        firstBatch = page.songs
+                        firstContinuation = page.songsContinuation
+                    } else {
+                        // No inline shelf — lazily pull the first batch from the
+                        // album's playlist browse instead of blocking on the full
+                        // album (still lazy: batch + continuation, not everything).
+                        page.album.playlistId?.let { playlistId ->
+                            val songsPage = YouTube.albumSongsFirstPage(playlistId, page.album).getOrNull()
+                            if (songsPage != null) {
+                                firstBatch = songsPage.songs
+                                firstContinuation = songsPage.continuation
+                            }
+                        }
+                    }
+                } else {
+                    // Total failure of the first-page parse — last-resort fallback
+                    // to the old full loader so the screen still shows the album.
+                    page = YouTube.album(browseId.value).getOrNull()
+                    firstBatch = page?.songs
+                    firstContinuation = null
+                }
+
+                if (page != null) {
+                    albumState.value = page
+                    songsState.value = (firstBatch ?: emptyList()).mapIndexed { index, song ->
+                        song.toAlbumYosMediaItem(index + 1)
+                    }
+                    songsContinuation.value = firstContinuation
+                    android.util.Log.d(
+                        "AlbumLazy",
+                        "album=${page.album.title}: firstBatch=${firstBatch?.size}, " +
+                            "continuation=${firstContinuation != null}, fallbackVl=${page.songs.isEmpty() && firstContinuation == null}",
+                    )
+                } else {
+                    loadFailed.value = true
                 }
                 isLoading.value = false
             }
 
             val page = albumState.value
-            val songs = playableSongs.value
+            val songs = songsState.value
 
             if (isLoading.value) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -133,7 +180,7 @@ fun OnlineAlbumInfo(navController: NavController) {
                 }
                 return@Box
             }
-            if (page == null || songs == null) {
+            if (page == null || loadFailed.value) {
                 Title(
                     title = stringResource(id = R.string.page_library_album_info_title), onBack = {
                         navController.popBackStack()
@@ -172,6 +219,33 @@ fun OnlineAlbumInfo(navController: NavController) {
             }
 
             val scope = rememberCoroutineScope()
+
+            // Progressive loading: request the next continuation page as the user
+            // scrolls near the end of the currently loaded songs.
+            val shouldLoadMore by remember {
+                derivedStateOf {
+                    val info = state.layoutInfo
+                    val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    lastVisible >= info.totalItemsCount - 8
+                }
+            }
+            LaunchedEffect(shouldLoadMore, songsContinuation.value) {
+                if (!shouldLoadMore) return@LaunchedEffect
+                val continuation = songsContinuation.value ?: return@LaunchedEffect
+                if (isLoadingMore.value) return@LaunchedEffect
+                isLoadingMore.value = true
+                val next = YouTube.albumSongsNext(continuation, page.album).getOrNull()
+                if (next != null && next.songs.isNotEmpty()) {
+                    val startIndex = songsState.value.size
+                    songsState.value = songsState.value + next.songs.mapIndexed { index, song ->
+                        song.toAlbumYosMediaItem(startIndex + index + 1)
+                    }
+                    songsContinuation.value = next.continuation
+                } else {
+                    songsContinuation.value = null
+                }
+                isLoadingMore.value = false
+            }
 
             LazyColumn(
                 state = state,
@@ -243,8 +317,9 @@ fontWeight = headingFontWeight()
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     scope.launch(Dispatchers.IO) {
+                                        val first = songs.firstOrNull() ?: return@launch
                                         MediaController.prepare(
-                                            songs.first(),
+                                            first,
                                             songs
                                         )
                                     }
@@ -255,11 +330,12 @@ fontWeight = headingFontWeight()
                                     label = stringResource(id = R.string.normal_button_shuffle),
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    MediaController.mediaControl?.shuffleModeEnabled = true
                                     scope.launch(Dispatchers.IO) {
+                                        val random = songs.randomOrNull() ?: return@launch
                                         MediaController.prepare(
-                                            songs.random(),
-                                            songs
+                                            random,
+                                            songs,
+                                            shuffleModeEnabled = true
                                         )
                                     }
                                 }
@@ -301,6 +377,19 @@ fontWeight = headingFontWeight()
                                     .height(0.5.dp)
                                     .background(Color.Black withNight Color.White)
                             )
+                        }
+                    }
+                }
+
+                if (songsContinuation.value != null || isLoadingMore.value) {
+                    item("oa_album_loading_more") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 14.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -464,28 +553,20 @@ private fun AlbumSongsItem(
     }
 }
 
-private suspend fun resolveStreamUrls(songs: List<SongItem>): List<YosMediaItem> = coroutineScope {
-    songs.mapIndexed { index, song ->
-        async(Dispatchers.IO) {
-            runCatching {
-                val resolved = MediaController.resolveStreamUrl(
-                    videoId = song.id,
-                    title = song.title,
-                    artists = song.artists.map { it.name },
-                    durationSeconds = song.duration,
-                )
-                if (resolved.url.isBlank()) return@runCatching null
-                YosMediaItem(
-                    uri = Uri.parse(resolved.url),
-                    mediaId = song.id,
-                    title = resolved.title ?: song.title,
-                    artists = song.artists.joinToString(", ") { it.name },
-                    trackNumber = index + 1,
-                    duration = (resolved.durationSeconds ?: song.duration ?: 0).toLong() * 1000L,
-                    thumb = Uri.parse(song.thumbnail),
-                    mimeType = resolved.mimeType,
-                )
-            }.getOrNull()
-        }
-    }.awaitAll().filterNotNull()
+/**
+ * Converts an album song to a playable item WITHOUT resolving any stream URL:
+ * the existing online playback path resolves the ytmusic:// URI lazily when the
+ * song actually needs to play.
+ */
+private fun SongItem.toAlbumYosMediaItem(trackNumber: Int): YosMediaItem {
+    return YosMediaItem(
+        uri = Uri.parse("ytmusic://$id"),
+        mediaId = id,
+        title = title,
+        artists = artists.joinToString(", ") { it.name },
+        album = album?.name,
+        thumb = thumbnail?.let { Uri.parse(it) },
+        trackNumber = trackNumber,
+        duration = (duration ?: 0) * 1000L,
+    )
 }

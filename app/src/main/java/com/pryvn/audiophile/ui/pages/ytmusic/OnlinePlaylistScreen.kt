@@ -180,7 +180,7 @@ fontWeight = headingFontWeight(),
                         ) {
                             if (songs.isNotEmpty()) {
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playPlaylist(songs.first(), songs)
+                                    MediaController.playPlaylist(songs.first(), songs, shuffleModeEnabled = false)
                                 }
                             }
                         }
@@ -193,7 +193,7 @@ fontWeight = headingFontWeight(),
                             if (songs.isNotEmpty()) {
                                 val randomSong = songs.random()
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playPlaylist(randomSong, songs)
+                                    MediaController.playPlaylist(randomSong, songs, shuffleModeEnabled = true)
                                 }
                             }
                         }
@@ -212,7 +212,7 @@ fontWeight = headingFontWeight(),
             ) { index, song ->
                 PlaylistSongRow(song = song) {
                     scope.launch(Dispatchers.IO) {
-                        MediaController.playPlaylist(song, songs)
+                        MediaController.playPlaylist(song, songs, shuffleModeEnabled = false)
                     }
                 }
 

@@ -25,6 +25,7 @@ data class AlbumPage(
     val album: AlbumItem,
     val songs: List<SongItem>,
     val otherVersions: List<AlbumItem>,
+    val songsContinuation: String? = null,
 ) {
     companion object {
         fun getPlaylistId(response: BrowseResponse): String? {
@@ -408,3 +409,9 @@ data class AlbumPage(
         }
     }
 }
+
+/** One continuation batch of album songs plus the next token (null when exhausted). */
+data class AlbumSongsPage(
+    val songs: List<SongItem>,
+    val continuation: String?,
+)

@@ -1,35 +1,32 @@
 package com.pryvn.audiophile.ui.pages.library.artists
 
-import android.widget.Toast
+import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,64 +36,52 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.cormor.overscroll.core.overScrollVertical
+import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.data.libraries.ArtistLibrary
 import com.pryvn.audiophile.data.libraries.ArtistRelease
 import com.pryvn.audiophile.data.libraries.MusicLibrary
-import com.pryvn.audiophile.data.libraries.PlayList
-import com.pryvn.audiophile.data.libraries.PlayListLibrary
-import com.pryvn.audiophile.data.libraries.PlayListLibrary.addMusic
-import com.pryvn.audiophile.data.libraries.PlayListLibrary.playList
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
+import com.pryvn.audiophile.data.libraries.defaultAlbum
+import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.libraries.lazyListKey
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.consumeNowPlayingNavigationMarker
 import com.pryvn.audiophile.ui.returnToLibraryFromNowPlaying
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuAnchored
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuItemDivider
-import com.pryvn.audiophile.ui.pages.library.FloatingMenuPlayListPickerContent
-import com.pryvn.audiophile.ui.pages.library.MusicDetailCircleButton
-import com.pryvn.audiophile.ui.pages.library.MusicDetailPage
-import com.pryvn.audiophile.ui.pages.library.MusicList
-import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
+import com.pryvn.audiophile.ui.theme.isAudiophileInDarkMode
 import com.pryvn.audiophile.ui.theme.withNight
-import com.pryvn.audiophile.ui.theme.userFontWeight
-import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.Title
-import com.pryvn.audiophile.ui.widgets.basic.YosBottomSheetDialog
+import com.pryvn.audiophile.ui.widgets.basic.darken
+import com.pryvn.audiophile.ui.widgets.basic.rememberArtworkDominantColor
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistInfo(
     navController: NavController,
-)
-{
+) {
     val openedFromNowPlaying = rememberSaveable(key = "ArtistInfo_openedFromNowPlaying") {
         mutableStateOf(navController.consumeNowPlayingNavigationMarker())
     }
@@ -117,14 +102,16 @@ fun ArtistInfo(
     val artistSections = remember(artistName.value, MusicLibrary.songs) {
         ArtistLibrary.sectionsForArtist(artistName.value ?: "")
     }
+    val artistSongs = artistSections.songs
     val showEmptyState = remember(artistName.value, artistSections) {
         derivedStateOf {
-            artistName.value.isNullOrEmpty() || (
-                artistSections.songs.isEmpty() &&
-                    artistSections.albums.isEmpty() &&
-                    artistSections.singlesAndEps.isEmpty() &&
-                    artistSections.featuredOn.isEmpty()
-                )
+            artistName.value.isNullOrEmpty() ||
+                (
+                    artistSections.songs.isEmpty() &&
+                        artistSections.albums.isEmpty() &&
+                        artistSections.singlesAndEps.isEmpty() &&
+                        artistSections.featuredOn.isEmpty()
+                    )
         }
     }
 
@@ -152,347 +139,347 @@ fun ArtistInfo(
 
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val overflowSheetOpen = remember("ArtistInfo_overflowSheetOpen") {
         mutableStateOf(false)
     }
-    val addToPlaylistExpanded = remember(artistName.value) { mutableStateOf(false) }
     val overflowButtonPosition = remember("ArtistInfo_overflowButtonPosition") {
         mutableStateOf(Offset.Zero)
     }
-    val artistSongs = artistSections.songs
     val isFollowed by remember(artistName.value, SettingsLibrary.FollowedArtists) {
         derivedStateOf {
             SettingsLibrary.isArtistFollowed(artistName.value ?: "")
         }
     }
-    val openArtistSongsSearch: () -> Unit = {
+
+    val heroArtwork = artistSongs.firstOrNull()?.thumb
+    val heroColor = rememberArtworkDominantColor(heroArtwork?.toString())
+    val isNight = isAudiophileInDarkMode()
+    val screenBg = if (isNight) {
+        heroColor.darken(0.78f)
+    } else {
+        lerp(heroColor, Color.White, 0.87f)
+    }
+
+    val openArtistSongs: () -> Unit = {
         LibraryObject.setTargetArtistName(artistName.value)
-        LibraryObject.setArtistSongsSearchOnOpen(true)
+        LibraryObject.setArtistSongsSearchOnOpen(false)
         navController.toUI(UI.ArtistSongs)
     }
-
-    FloatingMenuAnchored({ overflowSheetOpen.value }, {
-        overflowSheetOpen.value = it
-    }, overflowButtonPosition.value) {
-        FloatingMenuItem(
-            label = stringResource(id = R.string.now_playing_overflow_add_to_playlist),
-            icon = painterResource(id = R.drawable.ic_action_add),
-            trailingIcon = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            trailingIconRotated = addToPlaylistExpanded.value,
-        ) {
-            addToPlaylistExpanded.value = !addToPlaylistExpanded.value
+    val openArtistSingles: () -> Unit = {
+        LibraryObject.setTargetArtistName(artistName.value)
+        navController.toUI(UI.ArtistSingles)
+    }
+    val openArtistAlbums: () -> Unit = {
+        LibraryObject.setTargetArtistName(artistName.value)
+        navController.toUI(UI.ArtistAlbums)
+    }
+    val openAlbum: (ArtistRelease) -> Unit = { release ->
+        LibraryObject.setTargetAlbumName(release.albumName)
+        navController.toUI(UI.AlbumInfo)
+    }
+    val playAll: () -> Unit = {
+        scope.launch(Dispatchers.IO) {
+            val first = artistSongs.firstOrNull() ?: return@launch
+            MediaController.prepare(first, artistSongs)
         }
-        AnimatedVisibility(visible = addToPlaylistExpanded.value) {
-            Column {
-                FloatingMenuItemDivider()
-                ArtistAddToPlaylistContent(
-                    artistName = artistName.value ?: "",
-                    songs = artistSongs,
-                    showHeader = false,
-                    onDone = { overflowSheetOpen.value = false },
-                    onBack = { addToPlaylistExpanded.value = false },
-                )
-            }
-        }
-        FloatingMenuDivider()
-        FloatingMenuItem(
-            label = stringResource(id = R.string.playlist_overflow_play_next),
-            icon = painterResource(id = R.drawable.ic_action_play_next),
-        ) {
-            overflowSheetOpen.value = false
-            if (artistSongs.isEmpty()) { return@FloatingMenuItem }
-
-            scope.launch(Dispatchers.IO) {
-                val queued = MediaController.playNext(artistSongs)
-                if (!queued) { return@launch }
-
-                withContext(Dispatchers.Main) {
-                    val message = if (artistSongs.size == 1) {
-                        context.getString(R.string.playlist_play_next_toast_one)
-                    } else {
-                        context.getString(
-                            R.string.playlist_play_next_toast_other,
-                            artistSongs.size,
-                        )
-                    }
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                }
-            }
+    }
+    val shuffleAll: () -> Unit = {
+        scope.launch(Dispatchers.IO) {
+            val random = artistSongs.randomOrNull() ?: return@launch
+            MediaController.prepare(
+                random,
+                artistSongs,
+                shuffleModeEnabled = true,
+            )
         }
     }
 
-    MusicDetailPage(
-        title = artistName.value ?: "",
-        listState = listState,
-        searchText = "",
-        searchPlaceholder = "",
-        enableSearch = false,
-        showSortButton = false,
-        showSearchButton = false,
-        searchModeActive = false,
-        searchRequestFocusSignal = 0,
-        onBack = handleBack,
-        onSort = {},
-        onSearchTextChange = {},
-        onSearchClick = openArtistSongsSearch,
-        onSearchDismiss = {},
-        topBarFirstActionIconRes = if (isFollowed) {
-            R.drawable.ic_action_favorited
-        } else {
-            R.drawable.ic_action_favorite
-        },
-        topBarFirstActionContentDescription = stringResource(
-            id = if (isFollowed) {
-                R.string.artist_action_unfollow
-            } else {
-                R.string.artist_action_follow
-            },
-        ),
-        topBarFirstActionSelected = isFollowed,
-        onTopBarFirstActionClick = {
-            SettingsLibrary.toggleArtistFollowed(artistName.value ?: "")
-        },
-        topBarSecondActionIconRes = R.drawable.ic_action_more,
-        topBarSecondActionContentDescription = stringResource(id = R.string.playlist_overflow_more_cd),
-        onTopBarSecondActionPositioned = {
-            overflowButtonPosition.value = it
-        },
-        onTopBarSecondActionClick = {
-            addToPlaylistExpanded.value = false
-            overflowSheetOpen.value = true
-        },
-        artwork = {
-            ArtistHeroArtwork(songs = artistSongs)
-        },
-        headerContent = {
-            Text(
-                text = artistName.value ?: "",
-                color = Color.White,
-                fontSize = 31.sp,
-                fontWeight = headingFontWeight(),
-                textAlign = TextAlign.Center,
-                lineHeight = 36.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        },
-        actionContent = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
-            ) {
-                MusicDetailCircleButton(
-                    painter = painterResource(id = R.drawable.button_icon_shuffle),
-                    contentDescription = stringResource(id = R.string.normal_button_shuffle),
-                    enabled = artistSongs.isNotEmpty(),
-                    showBackground = false,
-                    iconSize = 36.dp,
-                    onClick = {
-                        if (artistSongs.isEmpty()) { return@MusicDetailCircleButton }
+    ArtistOverflowMenu(
+        expandedLambda = { overflowSheetOpen.value },
+        expandedOnChanged = { overflowSheetOpen.value = it },
+        buttonPosition = overflowButtonPosition.value,
+        artistName = artistName.value ?: "",
+        songs = artistSongs,
+    )
 
-                        scope.launch(Dispatchers.IO) {
-                            MediaController.prepare(
-                                artistSongs.random(),
-                                artistSongs,
-                                shuffleModeEnabled = true,
-                            )
-                        }
-                    },
-                )
-
-                MusicDetailCircleButton(
-                    painter = painterResource(id = R.drawable.button_icon_play),
-                    contentDescription = stringResource(id = R.string.normal_button_play),
-                    enabled = artistSongs.isNotEmpty(),
-                    showBackground = false,
-                    iconSize = 36.dp,
-                    onClick = {
-                        if (artistSongs.isEmpty()) { return@MusicDetailCircleButton }
-
-                        scope.launch(Dispatchers.IO) {
-                            MediaController.prepare(artistSongs.first(), artistSongs)
-                        }
-                    },
-                )
-
-                MusicDetailCircleButton(
-                    painter = painterResource(id = R.drawable.ic_action_search),
-                    contentDescription = stringResource(id = R.string.music_detail_search_cd),
-                    showBackground = false,
-                    iconSize = 36.dp,
-                    onClick = openArtistSongsSearch,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(screenBg),
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .overScrollVertical(),
+            flingBehavior = rememberOverscrollFlingBehavior { listState },
+        ) {
+            item("ArtistInfo_hero") {
+                ArtistHero(
+                    artistName = artistName.value ?: "",
+                    heroArtwork = heroArtwork,
+                    heroColor = heroColor,
+                    screenBg = screenBg,
+                    playEnabled = artistSongs.isNotEmpty(),
+                    onPlay = playAll,
+                    onShuffle = shuffleAll,
                 )
             }
-        },
-    ) {
-        item("ArtistInfo_songs_header") {
-            ArtistSectionHeader(
-                title = stringResource(id = R.string.page_library_songs),
-                onMore = {
-                    LibraryObject.setTargetArtistName(artistName.value)
-                    LibraryObject.setArtistSongsSearchOnOpen(false)
-                    navController.toUI(UI.ArtistSongs)
-                },
-            )
-        }
 
-        itemsIndexed(
-            artistSongs.take(5),
-            key = { index, music -> music.lazyListKey(index) },
-            contentType = { _, _ -> "ArtistInfo_song" },
-        ) { index, music ->
-            MusicList(
-                music = music,
-                onQueueSwipe = {
-                    scope.launch(Dispatchers.IO) {
-                        MediaController.addToQueue(music)
-                    }
-                },
-                navController = navController,
-            ) {
-                scope.launch(Dispatchers.IO) {
-                    MediaController.prepare(music, artistSongs)
+            item("ArtistInfo_top_songs_header") {
+                ArtistSectionHeader(
+                    title = stringResource(id = R.string.page_library_artist_top_songs),
+                    onMore = openArtistSongs,
+                )
+            }
+
+            itemsIndexed(
+                artistSongs.take(5),
+                key = { index, music -> music.lazyListKey(index) },
+                contentType = { _, _ -> "ArtistInfo_song" },
+            ) { index, music ->
+                ArtistSongRow(
+                    music = music,
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            MediaController.prepare(music, artistSongs)
+                        }
+                    },
+                )
+
+                if (index < minOf(artistSongs.lastIndex, 4)) {
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 88.dp)
+                            .alpha(0.15f)
+                            .height(0.5.dp)
+                            .background(Color.Black withNight Color.White),
+                    )
                 }
             }
 
-            if (index < minOf(artistSongs.lastIndex, 4)) {
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 88.dp)
-                        .alpha(0.15f)
-                        .height(0.5.dp)
-                        .background(Color.Black withNight Color.White),
-                )
+            if (artistSections.singlesAndEps.isNotEmpty()) {
+                item("ArtistInfo_singles_header") {
+                    ArtistSectionHeader(
+                        title = stringResource(id = R.string.page_library_artist_singles),
+                        onMore = openArtistSingles,
+                    )
+                }
+                item("ArtistInfo_singles_row") {
+                    ArtistReleaseRow(
+                        releases = artistSections.singlesAndEps,
+                        onAlbumClick = openAlbum,
+                    )
+                }
+            }
+
+            if (artistSections.albums.isNotEmpty()) {
+                item("ArtistInfo_albums_header") {
+                    ArtistSectionHeader(
+                        title = stringResource(id = R.string.page_library_albums),
+                        onMore = openArtistAlbums,
+                    )
+                }
+                item("ArtistInfo_albums_row") {
+                    ArtistReleaseRow(
+                        releases = artistSections.albums,
+                        onAlbumClick = openAlbum,
+                    )
+                }
+            }
+
+            if (artistSections.featuredOn.isNotEmpty()) {
+                item("ArtistInfo_featured_header") {
+                    ArtistSectionHeader(title = stringResource(id = R.string.page_library_artist_featured_on))
+                }
+                item("ArtistInfo_featured_row") {
+                    ArtistReleaseRow(
+                        releases = artistSections.featuredOn,
+                        onAlbumClick = openAlbum,
+                    )
+                }
+            }
+
+            item("ArtistInfo_bottom_inset") {
+                Column {
+                    Spacer(modifier = Modifier.height(150.dp))
+                    Spacer(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+                }
             }
         }
 
-        if (artistSections.albums.isNotEmpty()) {
-            item("ArtistInfo_albums_header") {
-                ArtistSectionHeader(title = stringResource(id = R.string.page_library_albums))
-            }
-            item("ArtistInfo_albums_row") {
-                ArtistReleaseRow(
-                    releases = artistSections.albums,
-                    onAlbumClick = { release ->
-                        LibraryObject.setTargetAlbumName(release.albumName)
-                        navController.toUI(UI.AlbumInfo)
-                    },
-                )
-            }
-        }
-
-        if (artistSections.singlesAndEps.isNotEmpty()) {
-            item("ArtistInfo_singles_header") {
-                ArtistSectionHeader(title = stringResource(id = R.string.page_library_artist_singles))
-            }
-            item("ArtistInfo_singles_row") {
-                ArtistReleaseRow(
-                    releases = artistSections.singlesAndEps,
-                    onAlbumClick = { release ->
-                        LibraryObject.setTargetAlbumName(release.albumName)
-                        navController.toUI(UI.AlbumInfo)
-                    },
-                )
-            }
-        }
-
-        if (artistSections.featuredOn.isNotEmpty()) {
-            item("ArtistInfo_featured_header") {
-                ArtistSectionHeader(title = stringResource(id = R.string.page_library_artist_featured_on))
-            }
-            item("ArtistInfo_featured_row") {
-                ArtistReleaseRow(
-                    releases = artistSections.featuredOn,
-                    onAlbumClick = { release ->
-                        LibraryObject.setTargetAlbumName(release.albumName)
-                        navController.toUI(UI.AlbumInfo)
-                    },
-                )
-            }
-        }
+        ArtistTopBar(
+            isFollowed = isFollowed,
+            onBack = handleBack,
+            onFollow = {
+                SettingsLibrary.toggleArtistFollowed(artistName.value ?: "")
+            },
+            onMore = {
+                overflowSheetOpen.value = true
+            },
+            onMorePositioned = {
+                overflowButtonPosition.value = it
+            },
+        )
     }
 }
 
 @Composable
-private fun ArtistHeroArtwork(songs: List<YosMediaItem>)
-{
+private fun ArtistHero(
+    artistName: String,
+    heroArtwork: Uri?,
+    heroColor: Color,
+    screenBg: Color,
+    playEnabled: Boolean,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+) {
+    val configuration = LocalConfiguration.current
+    val heroHeight = (configuration.screenHeightDp.dp * 0.60f).coerceIn(460.dp, 620.dp)
     val context = LocalContext.current
-    val heroArtwork = songs.firstOrNull()?.thumb
 
-    if (heroArtwork == null) {
-        Image(
-            painter = painterResource(id = R.drawable.songcredits_monogram_person),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(heroHeight),
+    ) {
+        // The artwork bleeds across the whole hero so it feels like it naturally
+        // extends behind the text and controls instead of a separate rectangle.
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(heroArtwork)
+                .crossfade(true)
+                .error(R.drawable.placeholder_music_default_artwork)
+                .placeholder(R.drawable.placeholder_music_default_artwork)
+                .fallback(R.drawable.placeholder_music_default_artwork)
+                .allowHardware(true)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        return
-    }
 
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(heroArtwork)
-            .crossfade(true)
-            .build(),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize(),
-    )
-}
-
-@Composable
-private fun ArtistSectionHeader(title: String, onMore: (() -> Unit)? = null)
-{
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .padding(top = 20.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            fontSize = 24.sp,
-            fontWeight = headingFontWeight(),
-            modifier = Modifier.weight(1f),
+        // Light artwork-derived scrim: the selfie stays visible through the hero,
+        // fading gently into the dynamic page background only near the bottom so
+        // the name and action buttons stay readable with no dark empty void.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = if (isAudiophileInDarkMode()) {
+                            listOf(
+                                Color.Black.copy(alpha = 0.28f),
+                                Color.Black.copy(alpha = 0.05f),
+                                heroColor.darken(0.28f),
+                                heroColor.darken(0.52f),
+                                screenBg,
+                            )
+                        } else {
+                            listOf(
+                                Color.Black.copy(alpha = 0.18f),
+                                Color.Transparent,
+                                heroColor.copy(alpha = 0.16f),
+                                lerp(heroColor, Color.White, 0.55f),
+                                screenBg,
+                            )
+                        },
+                    ),
+                ),
         )
 
-        if (onMore != null) {
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onMore,
-                    )
-                    .padding(4.dp),
-                contentAlignment = Alignment.Center,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            ArtistHeroNameText(artistName = artistName)
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                androidx.compose.material3.Icon(
-                    painter = painterResource(id = R.drawable.ic_action_next),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    modifier = Modifier.size(18.dp),
+                ArtistHeroActionButton(
+                    painter = painterResource(id = R.drawable.button_icon_play),
+                    contentDescription = stringResource(id = R.string.normal_button_play),
+                    enabled = playEnabled,
+                    onClick = onPlay,
+                )
+                ArtistHeroActionButton(
+                    painter = painterResource(id = R.drawable.button_icon_shuffle),
+                    contentDescription = stringResource(id = R.string.normal_button_shuffle),
+                    enabled = playEnabled,
+                    onClick = onShuffle,
                 )
             }
         }
     }
+}
+
+@Composable
+private fun ArtistSongRow(
+    music: YosMediaItem,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ShadowImageWithCache(
+            dataLambda = { music.thumb },
+            contentDescription = null,
+            modifier = Modifier.size(52.dp),
+            cornerRadius = 4.dp,
+            shadowAlpha = 0f,
+            imageQuality = ImageQuality.LOW,
+        )
+
+        Column(modifier = Modifier.padding(start = 14.dp)) {
+            Text(
+                text = music.title ?: defaultTitle,
+                fontSize = 16.sp,
+                lineHeight = 19.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = ArtistSongSubtitle(music),
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .alpha(0.55f),
+            )
+        }
+    }
+}
+
+private fun ArtistSongSubtitle(music: YosMediaItem): String {
+    val album = music.album ?: defaultAlbum
+    val year = music.releaseYear ?: music.recordingYear
+    return if (year != null) "$album · $year" else album
 }
 
 @Composable
 private fun ArtistReleaseRow(
     releases: List<ArtistRelease>,
     onAlbumClick: (ArtistRelease) -> Unit,
-)
-{
+) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp),
     ) {
         items(releases, key = { it.albumName }) { release ->
             ArtistReleaseCard(
@@ -506,18 +493,24 @@ private fun ArtistReleaseRow(
 }
 
 @Composable
-private fun ArtistReleaseCard(release: ArtistRelease, onClick: () -> Unit)
-{
+private fun ArtistReleaseCard(
+    release: ArtistRelease,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
-            .width(142.dp)
-            .clickable(onClick = onClick),
+            .width(150.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
     ) {
         ShadowImageWithCache(
             dataLambda = { release.songs.firstOrNull()?.thumb },
             contentDescription = release.albumName,
             modifier = Modifier.fillMaxWidth(),
-            cornerRadius = 8.dp,
+            cornerRadius = 10.dp,
             shadowAlpha = 0f,
             imageQuality = ImageQuality.HIGH,
         )
@@ -546,118 +539,4 @@ private fun ArtistReleaseCard(release: ArtistRelease, onClick: () -> Unit)
             )
         }
     }
-}
-
-@Composable
-private fun ArtistOverflowHeader(artistName: String, songs: List<YosMediaItem>)
-{
-    val context = LocalContext.current
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(songs.firstOrNull()?.thumb)
-                .crossfade(true)
-                .build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(64.dp)
-                .clip(YosRoundedCornerShape(10.dp)),
-            error = painterResource(id = R.drawable.songcredits_monogram_person),
-            fallback = painterResource(id = R.drawable.songcredits_monogram_person),
-            placeholder = painterResource(id = R.drawable.songcredits_monogram_person),
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = artistName,
-                fontSize = 18.sp,
-                fontWeight = userFontWeight(),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = stringResource(id = R.string.page_library_album_desc, songs.size),
-                fontSize = 13.5.sp,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .alpha(0.55f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ArtistAddToPlaylistSheet(
-    isOpen: MutableState<Boolean>,
-    artistName: String,
-    songs: List<YosMediaItem>,
-)
-{
-    if (!isOpen.value) return
-
-    YosBottomSheetDialog(
-        blurred = true,
-        onDismissRequest = { isOpen.value = false },
-    ) {
-        ArtistAddToPlaylistContent(
-            artistName = artistName,
-            songs = songs,
-            onDone = { isOpen.value = false },
-        )
-    }
-}
-
-@Composable
-private fun ArtistAddToPlaylistContent(
-    artistName: String,
-    songs: List<YosMediaItem>,
-    showHeader: Boolean = true,
-    onDone: () -> Unit,
-    onBack: (() -> Unit)? = null,
-)
-{
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val sourceStub = remember(artistName) {
-        PlayList(
-            listID = "artist-bulk:$artistName",
-            name = artistName,
-            songDataList = emptyList(),
-        )
-    }
-
-    val performBulkAdd: (PlayList) -> Unit = { target ->
-        scope.launch(Dispatchers.IO) {
-            songs.forEach { song ->
-                val live = playList.firstOrNull { it.listID == target.listID } ?: return@forEach
-                PlayListLibrary.run {
-                    live.addMusic(song)
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.playlist_picker_added_toast, target.name),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
-    }
-
-    FloatingMenuPlayListPickerContent(
-        excludeListId = sourceStub.listID,
-        showHeader = showHeader,
-        onBack = onBack ?: onDone,
-        onDone = onDone,
-        onPlaylistSelected = performBulkAdd,
-    )
 }

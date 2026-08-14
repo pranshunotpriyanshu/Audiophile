@@ -226,11 +226,11 @@ fun NormalMusic(navController: NavController) {
                                 label = stringResource(id = R.string.normal_button_shuffle),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                MediaController.mediaControl?.shuffleModeEnabled = true
                                 scope.launch(Dispatchers.IO) {
                                     MediaController.prepare(
                                         list.value.random(),
-                                        list.value
+                                        list.value,
+                                        shuffleModeEnabled = true
                                     )
                                 }
                             }

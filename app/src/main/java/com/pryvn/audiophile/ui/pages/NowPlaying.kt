@@ -601,7 +601,7 @@ fun NowPlaying(
         }
 
         val shuffleModeEnabled = rememberSaveable(key = "NowPlaying_shuffleModeEnabled") {
-            mutableStateOf(mediaControl?.shuffleModeEnabled ?: false)
+            mutableStateOf(com.pryvn.audiophile.code.MediaController.queueShuffleEnabled.value)
         }
         val repeatMode = rememberSaveable(key = "NowPlaying_repeatMode") {
             mutableIntStateOf(mediaControl?.repeatMode ?: REPEAT_MODE_OFF)
@@ -1214,10 +1214,10 @@ PlayingList ->
                                         modifier = Modifier
                                             .padding(top = 52.dp),
                                         onWhile = {
-                                            shuffleModeEnabled.value =
-                                                mediaControl?.shuffleModeEnabled ?: false
-                                            repeatMode.intValue =
-                                                mediaControl?.repeatMode ?: REPEAT_MODE_OFF
+                                        shuffleModeEnabled.value =
+                                            com.pryvn.audiophile.code.MediaController.queueShuffleEnabled.value
+                                        repeatMode.intValue =
+                                            mediaControl?.repeatMode ?: REPEAT_MODE_OFF
                                         })
                                 }
                             }
@@ -1348,7 +1348,7 @@ PlayingList ->
                             },
                             modifier = Modifier.fillMaxWidth(),
                             onWhile = {
-                                shuffleModeEnabled.value = mediaControl?.shuffleModeEnabled ?: false
+                                shuffleModeEnabled.value = com.pryvn.audiophile.code.MediaController.queueShuffleEnabled.value
                                 repeatMode.intValue = mediaControl?.repeatMode ?: REPEAT_MODE_OFF
                             })
                         if (!lyricsOn) {

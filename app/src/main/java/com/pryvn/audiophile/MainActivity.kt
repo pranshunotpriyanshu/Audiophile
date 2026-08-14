@@ -136,7 +136,9 @@ import com.pryvn.audiophile.ui.pages.library.Library
 import com.pryvn.audiophile.ui.pages.library.NormalMusic
 import com.pryvn.audiophile.ui.pages.library.albums.AlbumInfo
 import com.pryvn.audiophile.ui.pages.library.albums.LocalAlbums
+import com.pryvn.audiophile.ui.pages.library.artists.ArtistAlbums
 import com.pryvn.audiophile.ui.pages.library.artists.ArtistInfo
+import com.pryvn.audiophile.ui.pages.library.artists.ArtistSingles
 import com.pryvn.audiophile.ui.pages.library.artists.ArtistSongs
 import com.pryvn.audiophile.ui.pages.library.artists.LocalArtists
 import com.pryvn.audiophile.ui.pages.library.playlists.PlayLists
@@ -156,6 +158,9 @@ import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicPlaylistsScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.OnlinePlaylistScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.onlinealbuminfo.OnlineAlbumInfo
 import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistInfo
+import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistSongs
+import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistSingles
+import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistAlbums
 import com.pryvn.audiophile.ui.pages.ytmusic.OnlineArtistsList
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInterfaceSetting
@@ -286,6 +291,11 @@ class MainActivity : ComponentActivity() {
                             route.value =
                                 backstackEntry.value?.destination?.route ?: UI.HomePage
                         }
+
+                        // Single source of truth for bottom-navigation visibility.
+                        val showNavBar = route.value in listOf(
+                            UI.HomePage,
+                        )
 
                         // Show control area
                         val yosBottomSheetConfig = object {
@@ -551,6 +561,14 @@ class MainActivity : ComponentActivity() {
                                                 ArtistSongs(navController)
                                             }
 
+                                            composable(UI.ArtistSingles) {
+                                                ArtistSingles(navController)
+                                            }
+
+                                            composable(UI.ArtistAlbums) {
+                                                ArtistAlbums(navController)
+                                            }
+
                                             composable(UI.Settings.Main) {
                                                 Settings(
                                                     navController
@@ -620,9 +638,30 @@ class MainActivity : ComponentActivity() {
                                             composable(UI.OnlineAlbumInfo) {
                                                 OnlineAlbumInfo(navController)
                                             }
+                                            composable("${UI.OnlineAlbumInfo}/{browseId}") { backStackEntry ->
+                                                OnlineAlbumInfo(navController, backStackEntry.arguments?.getString("browseId"))
+                                            }
                                             composable(UI.OnlineArtistInfo) {
                                                 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
                                                 OnlineArtistInfo(navController)
+                                            }
+                                            composable("${UI.OnlineArtistSongs}/{browseId}") { backStackEntry ->
+                                                OnlineArtistSongs(
+                                                    navController,
+                                                    backStackEntry.arguments?.getString("browseId") ?: ""
+                                                )
+                                            }
+                                            composable("${UI.OnlineArtistSingles}/{browseId}") { backStackEntry ->
+                                                OnlineArtistSingles(
+                                                    navController,
+                                                    backStackEntry.arguments?.getString("browseId") ?: ""
+                                                )
+                                            }
+                                            composable("${UI.OnlineArtistAlbums}/{browseId}") { backStackEntry ->
+                                                OnlineArtistAlbums(
+                                                    navController,
+                                                    backStackEntry.arguments?.getString("browseId") ?: ""
+                                                )
                                             }
                                             composable(UI.OnlineArtistsList) {
                                                 OnlineArtistsList(navController)
@@ -641,9 +680,6 @@ class MainActivity : ComponentActivity() {
 
                                 // Bottom navigation bar
                                 YosWrapper {
-                                    val showNavBar = route.value in listOf(
-                                        UI.HomePage,
-                                    )
                                     if (showNavBar) {
                                         val color =
                                             Color(0xFFF5F5F5) withNight /*Color(0xFF111111)*/ Color.Black
@@ -803,22 +839,36 @@ class MainActivity : ComponentActivity() {
                             if (height.intValue == 0) return@YosWrapper
                             if (!hasMusic.value) return@YosWrapper
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .onSizeChanged {
-                                        parentHeight.intValue = it.height
-                                    }
-                                    .graphicsLayer {
-                                        //compositingStrategy = CompositingStrategy.Offscreen
-                                        val plus =
-                                            0.07f * yosBottomSheetConfig.progress
-                                        this.scaleX = 0.93f + plus
-                                        this.scaleY = 0.93f + plus
-                                        this.translationY =
-                                            -(height.intValue + 10) * (yosBottomSheetConfig.menuAlpha)
-                                        this.transformOrigin = TransformOrigin(0.5f, 1f)
-                                    },
+                                val navInsetPx = WindowInsets.navigationBars.getBottom(density).toFloat()
+
+                                // Resting dock offset for the mini player: above the bottom nav bar
+                                // when it is visible, above the system navigation inset otherwise.
+                                // Animated so the bar glides between the two docks on route change.
+                                val dockOffsetPx = remember("MainActivity_dockOffsetPx") {
+                                    Animatable(if (showNavBar) (height.intValue + 10).toFloat() else navInsetPx)
+                                }
+                                LaunchedEffect(showNavBar, height.intValue, navInsetPx) {
+                                    dockOffsetPx.animateTo(
+                                        targetValue = if (showNavBar) (height.intValue + 10).toFloat() else navInsetPx,
+                                        animationSpec = navSpec
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .onSizeChanged {
+                                            parentHeight.intValue = it.height
+                                        }
+                                        .graphicsLayer {
+                                            //compositingStrategy = CompositingStrategy.Offscreen
+                                            val plus =
+                                                0.07f * yosBottomSheetConfig.progress
+                                            this.scaleX = 0.93f + plus
+                                            this.scaleY = 0.93f + plus
+                                            this.translationY =
+                                                -dockOffsetPx.value * (yosBottomSheetConfig.menuAlpha)
+                                            this.transformOrigin = TransformOrigin(0.5f, 1f)
+                                        },
                                 contentAlignment = Alignment.BottomCenter
                             ) {
                                 YosWrapper {
@@ -838,9 +888,6 @@ class MainActivity : ComponentActivity() {
 
                                     println("Recompose: playback bar & NowPlaying outer")
 
-                                    val showNavBar = route.value in listOf(
-                                        UI.HomePage,
-                                    )
                                     val dragState = rememberDraggableState { delta ->
                                         scope.launch {
                                             offsetY.snapTo(offsetY.value + delta)

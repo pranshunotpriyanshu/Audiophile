@@ -227,6 +227,7 @@
     <string name="artist_action_unfollow">Unfollow</string>
     <string name="playlist_overflow_more_cd">More options</string>
     <string name="page_library_artist_singles">Singles &amp; EPs</string>
+    <string name="page_library_artist_top_songs">Top Songs</string>
     <string name="page_library_artist_featured_on">Featured on</string>
     <string name="settings_library_animated_album_covers">Animated Album Covers</string>
     <string name="settings_library_animated_album_covers_desc">Plays local album MP4s from the song directory\'s anim folder. API downloads are stored in the app cache.</string>

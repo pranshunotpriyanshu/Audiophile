@@ -64,6 +64,27 @@ object ListeningHistory {
         mmkv.removeValueForKey(historyKey)
     }
 
+    /**
+     * Stable ranking for a song catalogue using the existing listening history:
+     * songs with history come first (most recently played first); songs without
+     * history keep their catalogue order at the end.
+     */
+    fun <T> rankByListeningHistory(
+        items: List<T>,
+        key: (T) -> String?,
+    ): List<T> {
+        if (items.isEmpty()) return items
+        val lastPlayedByKey = _history.value.associate { it.videoId to it.lastPlayedAt }
+        return items
+            .withIndex()
+            .sortedWith(
+                compareByDescending<IndexedValue<T>> { entry ->
+                    key(entry.value)?.let { lastPlayedByKey[it] }
+                }.thenBy { it.index },
+            )
+            .map { it.value }
+    }
+
     private fun loadFromStorage() {
         try {
             val json = mmkv.decodeString(historyKey)

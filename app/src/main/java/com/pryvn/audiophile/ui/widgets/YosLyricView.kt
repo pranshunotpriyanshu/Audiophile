@@ -4,11 +4,12 @@ import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.EaseInOutQuad
-import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.SnapSpec
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -62,11 +63,16 @@ import androidx.compose.ui.draw.DrawResult
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -98,14 +104,94 @@ import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
 import com.pryvn.audiophile.code.utils.others.Vibrator
+import com.pryvn.audiophile.code.utils.lrc.BACKGROUND_WORD_MARKER
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.MainViewModelObject
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import java.text.BreakIterator
+import java.util.Locale
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 
 val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
+
+// V2（C:/CArchiveTune LyricsV2.kt）默认值：非活动词的底字透明度（inactiveAlpha = 0.35）
+private const val v2InactiveAlpha = 0.35f
+
+// ===== V2 移植（C:/CArchiveTune LyricsV2.kt isRtlText）：行文本 RTL 检测 =====
+private fun isRtlText(text: String): Boolean {
+    for (ch in text) {
+        when (Character.getDirectionality(ch)) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE,
+            -> return true
+
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT,
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT_EMBEDDING,
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT_OVERRIDE,
+            -> return false
+        }
+    }
+    return false
+}
+
+// ===== V2 移植（C:/CArchiveTune LyricsTextWrapping.kt toLyricsWrappingUnits）：按字素切分行文本 =====
+private fun String.toLyricsWrappingUnits(): List<String> {
+    if (isEmpty()) return emptyList()
+    val units = mutableListOf<String>()
+    val currentWord = StringBuilder()
+    val characterIterator = BreakIterator.getCharacterInstance(Locale.ROOT)
+    characterIterator.setText(this)
+    fun flushCurrentWord() {
+        if (currentWord.isNotEmpty()) {
+            units += currentWord.toString()
+            currentWord.clear()
+        }
+    }
+    var start = characterIterator.first()
+    var end = characterIterator.next()
+    while (end != BreakIterator.DONE) {
+        val grapheme = substring(start, end)
+        val codePoint = grapheme.codePointAt(0)
+        when {
+            grapheme.all(Char::isWhitespace) -> {
+                currentWord.append(grapheme)
+                flushCurrentWord()
+            }
+
+            codePoint.isCjkCodePoint() -> {
+                flushCurrentWord()
+                units += grapheme
+            }
+
+            else -> {
+                currentWord.append(grapheme)
+            }
+        }
+        start = end
+        end = characterIterator.next()
+    }
+    flushCurrentWord()
+    return units
+}
+
+private fun Int.isCjkCodePoint(): Boolean =
+    when (Character.UnicodeScript.of(this)) {
+        Character.UnicodeScript.HAN,
+        Character.UnicodeScript.HANGUL,
+        Character.UnicodeScript.HIRAGANA,
+        Character.UnicodeScript.KATAKANA,
+        -> true
+
+        else -> false
+    }
 
 /**
  * YosLyricView 主控件
@@ -768,6 +854,7 @@ private fun LazyItemScope.Line(
     measurer: TextMeasurer,
     modifier: Modifier,
     viewAlign: Alignment.Horizontal,
+    isRtl: Boolean = false,
     draw: CacheDrawScope.(Constraints, TextLayoutResult) -> DrawResult
 ) =
     YosWrapper {
@@ -811,7 +898,7 @@ private fun LazyItemScope.Line(
                         minWidth = 0,
                         maxWidth = constraints.maxWidth,
                     ),
-                    layoutDirection = LayoutDirection.Ltr
+                    layoutDirection = if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
                 )
 
                 val height = (style.lineHeight * measureResult.lineCount)
@@ -855,6 +942,7 @@ private fun LazyItemScope.Line(
     measurer: TextMeasurer,
     modifier: Modifier,
     viewAlign: Alignment.Horizontal,
+    isRtl: Boolean = false,
     draw: CacheDrawScope.(Constraints, TextLayoutResult) -> DrawResult
 ) =
     YosWrapper {
@@ -924,8 +1012,6 @@ private fun LazyItemScope.Line(
         }
     }*/
 
-val easing: Easing = EaseInOutQuad
-
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyItemScope.LyricItem(
@@ -955,8 +1041,6 @@ fun LazyItemScope.LyricItem(
     //Color(0x33FFFFFF)
 
     //val focusedSolidBrush = SolidColor(focusedColor)
-
-    val unfocusedSolidBrush = SolidColor(unfocusedColor)
 
     val isNotOneByOne = rememberSaveable(mainLyric) {
         mutableStateOf(
@@ -1207,10 +1291,108 @@ fun LazyItemScope.LyricItem(
                                         }
                                     }
 
+                                    // ===== V2 AnimatedWordV2 上浮动画（真实 TweenSpec：进入 50ms / 衰减 350ms，FastOutSlowInEasing）=====
+                                    // 每个条目携带词的“结束时间”；词开始时间 = 前一条目结束时间（连续边界），与 V2 的 word.startTime/endTime 语义一致
+                                    val wordStates = remember(mainLyric) {
+                                        buildList {
+                                            var lastTime = mainLyric.firstOrNull()?.first ?: 0f
+                                            mainLyric.forEach { w ->
+                                                if (w.second.isEmpty()) {
+                                                    return@forEach
+                                                }
+                                                val end = w.first
+                                                if (w.second.trimEnd().isEmpty()) {
+                                                    lastTime = end
+                                                    return@forEach
+                                                }
+                                                add(lastTime to end)
+                                                lastTime = end
+                                            }
+                                        }
+                                    }
+                                    val wordFloats = wordStates.map { (start, end) ->
+                                        val now = liveTime.intValue.toFloat()
+                                        val isActive = now >= start && now < end
+                                        val progress = when {
+                                            now >= end -> 1f
+                                            now <= start -> 0f
+                                            else -> ((now - start) / (end - start).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                        }
+                                        val sinProgress = sin(progress * PI).toFloat()
+                                        animateFloatAsState(
+                                            targetValue = if (isActive) -4f * sinProgress else 0f,
+                                            animationSpec = tween(
+                                                durationMillis = if (isActive) 50 else 350,
+                                                easing = FastOutSlowInEasing
+                                            ),
+                                            label = "v2FloatOffset"
+                                        ).value
+                                    }
+
+                                    // ===== V2 LyricsLineLrcBounce 移植（行同步歌词：激活时逐词级联弹跳）=====
+                                    // 每个词两个 Animatable（scale/float），由真实 spring 驱动（与源实现相同的 spec）
+                                    val bounceUnits = remember(mainLyric) {
+                                        mainLyric.joinToString("") { it.second }.toLyricsWrappingUnits()
+                                    }
+                                    val bounceScales = remember(mainLyric) { List(bounceUnits.size) { Animatable(1f) } }
+                                    val bounceFloats = remember(mainLyric) { List(bounceUnits.size) { Animatable(0f) } }
+                                    LaunchedEffect(isCurrentLambda()) {
+                                        if (!isCurrentLambda() || !isNotOneByOne.value || bounceUnits.isEmpty()) return@LaunchedEffect
+                                        bounceUnits.indices.forEach { i ->
+                                            launch {
+                                                delay(i * 40L)
+                                                try {
+                                                    bounceScales[i].animateTo(
+                                                        targetValue = 1f + 0.045f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessHigh
+                                                        )
+                                                    )
+                                                    bounceScales[i].animateTo(
+                                                        targetValue = 1f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow
+                                                        )
+                                                    )
+                                                } finally {
+                                                    withContext(NonCancellable) { bounceScales[i].snapTo(1f) }
+                                                }
+                                            }
+                                            launch {
+                                                delay(i * 40L)
+                                                try {
+                                                    bounceFloats[i].animateTo(
+                                                        targetValue = -5f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessHigh
+                                                        )
+                                                    )
+                                                    bounceFloats[i].animateTo(
+                                                        targetValue = 0f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow
+                                                        )
+                                                    )
+                                                } finally {
+                                                    withContext(NonCancellable) { bounceFloats[i].snapTo(0f) }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // 行级 RTL 检测（V2 isRtlText），用于逐字扫描方向翻转
+                                    val lineText = remember(mainLyric) { mainLyric.joinToString("") { it.second } }
+                                    val lineIsRtl = remember(lineText) { isRtlText(lineText) }
+
                                     Line(
                                         lines = mainLyric,
                                         style = if (otherSide) mainStyle.copy(textAlign = TextAlign.End) else mainStyle,
                                         measurer = measurer,
+                                        isRtl = lineIsRtl,
                                         modifier = Modifier
                                             .graphicsLayer {
                                                 this.alpha = thisAlpha.value
@@ -1253,6 +1435,51 @@ fun LazyItemScope.LyricItem(
                                                     )
                                                 }
                                             }
+                                            // LRC 弹跳（V2 LyricsLineLrcBounce 移植）：当前行激活时逐词级联 spring（真实 TweenSpec/Spring spec，非近似）
+                                            // 词按整行 TextLayoutResult 的首尾包围盒绘制，行测量/换行/锚定不变
+                                            val lrcBouncing = isCurrentLambda() &&
+                                                (bounceScales.any { it.value != 1f } || bounceFloats.any { it.value != 0f })
+                                            if (lrcBouncing) {
+                                                val bounceStyle = if (otherSide) mainStyle.copy(textAlign = TextAlign.End) else mainStyle
+                                                return@Line onDrawBehind {
+                                                    var charOffset = 0
+                                                    bounceUnits.forEachIndexed { unitIndex, unit ->
+                                                        val scale = bounceScales[unitIndex].value
+                                                        val float = bounceFloats[unitIndex].value
+                                                        val box = runCatching {
+                                                            val maxIdx = (mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
+                                                            val firstBox = measureResult.getBoundingBox(charOffset.coerceAtMost(maxIdx))
+                                                            val lastBox = measureResult.getBoundingBox(
+                                                                (charOffset + unit.length - 1).coerceAtMost(maxIdx)
+                                                            )
+                                                            Rect(
+                                                                left = minOf(firstBox.left, lastBox.left),
+                                                                top = minOf(firstBox.top, lastBox.top),
+                                                                right = maxOf(firstBox.right, lastBox.right),
+                                                                bottom = maxOf(firstBox.bottom, lastBox.bottom)
+                                                            )
+                                                        }.getOrNull()
+                                                        charOffset += unit.length
+                                                        if (box == null) return@forEachIndexed
+                                                        val layout = measurer.measure(
+                                                            text = unit,
+                                                            style = bounceStyle,
+                                                            constraints = measureResult.layoutInput.constraints
+                                                        )
+                                                        withTransform({
+                                                            translate(left = box.center.x, top = box.center.y + float)
+                                                            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+                                                            translate(left = -box.center.x, top = -box.center.y)
+                                                        }) {
+                                                            drawText(
+                                                                textLayoutResult = layout,
+                                                                topLeft = box.topLeft,
+                                                                color = focusedColor
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
                                             // 不论情况全高亮
                                             return@Line onDrawWithContent {
                                                 drawText(
@@ -1285,167 +1512,183 @@ fun LazyItemScope.LyricItem(
                                             }
                                         }
 
-                                        // 以下为逐字处理
+                                        // 以下为逐字处理（V2 AnimatedWordV2 移植：C:/CArchiveTune LyricsV2.kt）
+                                        // 词起止 = 连续边界（前一条目结束时间 → 本条结束时间），与 V2 的 word.startTime/endTime 语义一致
+                                        // 缩放/发光/液体扫描 与源实现逐项一致；上浮偏移由真实 TweenSpec（50ms/350ms，FastOutSlowInEasing）驱动
+                                        // RTL 检测（V2 isRtlText）：扫描方向按行文本翻转
+                                        val isRtl = lineIsRtl
 
                                         var sum = 0
-                                        var lastTime = 0f
+                                        var lastTime = mainLyric.firstOrNull()?.first ?: 0f
 
                                         val wordsToDraw = arrayListOf<DrawWord>()
 
-                                        var averageTime = 0f
-
-                                        lastTime = mainLyric.first().first
-
-                                        mainLyric.fastForEachIndexed { wordIndex, word ->
-
-                                            // 旧的逐字处理逻辑
-                                            /*val process = processWords(word.second)
-
-                                    process.fastForEach { word ->
-
-                                        // 非逐字转移到上面处理
-                                        *//*if (isNotOneByOne.value) {
-                                                word.split("").fastForEach { charWord ->
-                                                    wordsToDraw += DrawWord(
-                                                        time = word.first,
-                                                        word = charWord,
-                                                        layout = measurer.measure(
-                                                            text = charWord,
-                                                            style = MainTextStyle,
-                                                            constraints = measureResult.layoutInput.constraints,
-                                                            layoutDirection = if (viewAlign.value == Alignment.End) LayoutDirection.Rtl else LayoutDirection.Ltr
-                                                        ),
-                                                        topLeft = measureResult.getBoundingBox(sum.coerceAtMost(
-                                                            mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)).topLeft,
-                                                        brush = { _, _ ->
-                                                               focusedSolidBrush
-                                                        }
-                                                    ).also {
-                                                        sum += charWord.length
-                                                    }
-                                                }
-
-                                                return@fastForEach
-                                            }*//*
-                                        }*/
-
-                                            //println(word.second + "：" + sum.coerceAtMost(mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0) + "，共 "+ mainLyric.sumOf { it.second.length })
-
-                                            // 新逻辑
-
+                                        mainLyric.fastForEachIndexed { _, word ->
                                             val thisWord = word.second
-
                                             if (thisWord.isEmpty()) {
                                                 return@fastForEachIndexed
                                             }
 
-                                            averageTime = (word.first - lastTime) / thisWord.length
+                                            // 词起止 = 连续边界（前一条目结束时间 → 本条结束时间）
+                                            val wordStartMs = lastTime
+                                            val wordEndMs = word.first
+                                            lastTime = wordEndMs
 
-                                            val thisWordGroupLastTime = if (wordIndex - 1 < 0) {
-                                                mainLyric.first().first
-                                            } else {
-                                                mainLyric[(wordIndex - 1)].first
+                                            // 背景和声词（TTML isBackground）：条目文本带不可见标记前缀，渲染更小更暗（V2 第二行效果）
+                                            val isBackground = thisWord.startsWith(BACKGROUND_WORD_MARKER)
+                                            val visibleText = (if (isBackground) thisWord.removePrefix(BACKGROUND_WORD_MARKER) else thisWord).trimEnd()
+                                            val visibleLen = visibleText.length
+
+                                            if (visibleLen == 0) {
+                                                sum += thisWord.length
+                                                return@fastForEachIndexed
                                             }
-                                            val groupPercent =
-                                                if ((word.first - thisWordGroupLastTime) == 0f) {
-                                                    0f
-                                                } else {
-                                                    ((liveTime.intValue - thisWordGroupLastTime).coerceAtLeast(
-                                                        0f
-                                                    ) / (word.first - thisWordGroupLastTime)).coerceIn(
-                                                        0f,
-                                                        1f
-                                                    )
-                                                }
-                                            val easedPercent = easing.transform(groupPercent.coerceIn(
-                                                0f,
-                                                1f
-                                            ))
-                                            val topLeftWeight = 4 * easedPercent
 
-                                            thisWord.forEach { char ->
+                                            // 标记字符不占宽度；词框从可见首字符开始
+                                            val startIdx = sum + if (isBackground) 1 else 0
+                                            val endIdx = startIdx + visibleLen
+                                            sum += thisWord.length
 
-                                                //println("$char：$lastTime to ${lastTime + averageTime}")
-
-                                                val charWord = char.toString()
-
-                                                val layout = measurer.measure(
-                                                    text = charWord,
-                                                    style = if (otherSide) mainStyle.copy(
-                                                        textAlign = TextAlign.End
-                                                    ) else mainStyle,
-                                                    constraints = measureResult.layoutInput.constraints
+                                            // 词框 = 整行 TextLayoutResult 中该词首尾字符包围盒（行测量/换行不变）
+                                            val box = runCatching {
+                                                val maxIdx = (mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
+                                                val firstBox = measureResult.getBoundingBox(startIdx.coerceAtMost(maxIdx))
+                                                val lastBox = measureResult.getBoundingBox((endIdx - 1).coerceAtMost(maxIdx))
+                                                Rect(
+                                                    left = minOf(firstBox.left, lastBox.left),
+                                                    top = minOf(firstBox.top, lastBox.top),
+                                                    right = maxOf(firstBox.right, lastBox.right),
+                                                    bottom = maxOf(firstBox.bottom, lastBox.bottom)
                                                 )
+                                            }.getOrNull() ?: return@fastForEachIndexed
 
-                                                val thisWordLastTime = lastTime
-                                                val thisWordAverageTime = averageTime
+                                            val layout = measurer.measure(
+                                                text = visibleText,
+                                                style = if (otherSide) mainStyle.copy(
+                                                    textAlign = TextAlign.End
+                                                ) else mainStyle,
+                                                constraints = measureResult.layoutInput.constraints
+                                            )
 
-                                                wordsToDraw += DrawWord(
-                                                    time = lastTime + averageTime,
-                                                    word = charWord,
-                                                    layout = layout,
-                                                    topLeft = measureResult.getBoundingBox(sum.coerceAtMost(
-                                                        mainLyric.sumOf { it.second.length } - 1)
-                                                        .coerceAtLeast(0)).topLeft.minus(
-                                                            Offset(
-                                                                0F,
-                                                                topLeftWeight
-                                                            )
-                                                            ),
-                                                    brush = { px, percent ->
-                                                        if (thisWord == " ") {
-                                                            return@DrawWord unfocusedSolidBrush
-                                                        }
-
-                                                        val beforeColor = if (percent <= -0.5f) {
-                                                            unfocusedColor
-                                                        } else {
-                                                            focusedColor
-                                                        }
-
-                                                        val afterColor = if (percent >= 1f) {
-                                                            focusedColor
-                                                        } else {
-                                                            unfocusedColor
-                                                        }
-                                                        Brush.horizontalGradient(
-                                                            0f to beforeColor,
-                                                            (percent - px).coerceIn(
-                                                                0f,
-                                                                1f
-                                                            ) to beforeColor,
-                                                            (percent + px).coerceIn(
-                                                                0f,
-                                                                1f
-                                                            ) to afterColor/*,
-                                                            1f to afterColor*/
-                                                        )
-                                                    },
-                                                    percent = {
-                                                        if (thisWord == " ") {
-                                                            return@DrawWord 0f
-                                                        }
-
-                                                        ((liveTime.intValue - thisWordLastTime) / thisWordAverageTime)
-
-                                                    }
-                                                ).also {
-                                                    sum += charWord.length
-                                                    lastTime += averageTime
-                                                }
-                                            }
+                                            wordsToDraw += DrawWord(
+                                                layout = layout,
+                                                topLeft = box.topLeft,
+                                                box = box,
+                                                startMs = wordStartMs,
+                                                endMs = wordEndMs,
+                                                floatOffset = wordFloats.getOrNull(wordsToDraw.size) ?: 0f,
+                                                isBackground = isBackground
+                                            )
                                         }
 
                                         onDrawBehind {
                                             wordsToDraw.fastForEach { l ->
-                                                drawText(
-                                                    textLayoutResult = l.layout,
-                                                    topLeft = l.topLeft,
-                                                    brush = l.brush(
-                                                        0.3f,
-                                                        l.percent()
-                                                    )
+                                                val now = liveTime.intValue.toFloat()
+
+                                                val isWordComplete = now >= l.endMs
+                                                val isWordActive = now >= l.startMs && now < l.endMs
+
+                                                // 完美线性进度 [0..1]，与每个词自身的起止时间对应（V2 原式）
+                                                val progress = when {
+                                                    isWordComplete -> 1f
+                                                    now <= l.startMs -> 0f
+                                                    else -> ((now - l.startMs) / (l.endMs - l.startMs).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                                }
+
+                                                // ── 缩放（源实现：sin 峰值在进度 50% 处）──
+                                                val sinProgress = sin(progress * PI).toFloat()
+                                                val wordScale = 1f + 0.015f * sinProgress
+
+                                                // ── 发光（仅当前活动词；已完成/未开始 一律无发光）──
+                                                val glowProgress = (progress * 2f).coerceAtMost(1f)
+                                                val glowAlpha = if (isWordActive) glowProgress * 0.45f else 0f
+                                                val glowRadius = if (isWordActive) glowProgress * 12f else 0f
+
+                                                // ── 双层渲染：常显暗底 + 亮色填充叠加（修复“活动词不可见”）──
+                                                val glowPad = 10.dp.toPx()
+                                                val region = Rect(
+                                                    l.box.left - glowPad,
+                                                    l.box.top - glowPad,
+                                                    l.box.right + glowPad,
+                                                    l.box.bottom + glowPad
                                                 )
+
+                                                val densityValue = density
+                                                // 背景和声词缩小（0.65×，V2 第二行字号）
+                                                val bgScale = if (l.isBackground) 0.65f else 1f
+                                                withTransform({
+                                                    translate(
+                                                        left = region.center.x,
+                                                        top = region.center.y + l.floatOffset * densityValue
+                                                    )
+                                                    scale(
+                                                        scaleX = wordScale * bgScale,
+                                                        scaleY = wordScale * bgScale,
+                                                        pivot = Offset.Zero
+                                                    )
+                                                    translate(left = -region.center.x, top = -region.center.y)
+                                                }) {
+                                                    // Layer 1：底字（始终可见、暗色；背景和声词再暗一档：inactiveAlpha*0.7 再乘整行 0.85）
+                                                    drawText(
+                                                        textLayoutResult = l.layout,
+                                                        topLeft = l.topLeft,
+                                                        color = focusedColor.copy(
+                                                            alpha = if (l.isBackground) {
+                                                                v2InactiveAlpha * 0.7f * 0.85f
+                                                            } else {
+                                                                v2InactiveAlpha
+                                                            }
+                                                        )
+                                                    )
+
+                                                    // Layer 2：填充叠加（已完成 / 活动中；本分支只处理当前行，过去行已在上方处理）
+                                                    // saveLayer 独立图层 = 等价于 V2 的 Offscreen 合成策略，使 DstIn 遮罩只作用于本词内容
+                                                    if (isWordComplete || isWordActive) {
+                                                        drawIntoCanvas { canvas ->
+                                                            canvas.saveLayer(region, Paint())
+                                                        }
+                                                        drawText(
+                                                            textLayoutResult = l.layout,
+                                                            topLeft = l.topLeft,
+                                                            color = focusedColor.copy(
+                                                                alpha = if (l.isBackground) 0.75f * 0.85f else 1f
+                                                            ),
+                                                            shadow = if (glowAlpha > 0f) {
+                                                                Shadow(
+                                                                    color = focusedColor.copy(alpha = glowAlpha),
+                                                                    offset = Offset.Zero,
+                                                                    blurRadius = glowRadius.coerceAtLeast(1f)
+                                                                )
+                                                            } else {
+                                                                null
+                                                            }
+                                                        )
+
+                                                        // 液体扫描遮罩（DstIn，V2 原式：8dp 过渡宽度，渐变覆盖整词区域）
+                                                        if (isWordActive && !isWordComplete) {
+                                                            val edgeWidth = 8.dp.toPx()
+                                                            val fullWidth = region.width + edgeWidth * 2f
+                                                            val center = fullWidth * progress - edgeWidth
+                                                            drawRect(
+                                                                brush = Brush.horizontalGradient(
+                                                                    colors = if (isRtl) {
+                                                                        listOf(Color.Transparent, Color.Black)
+                                                                    } else {
+                                                                        listOf(Color.Black, Color.Transparent)
+                                                                    },
+                                                                    startX = center - edgeWidth,
+                                                                    endX = center + edgeWidth
+                                                                ),
+                                                                topLeft = region.topLeft,
+                                                                size = region.size,
+                                                                blendMode = BlendMode.DstIn
+                                                            )
+                                                        }
+                                                        drawIntoCanvas { canvas ->
+                                                            canvas.restore()
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -1630,12 +1873,13 @@ fun mainTextStyle(): TextStyle {
 
 @Stable
 private data class DrawWord(
-    val time: Float,
-    val word: String,
     val layout: TextLayoutResult,
     val topLeft: Offset,
-    val brush: (px: Float, percent: Float) -> Brush,
-    val percent: () -> Float
+    val box: Rect,
+    val startMs: Float,
+    val endMs: Float,
+    val floatOffset: Float,
+    val isBackground: Boolean
 )
 
 /*

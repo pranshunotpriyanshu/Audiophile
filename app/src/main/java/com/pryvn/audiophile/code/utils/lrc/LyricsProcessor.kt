@@ -12,6 +12,12 @@ import com.pryvn.audiophile.data.objects.WordSyncedWord
  * (segment end takes priority). The trailing pair is the translation slot,
  * the leading empty pair marks the sentence start.
  */
+/**
+ * Zero-width invisible marker prefixing background-vocal word entries (TTML isBackground).
+ * The lyric view strips it when rendering and treats the word as background (smaller/dimmer).
+ */
+const val BACKGROUND_WORD_MARKER = "\u200B"
+
 fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, String>>> {
     MediaViewModelObject.otherSideForLines.clear()
     MediaViewModelObject.otherSideForLines.addAll(
@@ -30,9 +36,12 @@ fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, Stri
                 // Insert one natural space between words; keep CJK scripts and
                 // duet markers ("：" / ":") tight so other-side detection and
                 // the view's padding check keep working.
+                // Background-vocal words get an invisible marker prefix so the view
+                // can render them smaller/dimmer (CArchiveTune LyricsLineV2 parity).
+                val marked = if (word.isBackground && text.isNotEmpty()) "$BACKGROUND_WORD_MARKER$text" else text
                 val withSpacing = when {
-                    text.isEmpty() || text.last().isCjkChar() || text.endsWith("：") || text.endsWith(":") -> text
-                    else -> "$text "
+                    text.isEmpty() || text.last().isCjkChar() || text.endsWith("：") || text.endsWith(":") -> marked
+                    else -> "$marked "
                 }
                 add(word.endTimeMs.toFloat() to withSpacing)
             }

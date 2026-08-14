@@ -39,7 +39,7 @@ object ArtistLibrary
         val albumReleases = primaryReleases.filterNot { it.looksLikeSingleOrEp() }.sortedForDisplay()
 
         return ArtistSections(
-            songs = primaryArtistSongs.sortedForPlayback(),
+            songs = ListeningHistory.rankByListeningHistory(primaryArtistSongs.sortedForPlayback()) { it.mediaId ?: it.uri?.toString() },
             albums = albumReleases,
             singlesAndEps = singleAndEpReleases,
             featuredOn = featuredReleases.sortedForDisplay(),

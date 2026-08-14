@@ -6,7 +6,6 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
 
-    <!-- background -->
     <path android:pathData="M0,0h1024v1024h-1024z">
         <aapt:attr name="android:fillColor">
             <gradient
@@ -21,12 +20,11 @@
         </aapt:attr>
     </path>
 
-    <!-- white music note shapes -->
     <group
-        android:translateX="85.333"
-        android:translateY="-70.781"
-        android:scaleX="0.152381"
-        android:scaleY="0.152381">
+        android:translateX="284.444"
+        android:translateY="201.183"
+        android:scaleX="0.081270"
+        android:scaleY="0.081270">
         <group
             android:translateX="0"
             android:translateY="7296"

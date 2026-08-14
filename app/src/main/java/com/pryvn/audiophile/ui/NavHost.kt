@@ -19,6 +19,8 @@ interface UI {
         const val AlbumInfo = "AlbumInfo"
 
         const val ArtistSongs = "ArtistSongs"
+        const val ArtistSingles = "ArtistSingles"
+        const val ArtistAlbums = "ArtistAlbums"
 
         
 
@@ -30,6 +32,9 @@ interface UI {
         const val OnlinePlaylist = "OnlinePlaylist"
         const val OnlineAlbumInfo = "OnlineAlbumInfo"
         const val OnlineArtistInfo = "OnlineArtistInfo"
+        const val OnlineArtistSongs = "OnlineArtistSongs"
+        const val OnlineArtistSingles = "OnlineArtistSingles"
+        const val OnlineArtistAlbums = "OnlineArtistAlbums"
         const val OnlineArtistsList = "OnlineArtistsList"
         const val YTMusicMainSearch = "YTMusicMainSearch"
         const val YTMusicCategory = "YTMusicCategory"

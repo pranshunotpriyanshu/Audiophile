@@ -797,7 +797,14 @@ fun SearchPage(navController: NavController) {
                                         LibraryObject.setTargetBrowseId(item.browseId)
                                         navController.toUI(UI.OnlineArtistInfo)
                                     }
-                                    is YTPlaylist -> PlaylistResultRowWithCategory(item, "Playlist")
+                                    is YTPlaylist -> PlaylistResultRowWithCategory(
+                                        playlist = item,
+                                        category = "Playlist",
+                                        onClick = {
+                                            LibraryObject.setTargetPlaylistId(item.id)
+                                            navController.toUI(UI.OnlinePlaylist)
+                                        }
+                                    )
                                 }
                             }
                         } else {
@@ -821,7 +828,13 @@ fun SearchPage(navController: NavController) {
                                         LibraryObject.setTargetBrowseId(item.browseId)
                                         navController.toUI(UI.OnlineArtistInfo)
                                     }
-                                    is YTPlaylist -> ApplePlaylistSearchRow(item)
+                                    is YTPlaylist -> ApplePlaylistSearchRow(
+                                        playlist = item,
+                                        onClick = {
+                                            LibraryObject.setTargetPlaylistId(item.id)
+                                            navController.toUI(UI.OnlinePlaylist)
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -1279,11 +1292,15 @@ private fun AppleArtistSearchRow(artist: YTArtistSearchItem, onClick: () -> Unit
 }
 
 @Composable
-private fun ApplePlaylistSearchRow(playlist: YTPlaylist) {
+private fun ApplePlaylistSearchRow(
+    playlist: YTPlaylist,
+    onClick: () -> Unit = {},
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1600,12 +1617,14 @@ private fun ArtistResultRowWithCategory(
 @Composable
 private fun PlaylistResultRowWithCategory(
     playlist: YTPlaylist,
-    category: String
+    category: String,
+    onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
