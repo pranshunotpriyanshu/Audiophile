@@ -123,6 +123,9 @@ val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
 // V2（C:/CArchiveTune LyricsV2.kt）默认值：非活动词的底字透明度（inactiveAlpha = 0.35）
 private const val v2InactiveAlpha = 0.35f
 
+// 发光时长门槛：短音节/短词不发光，达到该时长的活动词才允许发光（源实现无显式门槛，此为最小确定性阈值）
+private const val v2GlowMinWordDurationMs = 250f
+
 // ===== V2 移植（C:/CArchiveTune LyricsV2.kt isRtlText）：行文本 RTL 检测 =====
 private fun isRtlText(text: String): Boolean {
     for (ch in text) {
@@ -192,6 +195,17 @@ private fun Int.isCjkCodePoint(): Boolean =
 
         else -> false
     }
+
+/**
+ * 每个词实例独立的线性进度（CArchiveTune AnimatedWordV2 原式，逐词时间戳直接推导）：
+ * 词前 → 0；词内 → (now - start) / (end - start)；词后 → 1。
+ * 无动画延迟：跳转/暂停/续播都立即得到与当前播放时间完全一致的进度。
+ */
+private fun wordProgress(now: Float, startMs: Float, endMs: Float): Float = when {
+    now >= endMs -> 1f
+    now <= startMs -> 0f
+    else -> ((now - startMs) / (endMs - startMs).coerceAtLeast(1f)).coerceIn(0f, 1f)
+}
 
 /**
  * YosLyricView 主控件
@@ -510,18 +524,20 @@ fun YosLyricView(
             ) {
                 //println("重组：歌词列表")
                 blankSpacer()
+                // 行身份 = 列表序号 + 行起始时间（移植 CArchiveTune：key = "${index}_${entry.time}"）
+                // 绝不能用行文本/内容作 key：相同文本的重复行必须保持完全独立的实例
                 itemsIndexed(
                     items = lrcEntries,
-                    key = { _, lines -> lines }/*,
-                contentType = { _, _ -> "YosLyricView_item" }*/
+                    key = { index, lines -> index to (lines.firstOrNull()?.first ?: 0f) }
                 ) { index, lines ->
-                    val isCurrent = remember(lines) {
+                    // 唯一当前行：仅聚焦锚点（单个 index）为当前行；TTML 多行重叠时也只允许一行拥有填充
+                    val isCurrent = remember(index, lines) {
                         derivedStateOf {
-                            focusedLyricIndices.value.contains(index)
+                            index == focusedLyricAnchorIndex.value
                         }
                     }
 
-                    val isTop = remember(lines) {
+                    val isTop = remember(index, lines) {
                         derivedStateOf {
                             index == (focusedLyricAnchorIndex.value - 1)
                         }
@@ -533,13 +549,14 @@ fun YosLyricView(
                         }
                     }
 
-                    val isLyricEmpty = rememberSaveable(lines) {
+                    val isLyricEmpty = rememberSaveable(index, lines) {
                         mutableStateOf(
                             lines.all { it.second.isBlank() }
                         )
                     }
 
-                    key(lines) {
+                    // 组合键：唯一行实例（序号 + 起始时间），相同内容的不同出现互不共享任何状态
+                    key(index, lines.firstOrNull()?.first) {
                         val translation = remember(
                             index,
                             lines,
@@ -1279,18 +1296,6 @@ fun LazyItemScope.LyricItem(
                                         }
                                     }
 
-                                    val showHighLight = remember(mainLyric, translation) {
-                                        derivedStateOf {
-                                            if (isNotOneByOne.value) {
-                                                true
-                                            } else {
-                                                val highlightIndex = (mainLyric.size - if (translation != null && mainLyric.size >= 3) 3 else 1)
-                                                    .coerceIn(0, mainLyric.lastIndex)
-                                                liveTime.intValue >= mainLyric[highlightIndex].first
-                                            }
-                                        }
-                                    }
-
                                     // ===== V2 AnimatedWordV2 上浮动画（真实 TweenSpec：进入 50ms / 衰减 350ms，FastOutSlowInEasing）=====
                                     // 每个条目携带词的“结束时间”；词开始时间 = 前一条目结束时间（连续边界），与 V2 的 word.startTime/endTime 语义一致
                                     val wordStates = remember(mainLyric) {
@@ -1320,7 +1325,7 @@ fun LazyItemScope.LyricItem(
                                         }
                                         val sinProgress = sin(progress * PI).toFloat()
                                         animateFloatAsState(
-                                            targetValue = if (isActive) -4f * sinProgress else 0f,
+                                            targetValue = if (isActive) -2f * sinProgress else 0f,
                                             animationSpec = tween(
                                                 durationMillis = if (isActive) 50 else 350,
                                                 easing = FastOutSlowInEasing
@@ -1343,7 +1348,7 @@ fun LazyItemScope.LyricItem(
                                                 delay(i * 40L)
                                                 try {
                                                     bounceScales[i].animateTo(
-                                                        targetValue = 1f + 0.045f,
+                                                        targetValue = 1f + 0.02f,
                                                         animationSpec = spring(
                                                             dampingRatio = Spring.DampingRatioMediumBouncy,
                                                             stiffness = Spring.StiffnessHigh
@@ -1364,7 +1369,7 @@ fun LazyItemScope.LyricItem(
                                                 delay(i * 40L)
                                                 try {
                                                     bounceFloats[i].animateTo(
-                                                        targetValue = -5f,
+                                                        targetValue = -2f,
                                                         animationSpec = spring(
                                                             dampingRatio = Spring.DampingRatioMediumBouncy,
                                                             stiffness = Spring.StiffnessHigh
@@ -1480,35 +1485,30 @@ fun LazyItemScope.LyricItem(
                                                     }
                                                 }
                                             }
-                                            // 不论情况全高亮
+                                            // 仅当前行高亮；非当前行一律基准（暗）渲染，保证填充只存在于当前行
+                                            if (isCurrentLambda()) {
+                                                return@Line onDrawWithContent {
+                                                    drawText(
+                                                        textLayoutResult = measureResult,
+                                                        color = focusedColor
+                                                    )
+                                                }
+                                            }
                                             return@Line onDrawWithContent {
                                                 drawText(
                                                     textLayoutResult = measureResult,
-                                                    color = focusedColor
+                                                    color = unfocusedColor
                                                 )
                                             }
                                         }
 
                                         if (!isCurrentLambda()) {
-                                            // 是逐字 但不是当前行
-                                            // 是否已播放完？
-                                            if (showHighLight.value) {
-                                                // 高亮
-                                                return@Line onDrawWithContent {
-                                                    drawText(
-                                                        textLayoutResult = measureResult,
-                                                        color = focusedColor,
-                                                        topLeft = Offset(0F, -4F)
-                                                    )
-                                                }
-                                            } else {
-                                                // 不高亮
-                                                return@Line onDrawWithContent {
-                                                    drawText(
-                                                        textLayoutResult = measureResult,
-                                                        color = unfocusedColor
-                                                    )
-                                                }
+                                            // 是逐字 但不是当前行 —— 一律基准（暗）渲染，无填充/无发光/无残留
+                                            return@Line onDrawWithContent {
+                                                drawText(
+                                                    textLayoutResult = measureResult,
+                                                    color = unfocusedColor
+                                                )
                                             }
                                         }
 
@@ -1582,112 +1582,122 @@ fun LazyItemScope.LyricItem(
                                         }
 
                                         onDrawBehind {
+                                            val now = liveTime.intValue.toFloat()
+
+                                            // 词数守卫：避免极端数据下崩溃
+                                            if (wordsToDraw.isEmpty()) {
+                                                drawText(
+                                                    textLayoutResult = measureResult,
+                                                    color = focusedColor.copy(alpha = v2InactiveAlpha)
+                                                )
+                                                return@onDrawBehind
+                                            }
+
+                                            // ── 逐词状态：每个词实例独立从自己的 [startMs, endMs) 推导（CArchiveTune AnimatedWordV2 原式）──
+                                            // 进度/填充/发光全部是当前播放时间的直接函数 → 跳转/暂停立即追上，绝无旧动画残留
+                                            val glowPad = 10.dp.toPx()
+                                            val densityValue = density
+
+                                            // Pass 1 —— 底字（所有词，含活动词，永不失可见性）
                                             wordsToDraw.fastForEach { l ->
-                                                val now = liveTime.intValue.toFloat()
-
-                                                val isWordComplete = now >= l.endMs
-                                                val isWordActive = now >= l.startMs && now < l.endMs
-
-                                                // 完美线性进度 [0..1]，与每个词自身的起止时间对应（V2 原式）
-                                                val progress = when {
-                                                    isWordComplete -> 1f
-                                                    now <= l.startMs -> 0f
-                                                    else -> ((now - l.startMs) / (l.endMs - l.startMs).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                                                }
-
-                                                // ── 缩放（源实现：sin 峰值在进度 50% 处）──
-                                                val sinProgress = sin(progress * PI).toFloat()
-                                                val wordScale = 1f + 0.015f * sinProgress
-
-                                                // ── 发光（仅当前活动词；已完成/未开始 一律无发光）──
-                                                val glowProgress = (progress * 2f).coerceAtMost(1f)
-                                                val glowAlpha = if (isWordActive) glowProgress * 0.45f else 0f
-                                                val glowRadius = if (isWordActive) glowProgress * 12f else 0f
-
-                                                // ── 双层渲染：常显暗底 + 亮色填充叠加（修复“活动词不可见”）──
-                                                val glowPad = 10.dp.toPx()
+                                                val p = wordProgress(now, l.startMs, l.endMs)
+                                                val s = sin(p * PI).toFloat()
                                                 val region = Rect(
                                                     l.box.left - glowPad,
                                                     l.box.top - glowPad,
                                                     l.box.right + glowPad,
                                                     l.box.bottom + glowPad
                                                 )
-
-                                                val densityValue = density
-                                                // 背景和声词缩小（0.65×，V2 第二行字号）
+                                                val wordScale = 1f + 0.008f * s // 微缩：幅度 0.008（峰值 +0.8%）
                                                 val bgScale = if (l.isBackground) 0.65f else 1f
                                                 withTransform({
-                                                    translate(
-                                                        left = region.center.x,
-                                                        top = region.center.y + l.floatOffset * densityValue
-                                                    )
-                                                    scale(
-                                                        scaleX = wordScale * bgScale,
-                                                        scaleY = wordScale * bgScale,
-                                                        pivot = Offset.Zero
-                                                    )
+                                                    translate(left = region.center.x, top = region.center.y + l.floatOffset * densityValue)
+                                                    scale(scaleX = wordScale * bgScale, scaleY = wordScale * bgScale, pivot = Offset.Zero)
                                                     translate(left = -region.center.x, top = -region.center.y)
                                                 }) {
-                                                    // Layer 1：底字（始终可见、暗色；背景和声词再暗一档：inactiveAlpha*0.7 再乘整行 0.85）
                                                     drawText(
                                                         textLayoutResult = l.layout,
                                                         topLeft = l.topLeft,
                                                         color = focusedColor.copy(
-                                                            alpha = if (l.isBackground) {
-                                                                v2InactiveAlpha * 0.7f * 0.85f
-                                                            } else {
-                                                                v2InactiveAlpha
-                                                            }
+                                                            alpha = if (l.isBackground) v2InactiveAlpha * 0.7f * 0.85f else v2InactiveAlpha
                                                         )
                                                     )
+                                                }
+                                            }
 
-                                                    // Layer 2：填充叠加（已完成 / 活动中；本分支只处理当前行，过去行已在上方处理）
-                                                    // saveLayer 独立图层 = 等价于 V2 的 Offscreen 合成策略，使 DstIn 遮罩只作用于本词内容
-                                                    if (isWordComplete || isWordActive) {
-                                                        drawIntoCanvas { canvas ->
-                                                            canvas.saveLayer(region, Paint())
-                                                        }
-                                                        drawText(
-                                                            textLayoutResult = l.layout,
-                                                            topLeft = l.topLeft,
-                                                            color = focusedColor.copy(
-                                                                alpha = if (l.isBackground) 0.75f * 0.85f else 1f
-                                                            ),
-                                                            shadow = if (glowAlpha > 0f) {
-                                                                Shadow(
-                                                                    color = focusedColor.copy(alpha = glowAlpha),
-                                                                    offset = Offset.Zero,
-                                                                    blurRadius = glowRadius.coerceAtLeast(1f)
-                                                                )
-                                                            } else {
-                                                                null
-                                                            }
-                                                        )
+                                            // Pass 2 —— 逐词填充叠加（V2 原式：每词独立液体扫描）+ 活动词发光
+                                            // 每个词的扫描边界/发光/进度都只由它自己的 [startMs, endMs) 推导：短词快、长词慢，绝不使用行级共享进度
+                                            wordsToDraw.fastForEach { l ->
+                                                val isComplete = now >= l.endMs
+                                                val isActive = !isComplete && now >= l.startMs
+                                                val p = wordProgress(now, l.startMs, l.endMs)
+                                                if (!isComplete && !isActive) return@fastForEach // 未开始：仅底字
+                                                val s = sin(p * PI).toFloat()
+                                                val region = Rect(
+                                                    l.box.left - glowPad,
+                                                    l.box.top - glowPad,
+                                                    l.box.right + glowPad,
+                                                    l.box.bottom + glowPad
+                                                )
+                                                val wordScale = 1f + 0.008f * s
+                                                val bgScale = if (l.isBackground) 0.65f else 1f
 
-                                                        // 液体扫描遮罩（DstIn，V2 原式：8dp 过渡宽度，渐变覆盖整词区域）
-                                                        if (isWordActive && !isWordComplete) {
-                                                            val edgeWidth = 8.dp.toPx()
-                                                            val fullWidth = region.width + edgeWidth * 2f
-                                                            val center = fullWidth * progress - edgeWidth
-                                                            drawRect(
-                                                                brush = Brush.horizontalGradient(
-                                                                    colors = if (isRtl) {
-                                                                        listOf(Color.Transparent, Color.Black)
-                                                                    } else {
-                                                                        listOf(Color.Black, Color.Transparent)
-                                                                    },
-                                                                    startX = center - edgeWidth,
-                                                                    endX = center + edgeWidth
-                                                                ),
-                                                                topLeft = region.topLeft,
-                                                                size = region.size,
-                                                                blendMode = BlendMode.DstIn
+                                                // 发光：仅唯一活动词（now 落在哪个 [startMs, endMs) 即为哪个词）且满足时长门槛；词一结束即刻消失
+                                                val durationMs = (l.endMs - l.startMs).coerceAtLeast(0f)
+                                                val glowQualifies = isActive && durationMs >= v2GlowMinWordDurationMs
+                                                val glowProgress = (p * 2f).coerceAtMost(1f)
+                                                val glowAlpha = if (glowQualifies) glowProgress * 0.45f else 0f
+                                                val glowRadius = if (glowQualifies) glowProgress * 12f else 0f
+
+                                                withTransform({
+                                                    translate(left = region.center.x, top = region.center.y + l.floatOffset * densityValue)
+                                                    scale(scaleX = wordScale * bgScale, scaleY = wordScale * bgScale, pivot = Offset.Zero)
+                                                    translate(left = -region.center.x, top = -region.center.y)
+                                                }) {
+                                                    drawIntoCanvas { canvas -> canvas.saveLayer(region, Paint()) }
+                                                    drawText(
+                                                        textLayoutResult = l.layout,
+                                                        topLeft = l.topLeft,
+                                                        color = focusedColor.copy(
+                                                            alpha = if (l.isBackground) 0.75f * 0.85f else 1f
+                                                        ),
+                                                        shadow = if (glowAlpha > 0f) {
+                                                            Shadow(
+                                                                color = focusedColor.copy(alpha = glowAlpha),
+                                                                offset = Offset.Zero,
+                                                                blurRadius = glowRadius.coerceAtLeast(1f)
                                                             )
+                                                        } else {
+                                                            null
                                                         }
-                                                        drawIntoCanvas { canvas ->
-                                                            canvas.restore()
+                                                    )
+
+                                                    // 液体扫描遮罩（DstIn，V2 原式：8dp 过渡宽度，边界 = (区域宽+2*edge)*p - edge）
+                                                    // 进度直接来自本词时间戳 → 短词扫得快、长词扫得慢，跳转立即追上
+                                                    if (isActive && !isComplete) {
+                                                        val edgeWidth = 8.dp.toPx()
+                                                        val fullWidth = region.width + edgeWidth * 2f
+                                                        val center = if (isRtl) {
+                                                            region.width - (fullWidth * p - edgeWidth)
+                                                        } else {
+                                                            fullWidth * p - edgeWidth
                                                         }
+                                                        drawRect(
+                                                            brush = Brush.horizontalGradient(
+                                                                colors = if (isRtl) {
+                                                                    listOf(Color.Transparent, Color.Black)
+                                                                } else {
+                                                                    listOf(Color.Black, Color.Transparent)
+                                                                },
+                                                                startX = center - edgeWidth,
+                                                                endX = center + edgeWidth
+                                                            ),
+                                                            topLeft = region.topLeft,
+                                                            size = region.size,
+                                                            blendMode = BlendMode.DstIn
+                                                        )
                                                     }
+                                                    drawIntoCanvas { canvas -> canvas.restore() }
                                                 }
                                             }
                                         }
