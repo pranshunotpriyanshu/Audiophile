@@ -341,12 +341,10 @@ fun ArchiveLyrics(
 
         suspend fun performSmoothPageScroll(targetIndex: Int, isSeek: Boolean = false) {
             try {
+                val targetOffset = (lazyListState.layoutInfo.viewportSize.height * 0.0618f).toInt()
                 val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
                 if (itemInfo != null) {
-                    val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2f)
-                    val itemCenter = itemInfo.offset + itemInfo.size / 2
-                    val offset = itemCenter - center
+                    val offset = itemInfo.offset - targetOffset
 
                     if (abs(offset) > 5) {
                         lazyListState.animateScrollBy(
@@ -354,19 +352,15 @@ fun ArchiveLyrics(
                             animationSpec = if (isSeek) {
                                 tween(durationMillis = 300, easing = FastOutSlowInEasing)
                             } else {
-                                tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                                tween(durationMillis = 550, easing = yosEasing)
                             },
                         )
                     }
                 } else {
-                    val firstVisibleIndex = lazyListState.firstVisibleItemIndex
-                    val distance = abs(targetIndex - firstVisibleIndex)
-
-                    if (distance > 15) {
-                        lazyListState.scrollToItem(targetIndex)
-                    } else {
-                        lazyListState.animateScrollToItem(index = targetIndex, scrollOffset = 0)
-                    }
+                    lazyListState.animateScrollToItem(
+                        index = targetIndex.coerceAtLeast(0),
+                        scrollOffset = -targetOffset,
+                    )
                 }
             } catch (_: Exception) { }
         }
@@ -879,10 +873,22 @@ fun ArchiveLyrics(
                                                         else -> FontWeight.Medium
                                                     }
 
+                                                    val glowProgress = (transitionProgress * 2f).coerceAtMost(1f)
+                                                    val wordShadow = if (isWordActive && glowProgress > 0f) {
+                                                        Shadow(
+                                                            color = lyricsGlowColor.copy(alpha = glowProgress * 0.45f),
+                                                            offset = Offset.Zero,
+                                                            blurRadius = (glowProgress * 12f).coerceAtLeast(1f),
+                                                        )
+                                                    } else {
+                                                        null
+                                                    }
+
                                                     withStyle(
                                                         style = SpanStyle(
                                                             color = wordColor,
                                                             fontWeight = wordWeight,
+                                                            shadow = wordShadow,
                                                             fontSize = if (word.isBackground) lyricsTextSize.sp * 0.7f else TextUnit.Unspecified,
                                                         ),
                                                     ) {

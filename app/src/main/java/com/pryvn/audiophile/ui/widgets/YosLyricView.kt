@@ -45,7 +45,7 @@ import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.MainViewModelObject
 import com.pryvn.audiophile.code.player.MediaControlPlayerAdapter
-import com.pryvn.audiophile.code.utils.lyrics.LyricsEntryBridge
+
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
@@ -96,7 +96,8 @@ fun YosLyricView(
 
     // ---- Word-synced lyrics: delegate to ArchiveTune renderers ----
     // Priority: syllable-level -> word-level -> line-sync -> plain blocks.
-    // Primary: LyricsV2 (liquid fill / glow / bounce). Fallback: ArchiveLyrics (V1).
+    // Single unified renderer: LyricsV2 (liquid fill / glow / bounce) handles
+    // both word-synced and syllable-synced lyrics.
     val hasWordSynced = wordSyncedLambda()
     val wordSyncedLinesExist = MediaViewModelObject.wordSyncedLines.value.isNotEmpty()
     if (hasWordSynced && wordSyncedLinesExist) {
@@ -105,33 +106,15 @@ fun YosLyricView(
             if (dominantBackground.luminance() < 0.4f) Color.White
             else Color.Black
 
-        // Decide renderer by data capability (composable try/catch is unsupported).
-        // LyricsV2 handles TTML/word/lrc/line internally; fall back to ArchiveLyrics
-        // only when V2 cannot extract any entries from non-empty synced lyrics.
-        val rawLyrics = MediaViewModelObject.onlineLyrics.value
-        val v2CanRender = remember(rawLyrics) {
-            rawLyrics != null && rawLyrics != "LYRICS_NOT_FOUND" &&
-                LyricsEntryBridge.fromRawLyrics(rawLyrics, 0L).isNotEmpty()
-        }
-
-        if (v2CanRender) {
-            LyricsV2(
-                player = MediaControlPlayerAdapter,
-                sliderPositionProvider = { null },
-                lyricsSyncOffset = 0,
-                modifier = modifier,
-                textColorOverride = lyricTextColor,
-                lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
-                onBackgroundClick = onBackClick,
-            )
-        } else {
-            ArchiveLyrics(
-                player = MediaControlPlayerAdapter,
-                sliderPositionProvider = { null },
-                lyricsSyncOffset = 0,
-                modifier = modifier,
-            )
-        }
+        LyricsV2(
+            player = MediaControlPlayerAdapter,
+            sliderPositionProvider = { null },
+            lyricsSyncOffset = 0,
+            modifier = modifier,
+            textColorOverride = lyricTextColor,
+            lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
+            onBackgroundClick = onBackClick,
+        )
         return
     }
 
@@ -529,7 +512,7 @@ fun LazyItemScope.LyricItem(
         val tweenSpecWithoutDelay = TweenSpec<Float>(durationMillis = 300, easing = yosEasing, delay = 45)
 
         val scale = animateFloatAsState(
-            targetValue = if (isCurrentLambda()) 1.005f else 1f,
+            targetValue = if (isCurrentLambda()) 1.1f else 1f,
             animationSpec = if (isCurrentLambda()) tweenSpecWithDelay else tweenSpecWithoutDelay
         )
 

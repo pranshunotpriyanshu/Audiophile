@@ -119,7 +119,7 @@ private const val TTML_LEAD_MS = 0L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
-private val HEAD_LYRICS_ENTRY = LyricsEntry(time = 0L, text = "")
+private val HEAD_LYRICS_ENTRY = LyricsEntry.HEAD_LYRICS_ENTRY
 
 private fun isRtlText(text: String): Boolean {
     for (ch in text) {
@@ -271,8 +271,14 @@ fun LyricsV2(
             playbackPositionMs = (pos + lyricsSyncOffset.toLong()).coerceAtLeast(0L)
             currentPositionMs = (playbackPositionMs + leadMs + LYRIC_VISUAL_TUNING_OFFSET_MS).coerceAtLeast(0L)
 
-            val nextIndex = entriesWithWords.indexOfLast { it.time >= 0 && it.time <= currentPositionMs }
-            currentLineIndex = if (nextIndex < 0) 0 else nextIndex
+            val nextIndex = entriesWithWords.indexOfLast {
+                it !== LyricsEntry.HEAD_LYRICS_ENTRY && it.time >= 0 && it.time <= currentPositionMs
+            }
+            val firstLineIndex = if (entriesWithWords.firstOrNull() === LyricsEntry.HEAD_LYRICS_ENTRY) 1 else 0
+            currentLineIndex = when {
+                nextIndex < 0 -> firstLineIndex
+                else -> nextIndex
+            }
             delay(pollIntervalMs)
         }
     }
@@ -420,14 +426,6 @@ fun LyricsV2(
                     .drawWithContent {
                         drawContent()
                         val fadeHeight = 120.dp.toPx()
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black),
-                                startY = 0f,
-                                endY = fadeHeight,
-                            ),
-                            blendMode = BlendMode.DstIn,
-                        )
                         drawRect(
                             brush = Brush.verticalGradient(
                                 colors = listOf(Color.Black, Color.Transparent),
@@ -601,7 +599,7 @@ fun LyricsV2(
                         else -> 12f
                     }
                 val animatedBlur = targetBlur
-                val targetLineScale = if (isActive) 1.2f else 1f
+                val targetLineScale = if (isActive) 1.1f else 1f
                 val animatedLineScale by androidx.compose.animation.core.animateFloatAsState(
                     targetValue = targetLineScale,
                     animationSpec =
