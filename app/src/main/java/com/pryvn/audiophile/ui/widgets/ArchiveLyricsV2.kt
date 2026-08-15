@@ -21,6 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -217,7 +218,6 @@ fun LyricsV2(
     val lyricsLineBlurPreference = true
     val bounceFactor = 0.22f
     val glowFactor = 1f
-    val fillTransitionWidth = 8f
     val lrcBounceEnabled = true
     val lyricsFontFamily: FontFamily? = SfProFontFamily
 
@@ -309,22 +309,23 @@ fun LyricsV2(
         if (!lyricsScroll || isManualScrolling || !isSynced) return@LaunchedEffect
         if (currentLineIndex < 0 || currentLineIndex >= entriesWithWords.size) return@LaunchedEffect
 
-        val visibleInfo = listState.layoutInfo
-        val viewportHeight = visibleInfo.viewportSize.height
-        val targetOffset = (viewportHeight * 0.35f).toInt() // Center bias at 35% from top
+        val targetOffset = (listState.layoutInfo.viewportSize.height * 0.0618f).toInt()
 
-        val distance = abs(currentLineIndex - (listState.firstVisibleItemIndex))
-        if (distance > 15) {
-            // Far jump — snap first, then settle
-            listState.scrollToItem(
-                (currentLineIndex - 2).coerceAtLeast(0),
-                0,
+        val targetItem = listState.layoutInfo.visibleItemsInfo.find { it.index == currentLineIndex }
+        if (targetItem != null) {
+            listState.animateScrollBy(
+                targetItem.offset - targetOffset.toFloat(),
+                animationSpec = tween(
+                    durationMillis = 550,
+                    easing = yosEasing,
+                ),
+            )
+        } else {
+            listState.animateScrollToItem(
+                index = currentLineIndex.coerceAtLeast(0),
+                scrollOffset = -targetOffset,
             )
         }
-        listState.animateScrollToItem(
-            index = currentLineIndex,
-            scrollOffset = -targetOffset,
-        )
     }
 
     val activity = context as? android.app.Activity
@@ -719,7 +720,6 @@ fun LyricsV2(
                                         isRtl = lineIsRtl,
                                         bounceFactor = bounceFactor,
                                         glowFactor = glowFactor,
-                                        fillTransitionWidth = fillTransitionWidth,
                                         lyricsFontFamily = lyricsFontFamily,
                                     )
                                 } else if (isSynced) {
@@ -823,7 +823,6 @@ private fun LyricsLineV2(
     isRtl: Boolean,
     bounceFactor: Float,
     glowFactor: Float,
-    fillTransitionWidth: Float,
     lyricsFontFamily: FontFamily?,
 ) {
     val arrangement =
@@ -912,7 +911,6 @@ private fun LyricsLineV2(
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
                     glowFactor = glowFactor,
-                    fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
             }
@@ -954,7 +952,6 @@ private fun LyricsLineV2(
                     isRtl = isRtl,
                     bounceFactor = bounceFactor,
                     glowFactor = glowFactor,
-                    fillTransitionWidth = fillTransitionWidth,
                     lyricsFontFamily = lyricsFontFamily,
                 )
             }
@@ -1020,7 +1017,7 @@ fun GapDots(
 
 // -----------------------------------------------------------------
 // ──────────────────────────────────────────────────────────────────────
-// Word-level composable: liquid fill sweep + glow + bounce
+// Word-level composable: karaoke fill + glow + bounce
 // ──────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -1038,7 +1035,6 @@ private fun AnimatedWordV2(
     isRtl: Boolean,
     bounceFactor: Float,
     glowFactor: Float,
-    fillTransitionWidth: Float,
 ) {
     val density = LocalDensity.current.density
     val wordStartMs = (word.startTime * 1000).toLong()
@@ -1146,25 +1142,26 @@ private fun AnimatedWordV2(
                             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithContent {
                                 drawContent()
-                                val edgeWidth = fillTransitionWidth.dp.toPx()
-                                val center =
-                                    if (isRtl) {
-                                        size.width - ((size.width + edgeWidth * 2) * progress - edgeWidth)
-                                    } else {
-                                        (size.width + edgeWidth * 2) * progress - edgeWidth
-                                    }
+                                val edge = 0.3f
+                                val start = (progress - edge).coerceIn(0f, 1f)
+                                val end = (progress + edge).coerceIn(0f, 1f)
                                 drawRect(
                                     brush =
-                                        androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                            colors =
-                                                if (isRtl) {
-                                                    listOf(Color.Transparent, Color.Black)
-                                                } else {
-                                                    listOf(Color.Black, Color.Transparent)
-                                                },
-                                            startX = center - edgeWidth,
-                                            endX = center + edgeWidth,
-                                        ),
+                                        if (isRtl) {
+                                            Brush.horizontalGradient(
+                                                0f to Color.Transparent,
+                                                end to Color.Transparent,
+                                                start to Color.Black,
+                                                1f to Color.Black,
+                                            )
+                                        } else {
+                                            Brush.horizontalGradient(
+                                                0f to Color.Black,
+                                                start to Color.Black,
+                                                end to Color.Transparent,
+                                                1f to Color.Transparent,
+                                            )
+                                        },
                                     blendMode = BlendMode.DstIn,
                                 )
                             }.padding(glowPadding)

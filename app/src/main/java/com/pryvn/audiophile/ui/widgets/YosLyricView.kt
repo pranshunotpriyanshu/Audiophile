@@ -6,6 +6,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -368,21 +369,22 @@ fun YosLyricView(
 
             if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
 
-            val visibleInfo = scrollState.layoutInfo
-            val viewportHeight = visibleInfo.viewportSize.height
-            val targetOffset = (viewportHeight * 0.35f).toInt()
-
-            val distance = abs(targetIdx - scrollState.firstVisibleItemIndex)
-            if (distance > 15) {
-                scrollState.scrollToItem(
-                    (targetIdx - 2).coerceAtLeast(0),
-                    0,
+            val targetOffset = height.intValue * 0.0618f
+            val targetItem = visibleItems.value.find { it.index == targetIdx }
+            if (targetItem != null) {
+                scrollState.animateScrollBy(
+                    targetItem.offset - targetOffset,
+                    animationSpec = tween(
+                        durationMillis = 550,
+                        easing = yosEasing
+                    )
+                )
+            } else {
+                scrollState.animateScrollToItem(
+                    index = targetIdx.coerceAtLeast(0),
+                    scrollOffset = -targetOffset.toInt(),
                 )
             }
-            scrollState.animateScrollToItem(
-                index = targetIdx,
-                scrollOffset = -targetOffset,
-            )
         } catch (_: Exception) { }
     }
 
@@ -719,10 +721,32 @@ fun LazyItemScope.LyricItem(
                                     topLeft = measureResult.getBoundingBox(
                                         sum.coerceAtMost(mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
                                     ).topLeft.minus(Offset(0f, topLeftWeight)),
-                                    brush = { _, percent ->
+                                    brush = { px, percent ->
                                         if (thisWord == " ") return@DrawWord unfocusedSolidBrush
-                                        val alpha = (0.15f + 0.85f * percent.coerceIn(0f, 1f)).coerceIn(0f, 1f)
-                                        SolidColor(focusedColor.copy(alpha = alpha))
+
+                                        val beforeColor = if (percent <= -0.5f) {
+                                            unfocusedColor
+                                        } else {
+                                            focusedColor
+                                        }
+
+                                        val afterColor = if (percent >= 1f) {
+                                            focusedColor
+                                        } else {
+                                            unfocusedColor
+                                        }
+
+                                        Brush.horizontalGradient(
+                                            0f to beforeColor,
+                                            (percent - px).coerceIn(
+                                                0f,
+                                                1f
+                                            ) to beforeColor,
+                                            (percent + px).coerceIn(
+                                                0f,
+                                                1f
+                                            ) to afterColor
+                                        )
                                     },
                                     percent = { if (thisWord == " ") 0f else currentPercent }
                                 ).also {
