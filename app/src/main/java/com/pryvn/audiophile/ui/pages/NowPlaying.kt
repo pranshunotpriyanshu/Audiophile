@@ -789,18 +789,6 @@ fun NowPlaying(
                     ) {
                         Lyric(
                             lrcEntries = { displayLrcEntries.value },
-                            lineEndTimes = {
-                                MediaViewModelObject.wordSyncedLines.value.map { it.endTimeMs.toFloat() }
-                            },
-                            lineTransliterations = {
-                                MediaViewModelObject.lyricLineTransliterations
-                            },
-                            lineSubtitles = {
-                                MediaViewModelObject.lyricLineSubtitles
-                            },
-                            isTtmlLyrics = {
-                                MediaViewModelObject.hasWordSyncedLyrics.value
-                            },
                             weightLambda = { showControl.value },
                             translationLambda = { translation.value },
                             onBackClick = {
@@ -810,6 +798,8 @@ fun NowPlaying(
                             },
                             mainViewModel = mainViewModel,
                             mediaViewModel = mediaViewModel,
+                            wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                            active = isLyricPage,
                         )
                     }
                 }
@@ -1465,14 +1455,6 @@ PlayingList ->
                             if (nowPageLambda() == Lyric) {
                                 Lyric(
                                     lrcEntries = { displayLrcEntries.value },
-                                    lineEndTimes = {
-                                        MediaViewModelObject.wordSyncedLines.value.map { it.endTimeMs.toFloat() }
-                                    },
-                                    lineTransliterations = { emptyList() },
-                                    lineSubtitles = { emptyList() },
-                                    isTtmlLyrics = {
-                                        MediaViewModelObject.hasWordSyncedLyrics.value
-                                    },
                                     weightLambda = { false },
                                     translationLambda = { translation.value },
                                     onBackClick = {
@@ -1481,6 +1463,8 @@ PlayingList ->
                                     },
                                     mainViewModel = mainViewModel,
                                     mediaViewModel = mediaViewModel,
+                                    wordSyncedLambda = { MediaViewModelObject.hasWordSyncedLyrics.value },
+                                    active = false
                                 )
                             } else {
                                 PlayingList(
@@ -2264,17 +2248,15 @@ fun LazyItemScope.QueueMusicListItem(
 }
 
 @Composable
-private fun Lyric(
+fun Lyric(
     lrcEntries: () -> List<List<Pair<Float, String>>>,
-    lineEndTimes: () -> List<Float>,
-    lineTransliterations: () -> List<String?>,
-    lineSubtitles: () -> List<String?>,
-    isTtmlLyrics: () -> Boolean,
     weightLambda: () -> Boolean,
     translationLambda: () -> Boolean,
     mainViewModel: MainViewModel,
     mediaViewModel: MediaViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    wordSyncedLambda: () -> Boolean = { false },
+    active: Boolean = true,
 ) = YosWrapper {
 
     val context = LocalContext.current
@@ -2288,30 +2270,35 @@ private fun Lyric(
         YosWrapper {
             Spacer(modifier = Modifier.height(statusBarHeight + 110.dp))
 
-            YosLyricView(
-                //mediaViewModel = mediaViewModel,
-                lrcEntriesLambda = lrcEntries,
-                lineEndTimesLambda = lineEndTimes,
-                lineTransliterationsLambda = lineTransliterations,
-                lineSubtitlesLambda = lineSubtitles,
-                isTtmlLyricsLambda = isTtmlLyrics,
-                liveTimeLambda = {
-                    (mediaControl?.currentPosition ?: 0).toInt()
-                },
-                mediaEvent = object : YosMediaEvent {
-                    override fun onSeek(position: Int) {
-                        mediaControl?.seekTo(position.toLong())
-                    }
-                },
-                translationLambda = translationLambda,
-                blurLambda = {
-                    SettingsLibrary.LyricBlurEffect
-                },
-                uiConfig = YosUIConfig(
-                    noLrcText = stringResource(id = R.string.tip_no_lyrics)
-                ),
-                weightLambda = weightLambda,
-                modifier = Modifier.drawWithCache {
+                val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
+                val lyricTextColor =
+                    if (dominantBackground.luminance() < 0.4f)
+                        Color.White
+                    else
+                        Color.Black
+                YosLyricView(
+                    //mediaViewModel = mediaViewModel,
+                    lrcEntriesLambda = lrcEntries,
+                    liveTimeLambda = {
+                        (mediaControl?.currentPosition ?: 0).toInt()
+                    },
+                    mediaEvent = object : YosMediaEvent {
+                        override fun onSeek(position: Int) {
+                            mediaControl?.seekTo(position.toLong())
+                        }
+                    },
+                    translationLambda = translationLambda,
+                    blurLambda = {
+                        SettingsLibrary.LyricBlurEffect
+                    },
+                    uiConfig = YosUIConfig(
+                        noLrcText = stringResource(id = R.string.tip_no_lyrics),
+                        mainTextBasicColor = lyricTextColor.toArgb().toLong(),
+                        subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
+                    ),
+                    weightLambda = weightLambda,
+                    wordSyncedLambda = wordSyncedLambda,
+                    modifier = Modifier.drawWithCache {
                     onDrawWithContent {
                         val overlayPaint = Paint().apply {
                             blendMode = BlendMode.Plus
@@ -2381,6 +2368,15 @@ private fun Lyric(
                             )
 
                             canvas.restore()
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        if (!active) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    awaitPointerEvent()
+                                }
+                            }
                         }
                     },
                 onBackClick = onBackClick

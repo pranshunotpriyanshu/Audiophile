@@ -1,78 +1,25 @@
 package com.pryvn.audiophile.ui.widgets
 
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.SnapSpec
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.TweenSpec
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyItemScope
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.CacheDrawScope
-import androidx.compose.ui.draw.DrawResult
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -81,789 +28,404 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.*
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
 import com.pryvn.audiophile.code.utils.others.Vibrator
-import com.pryvn.audiophile.code.utils.lrc.BACKGROUND_WORD_MARKER
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.MainViewModelObject
+import com.pryvn.audiophile.code.player.MediaControlPlayerAdapter
+import com.pryvn.audiophile.code.utils.lyrics.LyricsEntryBridge
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
-import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
-import java.text.BreakIterator
-import java.util.Locale
-import kotlin.math.PI
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
+
 
 val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
 
-// V2（C:/CArchiveTune LyricsV2.kt）默认值：非活动词的底字透明度（inactiveAlpha = 0.35）
-private const val v2InactiveAlpha = 0.35f
-
-// 发光时长门槛：短音节/短词不发光，达到该时长的活动词才允许发光（源实现无显式门槛，此为最小确定性阈值）
-private const val v2GlowMinWordDurationMs = 250f
-
-// ===== V2 移植（C:/CArchiveTune LyricsV2.kt isRtlText）：行文本 RTL 检测 =====
-private fun isRtlText(text: String): Boolean {
-    for (ch in text) {
-        when (Character.getDirectionality(ch)) {
-            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
-            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC,
-            Character.DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING,
-            Character.DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE,
-            -> return true
-
-            Character.DIRECTIONALITY_LEFT_TO_RIGHT,
-            Character.DIRECTIONALITY_LEFT_TO_RIGHT_EMBEDDING,
-            Character.DIRECTIONALITY_LEFT_TO_RIGHT_OVERRIDE,
-            -> return false
-        }
-    }
-    return false
-}
-
-// ===== V2 移植（C:/CArchiveTune LyricsTextWrapping.kt toLyricsWrappingUnits）：按字素切分行文本 =====
-private fun String.toLyricsWrappingUnits(): List<String> {
-    if (isEmpty()) return emptyList()
-    val units = mutableListOf<String>()
-    val currentWord = StringBuilder()
-    val characterIterator = BreakIterator.getCharacterInstance(Locale.ROOT)
-    characterIterator.setText(this)
-    fun flushCurrentWord() {
-        if (currentWord.isNotEmpty()) {
-            units += currentWord.toString()
-            currentWord.clear()
-        }
-    }
-    var start = characterIterator.first()
-    var end = characterIterator.next()
-    while (end != BreakIterator.DONE) {
-        val grapheme = substring(start, end)
-        val codePoint = grapheme.codePointAt(0)
-        when {
-            grapheme.all(Char::isWhitespace) -> {
-                currentWord.append(grapheme)
-                flushCurrentWord()
-            }
-
-            codePoint.isCjkCodePoint() -> {
-                flushCurrentWord()
-                units += grapheme
-            }
-
-            else -> {
-                currentWord.append(grapheme)
-            }
-        }
-        start = end
-        end = characterIterator.next()
-    }
-    flushCurrentWord()
-    return units
-}
-
-private fun Int.isCjkCodePoint(): Boolean =
-    when (Character.UnicodeScript.of(this)) {
-        Character.UnicodeScript.HAN,
-        Character.UnicodeScript.HANGUL,
-        Character.UnicodeScript.HIRAGANA,
-        Character.UnicodeScript.KATAKANA,
-        -> true
-
-        else -> false
-    }
+private const val LRC_LEAD_MS = 300L
+private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
+private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
 /**
- * 每个词实例独立的线性进度（CArchiveTune AnimatedWordV2 原式，逐词时间戳直接推导）：
- * 词前 → 0；词内 → (now - start) / (end - start)；词后 → 1。
- * 无动画延迟：跳转/暂停/续播都立即得到与当前播放时间完全一致的进度。
- */
-private fun wordProgress(now: Float, startMs: Float, endMs: Float): Float = when {
-    now >= endMs -> 1f
-    now <= startMs -> 0f
-    else -> ((now - startMs) / (endMs - startMs).coerceAtLeast(1f)).coerceIn(0f, 1f)
-}
-
-/**
- * YosLyricView 主控件
- * @param lrcEntriesLambda 处理完毕的 Lrc 文本
- * @param liveTimeLambda 当前歌曲进度
- * @param mediaEvent YosLyricView 媒体事件
- * @param translationLambda 是否开启翻译
- * @param blurLambda 是否启用模糊效果
- * @param uiConfig YosLyricView UI 控制，仅管理在日常使用中不经常调节的选项
+ * YosLyricView main widget
+ * @param lrcEntriesLambda Processed LRC text (each entry is List<Pair<Float, String>>)
+ * @param liveTimeLambda Current song progress (milliseconds)
+ * @param mediaEvent YosLyricView media event
+ * @param translationLambda Whether to enable translation
+ * @param blurLambda Whether to enable blur effect
+ * @param uiConfig YosLyricView UI config
  */
 @Composable
 fun YosLyricView(
-    //mediaViewModel: MediaViewModel,
     lrcEntriesLambda: () -> List<List<Pair<Float, String>>>,
-    lineEndTimesLambda: () -> List<Float> = { emptyList() },
-    lineTransliterationsLambda: () -> List<String?> = { emptyList() },
-    lineSubtitlesLambda: () -> List<String?> = { emptyList() },
-    isTtmlLyricsLambda: () -> Boolean = { false },
     liveTimeLambda: () -> Int,
     mediaEvent: YosMediaEvent,
     translationLambda: () -> Boolean = { true },
     blurLambda: () -> Boolean = { false },
-    //animationConfig: YosAnimationConfig = YosAnimationConfig(),
     uiConfig: YosUIConfig = YosUIConfig(),
     weightLambda: () -> Boolean,
+    wordSyncedLambda: () -> Boolean = { false },
     modifier: Modifier,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
 ) {
     val context = LocalContext.current
     val mainTextBasicColor = Color(uiConfig.mainTextBasicColor)
     val subTextBasicColor = Color(uiConfig.subTextBasicColor)
-    //Color(0xFF919191)
     val otherSideForLines = MediaViewModelObject.otherSideForLines
-
     val lrcEntries = lrcEntriesLambda()
-    val lineEndTimes = lineEndTimesLambda()
-    val lineTransliterations = lineTransliterationsLambda()
-    val lineSubtitles = lineSubtitlesLambda()
-    val isTtmlLyrics = isTtmlLyricsLambda()
 
-    //val thisLyricLines = MediaViewModelObject.mainLyricLines
-    if (lrcEntries.isEmpty() || otherSideForLines.isEmpty() /*|| thisLyricLines.isEmpty()*/) {
+    // Read interaction state from single source of truth
+    val interactive = LocalLyricsInteractive.current
+
+    // ---- Word-synced lyrics: delegate to ArchiveTune renderers ----
+    // Priority: syllable-level -> word-level -> line-sync -> plain blocks.
+    // Primary: LyricsV2 (liquid fill / glow / bounce). Fallback: ArchiveLyrics (V1).
+    val hasWordSynced = wordSyncedLambda()
+    val wordSyncedLinesExist = MediaViewModelObject.wordSyncedLines.value.isNotEmpty()
+    if (hasWordSynced && wordSyncedLinesExist) {
+        val dominantBackground = MediaViewModelObject.paletteDarkVibrantColor.value
+        val lyricTextColor =
+            if (dominantBackground.luminance() < 0.4f) Color.White
+            else Color.Black
+
+        // Decide renderer by data capability (composable try/catch is unsupported).
+        // LyricsV2 handles TTML/word/lrc/line internally; fall back to ArchiveLyrics
+        // only when V2 cannot extract any entries from non-empty synced lyrics.
+        val rawLyrics = MediaViewModelObject.onlineLyrics.value
+        val v2CanRender = remember(rawLyrics) {
+            rawLyrics != null && rawLyrics != "LYRICS_NOT_FOUND" &&
+                LyricsEntryBridge.fromRawLyrics(rawLyrics, 0L).isNotEmpty()
+        }
+
+        if (v2CanRender) {
+            LyricsV2(
+                player = MediaControlPlayerAdapter,
+                sliderPositionProvider = { null },
+                lyricsSyncOffset = 0,
+                modifier = modifier,
+                textColorOverride = lyricTextColor,
+                lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
+                onBackgroundClick = onBackClick,
+            )
+        } else {
+            ArchiveLyrics(
+                player = MediaControlPlayerAdapter,
+                sliderPositionProvider = { null },
+                lyricsSyncOffset = 0,
+                modifier = modifier,
+            )
+        }
+        return
+    }
+
+    // ---- Empty / Loading state ----
+    if (lrcEntries.isEmpty() || otherSideForLines.isEmpty()) {
+        val isLoading = MediaViewModelObject.isLoadingLyrics.value
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxHeight(if (weightLambda()) 0.56f else 1f)
                 .fillMaxWidth()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }) {
-                    onBackClick()
-                }
-        ) {
-            Text(
-                text = uiConfig.noLrcText,
-                fontSize = 18.sp,
-                color = Color(uiConfig.mainTextBasicColor)
-            )
-        }
-    } else {
-        val scrollState = rememberLazyListState()
-        val currentLyricIndex =
-            remember("YosLyricView_currentLyricIndex") { MainViewModelObject.syncLyricIndex }
-        val ttmlLiveTime = remember("YosLyricView_ttmlLiveTime") {
-            mutableIntStateOf(liveTimeLambda())
-        }
-
-        YosWrapper {
-            LaunchedEffect(isTtmlLyrics, lrcEntries) {
-                while (isTtmlLyrics) {
-                    ttmlLiveTime.intValue = liveTimeLambda()
-                    delay(10L)
-                }
-            }
-        }
-
-        val focusedLyricIndices = remember(
-            "YosLyricView_focusedLyricIndices",
-            isTtmlLyrics,
-            lrcEntries,
-            lineEndTimes
-        ) {
-            derivedStateOf {
-                if (!isTtmlLyrics) {
-                    return@derivedStateOf listOf(currentLyricIndex.intValue)
-                }
-
-                val liveTime = ttmlLiveTime.intValue
-                val activeIndices = lrcEntries.mapIndexedNotNull { index, line ->
-                    val lineStart = line.firstOrNull()?.first ?: return@mapIndexedNotNull null
-                    val lineEnd = lineEndTimes.getOrNull(index)
-                        ?: lrcEntries.getOrNull(index + 1)?.firstOrNull()?.first
-                        ?: lineStart
-
-                    if (liveTime >= lineStart && liveTime < lineEnd.coerceAtLeast(lineStart + 1f)) {
-                        index
+                .then(
+                    if (interactive) {
+                        Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { onBackClick() }
                     } else {
-                        null
-                    }
-                }
-
-                activeIndices.ifEmpty {
-                    if (currentLyricIndex.intValue >= 0) listOf(currentLyricIndex.intValue) else emptyList()
-                }
-            }
-        }
-
-        val focusedLyricAnchorIndex = remember(
-            "YosLyricView_focusedLyricAnchorIndex",
-            focusedLyricIndices
+                        Modifier
+                    },
+                )
         ) {
-            derivedStateOf {
-                focusedLyricIndices.value.firstOrNull() ?: currentLyricIndex.intValue
-            }
-        }
-        /*val noAnimateItems by remember {
-            derivedStateOf { scrollState.layoutInfo.totalItemsCount - scrollState.layoutInfo.visibleItemsInfo.size - 1 }
-        }
-        val showAnimate by remember {
-            derivedStateOf {
-                currentLyricIndex in scrollState.layoutInfo.visibleItemsInfo.map { it.index - 1 } && currentLyricIndex > 0 && currentLyricIndex < noAnimateItems
-            }
-        }*/
-        val blankSpacer: (LazyListScope.() -> Unit) = {
-            item {
-                Box(
-                    modifier = Modifier
-                        .height((uiConfig.blankHeight * SettingsLibrary.LyricFontSize / 30.5f).roundToInt().dp)
-                ) {
+            if (isLoading) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AppleLoadingSpinner(
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "Loading lyrics...",
+                        fontSize = 14.sp,
+                        fontFamily = SfProFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        color = mainTextBasicColor.copy(alpha = 0.5f)
+                    )
                 }
+            } else {
+                Text(
+                    text = "Lyrics couldn't be loaded",
+                    fontSize = 16.sp,
+                    color = mainTextBasicColor.copy(alpha = 0.5f)
+                )
             }
         }
-        //val coroutineScope = rememberCoroutineScope()
-        val enableLyricScroll = remember("YosLyricView_enableLyricScroll") {
-            mutableStateOf(true)
-        }
-        /*val lastClickTime = rememberSaveable(key = "YosLyricView_lastClickTime") {
-            mutableLongStateOf(0L)
-        }*/
+        return
+    }
 
-        /*YosWrapper {
-            LaunchedEffect(enableLyricScroll.value, lastClickTime.longValue) {
-                if (!enableLyricScroll.value) {
-                    val time = 1500L
-                    delay(time)
-                    withContext(Dispatchers.Main) {
-                        if (TimeUtils.getNowMills() - lastClickTime.longValue >= time) {
-                            enableLyricScroll.value = true
-                        }
-                    }
-                }
+    // ---- Main content ----
+    val scrollState = rememberLazyListState()
+    val currentLyricIndex = remember { MainViewModelObject.syncLyricIndex }
+    val enableLyricScroll = remember { mutableStateOf(true) }
+
+    // Shared snapshot position so snapshotFlow collectors re-emit (liveTimeLambda is not snapshot state).
+    val liveTimeState = remember { mutableIntStateOf(liveTimeLambda()) }
+
+    val height = rememberSaveable { mutableIntStateOf(0) }
+    val space = 0.dp
+
+    val measurer = rememberTextMeasurer(cacheSize = 32)
+
+    val visibleItems = derivedStateOf { scrollState.layoutInfo.visibleItemsInfo }
+    val nowFirst = derivedStateOf { scrollState.firstVisibleItemIndex }
+
+    val supportBlur = rememberSaveable {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    }
+
+    // ---- User scrolling detection ----
+    val isUserScrolling = remember { mutableStateOf(false) }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                isUserScrolling.value = true
+                return Offset.Zero
             }
-        }*/
-
-        val height = rememberSaveable(key = "YosLyricView_height") { mutableIntStateOf(0) }
-
-        val targetWeight = 0.0618f
-        val targetOffset = rememberSaveable(height.intValue, key = "YosLyricView_targetOffset") {
-            //println("计算边距使用：${height.intValue}")
-            //println("计算边距为：${height.intValue * targetWeight}")
-            height.intValue * targetWeight
-        }
-        // 顶部边距
-
-        val space = 0.dp
-        // 行距
-
-        val measurer = rememberTextMeasurer(
-            cacheSize = 32
-        )
-
-        val visibleItems = remember("YosLyricView_visibleItems") {
-            derivedStateOf {
-                scrollState.layoutInfo.visibleItemsInfo
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                isUserScrolling.value = false
+                return super.onPostFling(consumed, available)
             }
         }
-        val targetItem = remember("YosLyricView_targetItem") {
-            derivedStateOf {
-                visibleItems.value.find {
-                    it.index == focusedLyricAnchorIndex.value + 1
-                }
-            }
-        }
-        val currentOffset = remember("YosLyricView_currentOffset", targetOffset) {
-            derivedStateOf {
-                targetItem.value?.offset ?: targetOffset.toInt()
-            }
-        }
-        val scrollDistance = remember("YosLyricView_scrollDistance", targetOffset) {
-            derivedStateOf {
-                currentOffset.value - targetOffset
-            }
-        }
-        val nowFirst = remember("YosLyricView_nowFirst") {
-            derivedStateOf {
-                scrollState.firstVisibleItemIndex
-            }
-        }
-        val supportBlur = rememberSaveable(key = "supportBlur") {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        }
+    }
 
-        val isUserScrolling = remember { mutableStateOf(false) }
-        val nestedScrollConnection = remember {
-            @Stable
-            object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    if (source != NestedScrollSource.SideEffect && source != NestedScrollSource.Relocate) {
-                        isUserScrolling.value = true
-                    }
-                    return Offset.Zero
-                }
-
-                override suspend fun onPostFling(
-                    consumed: Velocity,
-                    available: Velocity
-                ): Velocity {
-                    isUserScrolling.value = false
-                    return super.onPostFling(consumed, available)
-                }
-            }
+    LaunchedEffect(isUserScrolling.value) {
+        if (isUserScrolling.value) {
+            enableLyricScroll.value = false
+        } else {
+            delay(MANUAL_SCROLL_TIMEOUT_MS)
+            enableLyricScroll.value = true
         }
+    }
 
-        YosWrapper {
-            LaunchedEffect(isUserScrolling.value) {
-                if (isUserScrolling.value) {
-                    enableLyricScroll.value = false
-                } else {
-                    delay(1600)
-                    enableLyricScroll.value = true
-                }
-            }
-        }
-
-        YosWrapper {
-            LazyColumn(
-                state = scrollState,
-                contentPadding = PaddingValues(vertical = 16.dp),/*
-            verticalArrangement = Arrangement.spacedBy(5.dp),*/
-                modifier =
-                modifier
-                    .fillMaxSize()
-                    /*.drawWithCache {
-                        onDrawWithContent {
-                            val colors = if (weightLambda()) {
-                                listOf(
-                                    Color.Transparent,
-                                    Color(0x59000000),
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color(0x59000000),
-                                    Color(0x21000000),
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Transparent
-                                )
-                            } else {
-                                listOf(
-                                    Color.Transparent,
-                                    Color(0x59000000),
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black,
-                                    Color(0x59000000),
-                                    Color(0x3F000000),
-                                    Color(0x21000000),
-                                )
-                            }
-
-                            drawContent()
-
-                            drawRect(
-                                brush = Brush.verticalGradient(colors),
-                                blendMode = BlendMode.DstIn
-                            )
-                        }
-                    }*/
-                    /*.scrollable(state = rememberScrollableState {
-                        enableLyricScroll.value = false
-                        lastClickTime.longValue =
-                            TimeUtils.getNowMills()
-                        it
-                    }, orientation = Orientation.Vertical)*/
-                    .clickable(
+    // ---- LazyColumn ----
+    LazyColumn(
+        state = scrollState,
+        contentPadding = PaddingValues(vertical = 16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (interactive) {
+                    Modifier.clickable(
                         indication = null,
-                        interactionSource = remember { MutableInteractionSource() }) {
-                        onBackClick()
-                    }
-                    .nestedScroll(nestedScrollConnection)
-                    .onSizeChanged {
-                        if (height.intValue == 0 && it.height != 0) {
-                            height.intValue = it.height
-                            //println("计算歌词视图高度：${height.intValue}")
-                        }
-                    }
-            ) {
-                //println("重组：歌词列表")
-                blankSpacer()
-                // 行身份 = 列表序号 + 行起始时间（移植 CArchiveTune：key = "${index}_${entry.time}"）
-                // 绝不能用行文本/内容作 key：相同文本的重复行必须保持完全独立的实例
-                itemsIndexed(
-                    items = lrcEntries,
-                    key = { index, lines -> index to (lines.firstOrNull()?.first ?: 0f) }
-                ) { index, lines ->
-                    // 唯一当前行：仅聚焦锚点（单个 index）为当前行；TTML 多行重叠时也只允许一行拥有填充
-                    val isCurrent = remember(index, lines) {
-                        derivedStateOf {
-                            index == focusedLyricAnchorIndex.value
-                        }
-                    }
-
-                    val isTop = remember(index, lines) {
-                        derivedStateOf {
-                            index == (focusedLyricAnchorIndex.value - 1)
-                        }
-                    }
-
-                    val showStateAnimation = remember(index) {
-                        derivedStateOf {
-                            (focusedLyricAnchorIndex.value in scrollState.layoutInfo.visibleItemsInfo.map { it.index - 1 } && focusedLyricAnchorIndex.value >= 0) && enableLyricScroll.value
-                        }
-                    }
-
-                    val isLyricEmpty = rememberSaveable(index, lines) {
-                        mutableStateOf(
-                            lines.all { it.second.isBlank() }
-                        )
-                    }
-
-                    // 组合键：唯一行实例（序号 + 起始时间），相同内容的不同出现互不共享任何状态
-                    key(index, lines.firstOrNull()?.first) {
-                        val translation = remember(
-                            index,
-                            lines,
-                            isTtmlLyrics,
-                            translationLambda(),
-                            lineTransliterations,
-                            lineSubtitles
-                        ) {
-                            if (isTtmlLyrics) {
-                                val secondaryText = if (translationLambda()) {
-                                    lineSubtitles.getOrNull(index)
-                                } else {
-                                    lineTransliterations.getOrNull(index)
-                                }
-                                secondaryText?.ifBlank { null }
-                            } else {
-                                val str = lines.last().second
-                                str.ifBlank { null }
-                            }
-                        }
-
-                        val blur = remember(index) {
-                            derivedStateOf {
-                                if (!showStateAnimation.value || focusedLyricIndices.value.contains(index) || !blurLambda() || !supportBlur) {
-                                    0f
-                                } else {
-                                    (abs(index - focusedLyricAnchorIndex.value) * 2.5f).coerceAtMost(
-                                        8f
-                                    )
-                                }
-                            }
-                        }
-
-                        val otherSide = remember(index) {
-                            otherSideForLines.getOrElse(index) { false }
-                        }
-
-                        YosWrapper {
-                            LyricItem(
-                                isCurrentLambda = {
-                                    isCurrent.value
-                                },
-                                isTopLambda = {
-                                    isTop.value
-                                },
-                                mainLyric = lines.dropLast(1),
-                                translation,
-                                if (isTtmlLyrics) translation != null else translationLambda(),
-                                //mainTextSize = uiConfig.mainTextSize,
-                                subTextSize = (uiConfig.subTextSize * SettingsLibrary.LyricFontSize / 30.5f).roundToInt().coerceAtLeast(12),
-                                blur = { blur.value },
-                                mainTextBasicColor,
-                                subTextBasicColor,
-                                otherSide = otherSide,
-                                liveTimeLambda = liveTimeLambda,
-                                measurer = measurer,
-                                isLyricEmpty = { isLyricEmpty.value },
-                                nextTime = {
-                                    if (index + 1 > lrcEntries.size - 1) {
-                                        0f
-                                    } else {
-                                        lrcEntries[(index + 1)].first().first
-                                    }
-                                }
-                            ) {
-                                Vibrator.doubleClick(context)
-                                currentLyricIndex.intValue = index
-                                mediaEvent.onSeek(lines.first().first.toInt())
-                            }
-                        }
-                    }
-
-                    key(index) {
-                        YosWrapper {
-                            /*//println(mainLyricSide.value+":"+mainLyricSide.value.isNotBlank())
-                        if ((*//*(mainLyricSide.isBlank() && isCurrent.value && countdownPercent.value != 0f) || *//*mainLyricSide.value.isNotBlank())) {
-                                val offset = animateDpAsState(
-                                    targetValue = if (index <= currentLyricIndex.value || !showStateAnimation.value) 0.dp else 6.18.dp * (index - (nowFirst.value / 2)),
-                                    animationSpec = spring(
-                                        stiffness = 70f,
-                                        dampingRatio = 0.8f,
-                                        visibilityThreshold = 0.001.dp
-                                    )
-                                )
-                                Spacer(modifier = Modifier.height(offset.value))
-                            }*/
-
-                            //val nowFirst = remember(index) { derivedStateOf { scrollState.firstVisibleItemIndex } }
-
-                            /*val space = 16.dp*/ /*remember(index) {
-                                    derivedStateOf {
-                                        if (lines.isNotEmpty() && isCurrent.value) 5.dp else
-                                    }
-                                }*/
-
-                            //val visibleItems = remember(index) { derivedStateOf { scrollState.layoutInfo.visibleItemsInfo } }
-
-                            /*val nowVisible = remember(visibleItems) {
-                        visibleItems.value.size
-                    }*/
-
-                            //val targetItem = visibleItems.value.find { it.index == currentLyricIndex.intValue /** 2*/ + 1 }
-
-
-                            val show = remember(index) {
-                                derivedStateOf { !isLyricEmpty.value || isCurrent.value }
-                            }
-
-                            val thisScrollDistance = if (targetItem.value != null) {
-                                (scrollDistance.value / (visibleItems.value.size)).toDp()
-                            } else {
-                                0.dp
-                            }
-
-                            val thisTargetHeight = remember(index) {
-                                mutableStateOf(space)
-                            }
-
-                            YosWrapper {
-                                LaunchedEffect(focusedLyricAnchorIndex.value) {
-                                    if (visibleItems.value.isEmpty()) {
-                                        //println(mainLyric.value.text+" 未设置")
-                                        return@LaunchedEffect
-                                    }
-                                    //println(mainLyric.value.text+" "+(index >= focusedLyricAnchorIndex.value && showStateAnimation.value && show.value))
-                                    if (index >= focusedLyricAnchorIndex.value - 1 && showStateAnimation.value && show.value) {
-                                        val weight =
-                                            (1f - ((index - (nowFirst.value)) / visibleItems.value.size))
-                                        delay((550 * (1f - weight)).toLong())
-                                        thisTargetHeight.value =
-                                            (thisScrollDistance * weight).plus(space)
-                                        delay(
-                                            ((550 / 1.95f) * weight).toLong()
-                                        )
-                                        thisTargetHeight.value = space
-                                    } else if (show.value) {
-                                        thisTargetHeight.value = space
-                                    } else {
-                                        thisTargetHeight.value = 0.dp
-                                    }
-                                }
-                            }
-
-                            val offset = animateDpAsState(
-                                targetValue = thisTargetHeight.value,
-                                animationSpec = if (thisTargetHeight.value == 0.dp || thisTargetHeight.value == space/*16.dp || thisTargetHeight.value == 5.dp*/) {
-                                    spring(
-                                        stiffness = 105F,
-                                        dampingRatio = /*0.85f*/ 1f,
-                                        visibilityThreshold = 0.0001.dp
-                                    )
-                                    //tween(durationMillis = 510, easing = yosEasing)
-                                } else {
-                                    tween(
-                                        durationMillis = 550,
-                                        easing = yosEasing
-                                    )
-                                }
-                            )
-
-                            YosWrapper {
-                                Spacer(modifier = Modifier.height(offset.value))
-                            }
-                        }
-                    }
-
-
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { onBackClick() }
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                if (interactive) Modifier.nestedScroll(nestedScrollConnection) else Modifier,
+            )
+            .onSizeChanged {
+                if (height.intValue == 0 && it.height != 0) {
+                    height.intValue = it.height
                 }
-                blankSpacer()
-                item("extra_blank") {
-                    Spacer(modifier = Modifier.height(500.dp))
+            }
+    ) {
+        blankSpacer(uiConfig.blankHeight.dp)
+
+        itemsIndexed(
+            items = lrcEntries,
+            key = { _, lines -> lines }
+        ) { index, lines ->
+            val isCurrent = derivedStateOf { index == currentLyricIndex.intValue }
+            val isTop = derivedStateOf { index == currentLyricIndex.intValue - 1 }
+
+            val showStateAnimation = derivedStateOf {
+                (currentLyricIndex.intValue in scrollState.layoutInfo.visibleItemsInfo.map { it.index - 1 }
+                        && currentLyricIndex.intValue >= 0 && enableLyricScroll.value)
+            }
+
+            val isLyricEmpty = rememberSaveable(lines) {
+                mutableStateOf(lines.all { it.second.isBlank() })
+            }
+
+            key(lines) {
+                val translation = remember(index) {
+                    lines.last().second.ifBlank { null }
                 }
+
+                val blur = derivedStateOf {
+                    if (!showStateAnimation.value || index == currentLyricIndex.intValue || !blurLambda() || !supportBlur) {
+                        0f
+                    } else {
+                        (abs(index - currentLyricIndex.intValue) * 2.5f).coerceAtMost(8f)
+                    }
+                }
+
+                val otherSide = remember(index) {
+                    otherSideForLines.getOrElse(index) { false }
+                }
+
+                val thisWordSyncedWords = derivedStateOf {
+                    if (MediaViewModelObject.hasWordSyncedLyrics.value) {
+                        val syncedLines = MediaViewModelObject.wordSyncedLines.value
+                        if (index < syncedLines.size) {
+                            syncedLines[index].words.map { word ->
+                                Triple(word.startTimeMs.toFloat(), word.endTimeMs.toFloat(), word.isBackground)
+                            }
+                        } else emptyList()
+                    } else emptyList()
+                }
+
+                LyricItem(
+                    isCurrentLambda = { isCurrent.value },
+                    isTopLambda = { isTop.value },
+                    mainLyric = lines.dropLast(1),
+                    translation = translation,
+                    showTranslation = translationLambda(),
+                    subTextSize = uiConfig.subTextSize,
+                    blur = { blur.value },
+                    mainTextBasicColor = mainTextBasicColor,
+                    subTextBasicColor = subTextBasicColor,
+                    otherSide = otherSide,
+                    liveTimeLambda = { liveTimeState.intValue },
+                    measurer = measurer,
+                    isLyricEmpty = { isLyricEmpty.value },
+                    nextTime = {
+                        if (index + 1 > lrcEntries.size - 1) 0f else lrcEntries[index + 1].first().first
+                    },
+                    wordSyncedWords = thisWordSyncedWords.value,
+                    onClick = {
+                        Vibrator.doubleClick(context)
+                        currentLyricIndex.intValue = index
+                        mediaEvent.onSeek(lines.first().first.toInt())
+                    }
+                )
+            }
+
+            // ---- Spacer animation for each item ----
+            key(index) {
+                val show = derivedStateOf { !isLyricEmpty.value || isCurrent.value }
+
+                val thisTargetHeight = remember { mutableStateOf(space) }
+
+                LaunchedEffect(currentLyricIndex.intValue) {
+                    if (visibleItems.value.isEmpty()) return@LaunchedEffect
+                    if (index >= currentLyricIndex.intValue - 1 && showStateAnimation.value && show.value) {
+                        val segment = 1f - ((index - nowFirst.value).toFloat() / visibleItems.value.size.toFloat())
+                        delay((350 * (1f - segment)).toLong())
+                        thisTargetHeight.value = (3.dp * segment) + space
+                        delay(100)
+                        thisTargetHeight.value = space
+                    } else if (show.value) {
+                        thisTargetHeight.value = space
+                    } else {
+                        thisTargetHeight.value = 0.dp
+                    }
+                }
+
+                val offset = animateDpAsState(
+                    targetValue = thisTargetHeight.value,
+                    animationSpec = tween(durationMillis = 250, easing = yosEasing)
+                )
+                Spacer(modifier = Modifier.height(offset.value))
             }
         }
 
-        YosWrapper {
-            //val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-            LaunchedEffect(focusedLyricAnchorIndex.value, translationLambda()) {
-                try {
-                    if (enableLyricScroll.value) {
-                        /*visibleItems = scrollState.layoutInfo.visibleItemsInfo
-                        targetItem =
-                            visibleItems.find { it.index == currentLyricIndex.intValue */
-                        /** 2*/
-                        /** 2*//* + 1 }*/
-                        if (
-                            try {
-                                if (focusedLyricAnchorIndex.value - 1 < 0) false
-                                else (
-                                        (lrcEntries[(focusedLyricAnchorIndex.value - 1)][1].second.isBlank())
-                                        /*&&
-                                        (lrcEntries[(currentLyricIndex.intValue).coerceAtLeast(
-                                            0
-                                        )].first().first - lrcEntries[(currentLyricIndex.intValue - 1)].first().first > 900f)*/)
-                                // 这里有一个特殊的更改，因为AppleMusic歌词转过来会有两个连续一样的时间轴，在LrcFactory有更改，下面的那个900不用管
-                                // 已经作了规范处理
+        blankSpacer(uiConfig.blankHeight.dp)
+        item("extra_blank") { Spacer(Modifier.height(500.dp)) }
+    }
 
-                            } catch (_: Exception) {
-                                false
-                            }
-                        ) {
-                            return@LaunchedEffect
-                        }
+    // ---- Auto‑scroll to current line ----
+    LaunchedEffect(currentLyricIndex.intValue, translationLambda()) {
+        try {
+            if (!enableLyricScroll.value) return@LaunchedEffect
+            val targetIdx = currentLyricIndex.intValue + 1
 
-                        if (targetItem.value != null /*|| lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)*/) {
-                            /*currentOffset.value = targetItem.value?.offset?:targetOffset.toInt()
-                            scrollDistance.value = currentOffset - targetOffset*/
-                            scrollState.animateScrollBy(
-                                scrollDistance.value,
-                                /*animationSpec = tween(
-                                    durationMillis = abs(0.5 * currentOffset).toInt().coerceAtLeast(540)
-                                        .coerceAtMost(1200),
-                                    delayMillis = 0,
-                                    easing = yosEasing
-                                )*/
-                                animationSpec = tween(
-                                    durationMillis = 550,
-                                    //delayMillis = 15,
-                                    easing = yosEasing
-                                )
-                                /*spring(
-                                    stiffness = 105F,
-                                    dampingRatio = 1f*//* 1f*//*
-                                )*/
-                            )
-                        } else {
-                            scrollState.animateScrollToItem(
-                                index = (focusedLyricAnchorIndex.value
-                                        /** 2*/
-                                        /** 2*/
-                                        + 1).coerceAtLeast(0),
-                                scrollOffset = -targetOffset.toInt()
-                            )
-                        }
-                    }
-                } catch (_: Exception) {
-                }
+            val skip = try {
+                targetIdx - 1 >= 0 &&
+                        lrcEntries[targetIdx - 1][1].second.isBlank()
+            } catch (_: Exception) { false }
+            if (skip) return@LaunchedEffect
+
+            delay(30)
+
+            if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
+
+            val visibleInfo = scrollState.layoutInfo
+            val viewportHeight = visibleInfo.viewportSize.height
+            val targetOffset = (viewportHeight * 0.35f).toInt()
+
+            val distance = abs(targetIdx - scrollState.firstVisibleItemIndex)
+            if (distance > 15) {
+                scrollState.scrollToItem(
+                    (targetIdx - 2).coerceAtLeast(0),
+                    0,
+                )
             }
-        }
+            scrollState.animateScrollToItem(
+                index = targetIdx,
+                scrollOffset = -targetOffset,
+            )
+        } catch (_: Exception) { }
+    }
 
-        /*YosWrapper {
-            LaunchedEffect(Unit) {
-                while (true) {
-                    val liveTime = liveTimeLambda()
-                    val nextIndex = lrcEntries.indexOfFirst { line ->
-                        line.first().first > liveTime
-                    }
-
-                    if (nextIndex != -1 && nextIndex - 1 != currentLyricIndex.intValue) {
-                        currentLyricIndex.intValue = nextIndex - 1
-                    } else if (nextIndex == -1 && currentLyricIndex.intValue != lrcEntries.size - 1) {
-                        currentLyricIndex.intValue = lrcEntries.size - 1
-                    }
-
-                    delay(100)
-                }
+    // ---- Live time updater for current index ----
+    LaunchedEffect(Unit) {
+        var stableIdx = currentLyricIndex.intValue
+        var stableCount = 0
+        while (isActive) {
+            val liveTime = liveTimeLambda()
+            liveTimeState.intValue = liveTime
+            val targetPos = liveTime + LRC_LEAD_MS + LYRIC_VISUAL_TUNING_OFFSET_MS
+            val nextIdx = lrcEntries.indexOfFirst { line -> line.first().first > targetPos }
+            val newIdx = when {
+                nextIdx == -1 -> lrcEntries.size - 1
+                nextIdx == 0 -> 0
+                else -> nextIdx - 1
             }
-        }*/
-
-        YosWrapper {
-            //val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-            LaunchedEffect(Unit) {
-                /*if (!lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)) {
-                    return@LaunchedEffect
-                }*/
-                try {
-                    if (currentLyricIndex.intValue != -1) {
-                        return@LaunchedEffect
-                    }
-                    val liveTime = liveTimeLambda()
-                    val nextIndex = lrcEntries.indexOfFirst { line ->
-                        line.first().first > liveTime
-                    }
-
-                    if (nextIndex != -1 && nextIndex - 1 != currentLyricIndex.intValue) {
-                        scrollState.scrollToItem(
-                            index = (nextIndex).coerceAtLeast(0),
-                            scrollOffset = -targetOffset.toInt()
-                        )
-                        currentLyricIndex.intValue = nextIndex - 1
-                    } else if (nextIndex == -1 && currentLyricIndex.intValue != lrcEntries.size - 1) {
-                        scrollState.scrollToItem(
-                            index = (lrcEntries.size).coerceAtLeast(0),
-                            scrollOffset = -targetOffset.toInt()
-                        )
-                        currentLyricIndex.intValue = lrcEntries.size - 1
-                    }
-                } catch (_: Exception) {
+            if (newIdx == stableIdx) {
+                stableCount++
+                if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
+                    currentLyricIndex.intValue = newIdx
                 }
-
+            } else {
+                stableIdx = newIdx
+                stableCount = 0
             }
+            delay(100)
         }
     }
 }
 
-/*@Composable
-fun Dp.toPx(): Float {
-    val density = LocalDensity.current
-    return this.value * density.density
-}*/
+private fun LazyListScope.blankSpacer(height: Dp) {
+    item { Box(Modifier.height(height)) }
+}
 
+// ---- Helper function to convert Float to Dp ----
 @Composable
 fun Float.toDp(): Dp {
     val density = LocalDensity.current
     return (this / density.density).dp
 }
 
+// ---- Line drawing composable with custom draw ----
 @Composable
 private fun LazyItemScope.Line(
     lines: List<Pair<Float, String>>,
@@ -871,164 +433,49 @@ private fun LazyItemScope.Line(
     measurer: TextMeasurer,
     modifier: Modifier,
     viewAlign: Alignment.Horizontal,
-    isRtl: Boolean = false,
     draw: CacheDrawScope.(Constraints, TextLayoutResult) -> DrawResult
-) =
-    YosWrapper {
-        /*val styledString = remember(style, lines) {
-            buildAnnotatedString {
-                lines.forEachIndexed { _, char ->
-                    if (char.second.isNotEmpty()) {
-                        withStyle(style.toSpanStyle()) {
-                            append(char.second)
-                        }
-                    }
-                }
-            }
-        }*/
-
-        val styledString = remember(style, lines) {
-            buildString {
-                lines.forEach { char ->
-                    if (char.second.isNotEmpty()) {
-                        append(char.second)
-                    }
-                }
-            }
-        }
-
-
-        Column(
-            horizontalAlignment = viewAlign,
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.ModulateAlpha
-                }
-        ) {
-            SubcomposeLayout(modifier = modifier) { constraints ->
-
-                val measureResult = measurer.measure(
-                    text = styledString,
-                    style = style,
-                    constraints = Constraints(
-                        minWidth = 0,
-                        maxWidth = constraints.maxWidth,
-                    ),
-                    layoutDirection = if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
-                )
-
-                val height = (style.lineHeight * measureResult.lineCount)
-
-                val width = runCatching {
-                    (0 until measureResult.lineCount).maxOf {
-                        measureResult.getBoundingBox(
-                            measureResult.getLineEnd(it, visibleEnd = true) - 1
-                        ).right
-                    }
-                }.getOrDefault(constraints.maxWidth.toFloat())
-
-                val content = subcompose(lines) {
-                    Spacer(
-                        Modifier
-                            .fillMaxSize()
-                            .drawWithCache { draw(constraints, measureResult) }
-                    )
-                }.first()
-
-
-                val placeable = content.measure(
-                    Constraints.fixed(width.roundToInt(), height.roundToPx())
-                )
-
-                layout(placeable.width, placeable.height) {
-                    placeable.place(0, 0)
-                }
-
-                /*layout(placeable.width, placeable.height) {
-                    placeable.placeRelative(0, 0)
-                }*/
-            }
+) {
+    val styledString = remember(style, lines) {
+        buildString {
+            lines.forEach { if (it.second.isNotEmpty()) append(it.second) }
         }
     }
 
-/*@Composable
-private fun LazyItemScope.Line(
-    lines: List<Pair<Float, String>>,
-    style: TextStyle,
-    measurer: TextMeasurer,
-    modifier: Modifier,
-    viewAlign: Alignment.Horizontal,
-    isRtl: Boolean = false,
-    draw: CacheDrawScope.(Constraints, TextLayoutResult) -> DrawResult
-) =
-    YosWrapper {
-        val styledString = remember(style, lines) {
-            buildString {
-                lines.forEach { char ->
-                    if (char.second.isNotEmpty()) {
-                        append(char.second)
-                    }
-                }
-            }
+    Column(
+        horizontalAlignment = viewAlign,
+        modifier = Modifier.fillMaxWidth().graphicsLayer {
+            compositingStrategy = CompositingStrategy.ModulateAlpha
         }
+    ) {
+        SubcomposeLayout(modifier = modifier) { constraints ->
+            val measureResult = measurer.measure(
+                text = styledString,
+                style = style,
+                constraints = Constraints(minWidth = 0, maxWidth = constraints.maxWidth),
+                layoutDirection = LayoutDirection.Ltr
+            )
 
-        Column(
-            modifier = modifier,
-            horizontalAlignment = viewAlign
-        ) {
-            Layout(
-                content = {
-                    Spacer(
-                        Modifier
-                            .fillMaxSize()
-                            .drawWithCache {
-                                val constraints = Constraints(
-                                    minWidth = 0,
-                                    maxWidth = size.width.toInt()
-                                )
-                                val measureResult = measurer.measure(
-                                    text = styledString,
-                                    style = style,
-                                    constraints = constraints
-                                )
-                                draw(constraints, measureResult)
-                            }
-                    )
+            val height = style.lineHeight * measureResult.lineCount
+            val width = runCatching {
+                (0 until measureResult.lineCount).maxOf {
+                    measureResult.getBoundingBox(measureResult.getLineEnd(it, visibleEnd = true) - 1).right
                 }
-            ) { measurables, constraints ->
+            }.getOrDefault(constraints.maxWidth.toFloat())
 
-                val measureResult = measurer.measure(
-                    text = styledString,
-                    style = style,
-                    constraints = Constraints(
-                        minWidth = 0,
-                        maxWidth = constraints.maxWidth
-                    )
-                )
+            val content = subcompose(lines) {
+                Spacer(Modifier.fillMaxSize().drawWithCache { draw(constraints, measureResult) })
+            }.first()
 
-                // 确保高度计算正确，包含所有文本行
-                val height = measureResult.size.height
-
-                val width = runCatching {
-                    (0 until measureResult.lineCount).maxOf {
-                        measureResult.getBoundingBox(
-                            measureResult.getLineEnd(it, visibleEnd = true) - 1
-                        ).right
-                    }
-                }.getOrDefault(constraints.maxWidth.toFloat()).roundToInt()
-
-                val placeable = measurables.first().measure(
-                    Constraints.fixed(width, height)
-                )
-
-                layout(width, height) {
-                    placeable.placeRelative(0, 0)
-                }
-            }
+            val placeable = content.measure(Constraints.fixed(width.roundToInt(), height.roundToPx()))
+            layout(placeable.width, placeable.height) { placeable.place(0, 0) }
         }
-    }*/
+    }
+}
 
+// ---- Easing ----
+val easing: Easing = EaseInOutQuad
+
+// ---- Lyric item composable ----
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 fun LazyItemScope.LyricItem(
@@ -1037,10 +484,8 @@ fun LazyItemScope.LyricItem(
     mainLyric: List<Pair<Float, String>>,
     translation: String?,
     showTranslation: Boolean,
-    //mainTextSize: Int,
     subTextSize: Int,
     blur: () -> Float,
-    /*showBlur: Boolean,*/
     mainTextBasicColor: Color,
     subTextBasicColor: Color,
     measurer: TextMeasurer,
@@ -1048,703 +493,278 @@ fun LazyItemScope.LyricItem(
     nextTime: () -> Float,
     otherSide: Boolean,
     liveTimeLambda: () -> Int,
+    wordSyncedWords: List<Triple<Float, Float, Boolean>> = emptyList(),
     onClick: () -> Unit
 ) {
-    val mainStyle = mainTextStyle()
     val viewAlign = if (otherSide) Alignment.End else Alignment.Start
+    val interactive = LocalLyricsInteractive.current
 
-    val focusedColor = Color(0xFFFFFFFF)
+    val focusedColor = Color.White
     val unfocusedColor = Color(0x2EFFFFFF)
-    //Color(0x33FFFFFF)
-
-    //val focusedSolidBrush = SolidColor(focusedColor)
+    val unfocusedSolidBrush = SolidColor(unfocusedColor)
 
     val isNotOneByOne = rememberSaveable(mainLyric) {
-        mutableStateOf(
-            mainLyric.all { it.first == mainLyric.firstOrNull()?.first }
-        )
-
+        mutableStateOf(mainLyric.all { it.first == mainLyric.firstOrNull()?.first })
     }
 
     val liveTime = remember(mainLyric) { mutableIntStateOf(liveTimeLambda()) }
 
-    YosWrapper {
-        val launch = remember(mainLyric) {
-            derivedStateOf {
-                isLyricEmpty() || !isNotOneByOne.value || (SettingsLibrary.LyricSmartWbw && isCurrentLambda())
-            }
-        }
-        if (launch.value) {
-            LaunchedEffect(Unit) {
-                while (true) {
-                    withContext(Dispatchers.Main) {
-                        liveTime.intValue = liveTimeLambda()
-                    }
-                    delay(10L)
-                }
-            }
-        }
+    // Update liveTime via snapshotFlow instead of polling loop
+    LaunchedEffect(liveTimeLambda) {
+        snapshotFlow { liveTimeLambda() }
+            .distinctUntilChanged()
+            .collect { liveTime.intValue = it }
     }
 
-    YosWrapper {
-        Column(
-            Modifier
-                .padding(horizontal = 9.dp),
-            horizontalAlignment = viewAlign
-        ) {
-            val otherSideAnimate = if (otherSide) {
-                TransformOrigin(1f, 0.25f)
-            } else {
-                TransformOrigin(0f, 0.25f)
-            }
-            //println("重组：倒计时 "+ mainLyric.isBlank()+ " "+ isCurrentLambda() + " " + (progress() != 0f))
+    Column(
+        Modifier.padding(horizontal = 9.dp),
+        horizontalAlignment = viewAlign
+    ) {
+        val otherSideAnimate = if (otherSide) TransformOrigin(1f, 0.25f) else TransformOrigin(0f, 0.25f)
+        val otherSideTransformOrigin = if (otherSide) TransformOrigin(1f, 0.5f) else TransformOrigin(0f, 0.5f)
 
-            val otherSideTransformOrigin =
-                if (otherSide) TransformOrigin(
-                    1f,
-                    0.5f
-                ) else TransformOrigin(
-                    0f,
-                    0.5f
-                )
+        val tweenSpecWithDelay = TweenSpec<Float>(durationMillis = 270, easing = yosEasing, delay = 110)
+        val tweenSpecWithoutDelay = TweenSpec<Float>(durationMillis = 300, easing = yosEasing, delay = 45)
 
-            /*val otherSideThisLine = remember(mainLyric) {
-                mainLyric.last().second.endsWith(":") || mainLyric.last().second.endsWith(
-                    "："
-                )
-            }*/
+        val scale = animateFloatAsState(
+            targetValue = if (isCurrentLambda()) 1.005f else 1f,
+            animationSpec = if (isCurrentLambda()) tweenSpecWithDelay else tweenSpecWithoutDelay
+        )
 
-            val tweenSpecWithDelay: AnimationSpec<Float> = remember(mainLyric) {
-                TweenSpec(
-                    durationMillis = 270,
-                    easing = yosEasing,
-                    delay = /*45*/ /*115*/ 110
-                )
-            }
+        val cardPadding = if (otherSide) Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
 
-            val tweenSpecWithoutDelay: AnimationSpec<Float> = remember(mainLyric) {
-                TweenSpec(durationMillis = /*270*/ 300, easing = yosEasing,delay = 45)
-            }
-
-            val scale = animateFloatAsState(
-                targetValue = if (isCurrentLambda()) 1.005f else 1f,
-                animationSpec = if (isCurrentLambda()) tweenSpecWithDelay else tweenSpecWithoutDelay
-            )
-
-            /*val blurValue = remember(mainLyric) {
-                derivedStateOf {
-                    if (blur() == 0f || !showBlur) 0f else blur()
-                }
-            }*/
-
-            val cardPadding = if (otherSide) {
-                Modifier.padding(start = 28.dp)
-            } else {
-                Modifier.padding(end = 28.dp)
-            }
-
-            if (isLyricEmpty()) {
-                Column(Modifier.animateContentSize()) {
-                    val percent = remember(mainLyric) {
-                        derivedStateOf {
-                            val m = mainLyric.first().first
-                            /*(if ((nextTime() - m) < 900f) {
-                                0f
-                            } else {
-                                */((liveTime.intValue - m).coerceAtLeast(0f) / (nextTime() - m))
-                            /*})*/.coerceAtMost(1f)
-                        }
-                    }
-                    val show = remember(mainLyric) {
-                        derivedStateOf { (isLyricEmpty() && isCurrentLambda() && percent.value != 0f) }
-                    }
-                    AnimatedVisibility(
-                        show.value,
-                        enter = fadeIn(animationSpec = TweenSpec(
-                            durationMillis = 550,
-                            easing = yosEasing,
-                            delay = 300
-                        )) + scaleIn(
-                            initialScale = 0.85f,
-                            transformOrigin = otherSideAnimate,
-                            animationSpec = TweenSpec(
-                                durationMillis = 550,
-                                easing = yosEasing,
-                                delay = 300
-                            )
-                        ),
-                        exit = fadeOut() + scaleOut(
-                            targetScale = 0.85f,
-                            transformOrigin = otherSideAnimate,
-                            animationSpec = TweenSpec(
-                                durationMillis = 340,
-                                easing = yosEasing
-                            )
-                        )
-                    ) {
-                        YosWrapper {
-                            LyricCard(
-                                { scale.value },
-                                cardPadding,
-                                otherSideTransformOrigin,
-                                viewAlign,
-                                //{ otherSideThisLine },
-                                //onClick
-                            ) {
-
-                                Column(
-                                    Modifier
-                                        .padding(start = 20.dp, end = 20.dp)
-                                        .padding(top = 8.dp, bottom = 10.dp),
-                                    horizontalAlignment = viewAlign
-                                ) {
-                                    CountdownAnimation(
-                                        { percent.value },
-                                        colorLambda = { mainTextBasicColor })
-                                }
-
-                            }
-                        }
+        if (isLyricEmpty()) {
+            // ---- Countdown animation ----
+            Column(Modifier.animateContentSize()) {
+                val percent = remember(mainLyric) {
+                    derivedStateOf {
+                        val m = mainLyric.first().first
+                        ((liveTime.intValue - m).coerceAtLeast(0f) / (nextTime() - m)).coerceAtMost(1f)
                     }
                 }
-            } else {
-                YosWrapper {
+                val show = remember {
+                    derivedStateOf { isLyricEmpty() && isCurrentLambda() && percent.value != 0f }
+                }
+
+                AnimatedVisibility(
+                    visible = show.value,
+                    enter = fadeIn(animationSpec = tween(550, easing = yosEasing, delayMillis = 300)) +
+                            scaleIn(initialScale = 0.85f, transformOrigin = otherSideAnimate,
+                                animationSpec = tween(550, easing = yosEasing, delayMillis = 300)),
+                    exit = fadeOut() + scaleOut(targetScale = 0.85f, transformOrigin = otherSideAnimate,
+                        animationSpec = tween(340, easing = yosEasing))
+                ) {
                     LyricCard(
-                        { scale.value },
-                        cardPadding,
-                        otherSideTransformOrigin,
-                        viewAlign,
-                        //{ otherSideThisLine },
-                        //onClick
+                        scale = { scale.value },
+                        cardPadding = cardPadding,
+                        otherSideTransformOrigin = otherSideTransformOrigin,
+                        viewAlign = viewAlign
                     ) {
+                        Column(
+                            Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 10.dp),
+                            horizontalAlignment = viewAlign
+                        ) {
+                            GapDotsAnim(progress = { percent.value }, colorLambda = { mainTextBasicColor })
+                        }
+                    }
+                }
+            }
+        } else {
+            // ---- Regular lyric line ----
+            LyricCard(
+                scale = { scale.value },
+                cardPadding = cardPadding,
+                otherSideTransformOrigin = otherSideTransformOrigin,
+                viewAlign = viewAlign
+            ) {
+                val blurValue = animateDpAsState(
+                    targetValue = blur().dp,
+                    animationSpec = tween(durationMillis = 0, delayMillis = if (isTopLambda()) 260 else 0)
+                )
 
-                        val blurValue = animateDpAsState(
-                            blur().dp, SnapSpec(delay = if (isTopLambda()) 260 else 0)
-                        )
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (blur() == 0f) Modifier
+                            else Modifier.blur(blurValue.value, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                        ),
+                    horizontalAlignment = viewAlign
+                ) {
+                    val textAlign = if (otherSide) TextAlign.End else TextAlign.Start
 
-                        val blurModifier = remember(mainLyric) {
-                            derivedStateOf {
-                                val thisBlur = blur()
-                                if (thisBlur == 0f) {
-                                    Modifier
+                    val alphaTweenWithDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 145)
+                    val alphaTweenWithoutDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 80)
+
+                    val thisAlphaAnimated = animateFloatAsState(
+                        targetValue = if (isCurrentLambda()) 1f else 0.14f,
+                        animationSpec = if (isCurrentLambda()) alphaTweenWithDelay else alphaTweenWithoutDelay
+                    )
+
+                    val thisAlpha = remember(mainLyric) {
+                        derivedStateOf {
+                            if (isNotOneByOne.value) thisAlphaAnimated.value else 1f
+                        }
+                    }
+
+                    val otherSidePadding = remember(mainLyric) {
+                        derivedStateOf {
+                            if (otherSide) {
+                                Modifier.padding(
+                                    start = 20.dp,
+                                    end = if (mainLyric.last().second.endsWith("：")) 3.dp else 20.dp
+                                )
+                            } else {
+                                Modifier.padding(start = 20.dp, end = 20.dp)
+                            }
+                        }
+                    }
+
+                    val showHighLight = remember(mainLyric) {
+                        derivedStateOf {
+                            if (isNotOneByOne.value) true
+                            else liveTime.intValue >= mainLyric[mainLyric.size - (if (translation != null) 3 else 1)].first
+                        }
+                    }
+
+                    val charStyle = if (otherSide) mainTextStyle().copy(textAlign = TextAlign.End) else mainTextStyle()
+
+                    Line(
+                        lines = mainLyric,
+                        style = if (otherSide) mainTextStyle().copy(textAlign = TextAlign.End) else mainTextStyle(),
+                        measurer = measurer,
+                        modifier = Modifier
+                            .graphicsLayer {
+                                alpha = thisAlpha.value
+                                compositingStrategy = CompositingStrategy.ModulateAlpha
+                            }
+                            .padding(vertical = 4.dp)
+                            .then(otherSidePadding.value)
+                            .then(
+                                if (interactive) {
+                                    Modifier.clickable(
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) { onClick() }
                                 } else {
-                                    Modifier.blur(
-                                        blurValue.value,
-                                        /*thisBlur.dp*/
-                                        edgeTreatment = BlurredEdgeTreatment.Unbounded,
-                                    )
+                                    Modifier
+                                },
+                            ),
+                        viewAlign = viewAlign
+                    ) { _, measureResult ->
+                        // ---- Drawing logic ----
+                        if (isNotOneByOne.value) {
+                            // Full line highlight (not word-synced)
+                            return@Line onDrawBehind {
+                                drawText(textLayoutResult = measureResult, color = focusedColor)
+                            }
+                        }
+
+                        if (!isCurrentLambda()) {
+                            // Past or future line
+                            if (showHighLight.value) {
+                                return@Line onDrawBehind {
+                                    drawText(textLayoutResult = measureResult, color = focusedColor, topLeft = Offset(0f, -4f))
+                                }
+                            } else {
+                                return@Line onDrawBehind {
+                                    drawText(textLayoutResult = measureResult, color = unfocusedColor)
                                 }
                             }
                         }
 
-                        YosWrapper {
-                            Column(
-                                Modifier
-                                    .then(blurModifier.value)
-                                    .fillMaxWidth(),
-                                horizontalAlignment = viewAlign
-                            ) {
-                                val textAlign = if (otherSide) TextAlign.End else TextAlign.Start
+                        // ---- Word‑synced highlighting ----
+                        var sum = 0
+                        var lastTime = mainLyric.first().first
+                        val wordsToDraw = arrayListOf<DrawWord>()
 
-                                val alphaTweenSpecWithDelay: AnimationSpec<Float> =
-                                    remember(mainLyric) {
-                                        TweenSpec(
-                                            durationMillis = 350,
-                                            easing = yosEasing,
-                                            delay = 145
-                                        )
-                                    }
+                        mainLyric.fastForEachIndexed { wordIndex, word ->
+                            val thisWord = word.second
+                            if (thisWord.isEmpty()) return@fastForEachIndexed
 
-                                val alphaTweenSpecWithoutDelay: AnimationSpec<Float> =
-                                    remember(mainLyric) {
-                                        TweenSpec(
-                                            durationMillis = 350,
-                                            easing = yosEasing,
-                                            delay = 80
-                                        )
-                                    }
+                            val wordStartTime = if (wordSyncedWords.isNotEmpty() && wordIndex < wordSyncedWords.size) {
+                                wordSyncedWords[wordIndex].first
+                            } else lastTime
+                            val wordEndTime = if (wordSyncedWords.isNotEmpty() && wordIndex < wordSyncedWords.size) {
+                                wordSyncedWords[wordIndex].second
+                            } else word.first
 
-                                YosWrapper {
-                                    val thisAlphaAnimated = animateFloatAsState(
-                                        targetValue = if (isCurrentLambda()) /*0.78f*/ 1f else 0.14f,
-                                        animationSpec = if (isCurrentLambda()) alphaTweenSpecWithDelay else alphaTweenSpecWithoutDelay
-                                    )
+                            val avgTime = (wordEndTime - wordStartTime) / thisWord.length.coerceAtLeast(1)
 
-                                    val thisAlpha = remember(mainLyric) {
-                                        derivedStateOf {
-                                            if (isNotOneByOne.value) {
-                                                thisAlphaAnimated.value
-                                            } else {
-                                                1f
-                                            }
-                                        }
-                                    }
+                            val groupLastTime = if (wordIndex - 1 < 0) mainLyric.first().first else mainLyric[wordIndex - 1].first
+                            val groupPercent = if ((wordEndTime - groupLastTime) == 0f) 0f else
+                                ((liveTime.intValue - groupLastTime).coerceAtLeast(0f) / (wordEndTime - groupLastTime)).coerceIn(0f, 1f)
+                            val easedPercent = easing.transform(groupPercent.coerceIn(0f, 1f))
+                            val topLeftWeight = 4 * easedPercent
 
-                                    val otherSidePadding = remember(mainLyric) {
-                                        derivedStateOf {
-                                            if (otherSide) {
-                                                Modifier.padding(
-                                                    start = 20.dp,
-                                                    end = if (mainLyric.last().second.endsWith("：")) 3.dp else 20.dp
-                                                )
-                                            } else {
-                                                Modifier.padding(
-                                                    start = 20.dp,
-                                                    end = 20.dp
-                                                )
-                                            }
-                                        }
-                                    }
+                            thisWord.forEach { char ->
+                                val charWord = char.toString()
+                                val layout = measurer.measure(
+                                    text = charWord,
+                                    style = charStyle,
+                                    constraints = measureResult.layoutInput.constraints
+                                )
 
-                                    // ===== V2 AnimatedWordV2 上浮动画（真实 TweenSpec：进入 50ms / 衰减 350ms，FastOutSlowInEasing）=====
-                                    // 每个条目携带词的“结束时间”；词开始时间 = 前一条目结束时间（连续边界），与 V2 的 word.startTime/endTime 语义一致
-                                    val wordStates = remember(mainLyric) {
-                                        buildList {
-                                            var lastTime = mainLyric.firstOrNull()?.first ?: 0f
-                                            mainLyric.forEach { w ->
-                                                if (w.second.isEmpty()) {
-                                                    return@forEach
-                                                }
-                                                val end = w.first
-                                                if (w.second.trimEnd().isEmpty()) {
-                                                    lastTime = end
-                                                    return@forEach
-                                                }
-                                                add(lastTime to end)
-                                                lastTime = end
-                                            }
-                                        }
-                                    }
-                                    val wordFloats = wordStates.map { (start, end) ->
-                                        val now = liveTime.intValue.toFloat()
-                                        val isActive = now >= start && now < end
-                                        val progress = when {
-                                            now >= end -> 1f
-                                            now <= start -> 0f
-                                            else -> ((now - start) / (end - start).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                                        }
-                                        val sinProgress = sin(progress * PI).toFloat()
-                                        animateFloatAsState(
-                                            targetValue = if (isActive) -2f * sinProgress else 0f,
-                                            animationSpec = tween(
-                                                durationMillis = if (isActive) 50 else 350,
-                                                easing = FastOutSlowInEasing
-                                            ),
-                                            label = "v2FloatOffset"
-                                        ).value
-                                    }
-
-                                    // ===== V2 LyricsLineLrcBounce 移植（行同步歌词：激活时逐词级联弹跳）=====
-                                    // 每个词两个 Animatable（scale/float），由真实 spring 驱动（与源实现相同的 spec）
-                                    val bounceUnits = remember(mainLyric) {
-                                        mainLyric.joinToString("") { it.second }.toLyricsWrappingUnits()
-                                    }
-                                    val bounceScales = remember(mainLyric) { List(bounceUnits.size) { Animatable(1f) } }
-                                    val bounceFloats = remember(mainLyric) { List(bounceUnits.size) { Animatable(0f) } }
-                                    LaunchedEffect(isCurrentLambda()) {
-                                        if (!isCurrentLambda() || !isNotOneByOne.value || bounceUnits.isEmpty()) return@LaunchedEffect
-                                        bounceUnits.indices.forEach { i ->
-                                            launch {
-                                                delay(i * 40L)
-                                                try {
-                                                    bounceScales[i].animateTo(
-                                                        targetValue = 1f + 0.02f,
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                            stiffness = Spring.StiffnessHigh
-                                                        )
-                                                    )
-                                                    bounceScales[i].animateTo(
-                                                        targetValue = 1f,
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioLowBouncy,
-                                                            stiffness = Spring.StiffnessMediumLow
-                                                        )
-                                                    )
-                                                } finally {
-                                                    withContext(NonCancellable) { bounceScales[i].snapTo(1f) }
-                                                }
-                                            }
-                                            launch {
-                                                delay(i * 40L)
-                                                try {
-                                                    bounceFloats[i].animateTo(
-                                                        targetValue = -2f,
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                            stiffness = Spring.StiffnessHigh
-                                                        )
-                                                    )
-                                                    bounceFloats[i].animateTo(
-                                                        targetValue = 0f,
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioLowBouncy,
-                                                            stiffness = Spring.StiffnessMediumLow
-                                                        )
-                                                    )
-                                                } finally {
-                                                    withContext(NonCancellable) { bounceFloats[i].snapTo(0f) }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // 行级 RTL 检测（V2 isRtlText），用于逐字扫描方向翻转
-                                    val lineText = remember(mainLyric) { mainLyric.joinToString("") { it.second } }
-                                    val lineIsRtl = remember(lineText) { isRtlText(lineText) }
-
-                                    Line(
-                                        lines = mainLyric,
-                                        style = if (otherSide) mainStyle.copy(textAlign = TextAlign.End) else mainStyle,
-                                        measurer = measurer,
-                                        isRtl = lineIsRtl,
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                this.alpha = thisAlpha.value
-                                                compositingStrategy =
-                                                    CompositingStrategy.ModulateAlpha
-                                            }
-                                            .padding(vertical = 4.dp)
-                                            .then(otherSidePadding.value)
-                                            .clickable(
-                                                indication = null,
-                                                interactionSource = remember { MutableInteractionSource() }
-                                            ) {
-                                                onClick()
-                                            },
-                                        viewAlign = viewAlign
-                                    ) { parentConstraints, measureResult ->
-
-
-                                        if (isNotOneByOne.value) {
-                                            // 当不是逐字时
-                                            if (SettingsLibrary.LyricSmartWbw && isCurrentLambda()) {
-                                                val lineStart = mainLyric.firstOrNull()?.first ?: 0f
-                                                val lineDuration = (nextTime() - lineStart).coerceAtLeast(1f)
-                                                val rawProgress = ((liveTime.intValue - lineStart - 1000f) / 2000f).coerceIn(0f, 1f)
-                                                // Cubic ease: t²(3-2t)
-                                                val progress = rawProgress * rawProgress * (3f - 2f * rawProgress)
-                                                val edge = 0.06f
-                                                val lead = 0.75f
-                                                val trail = 1.06f
-                                                return@Line onDrawWithContent {
-                                                    drawText(
-                                                        textLayoutResult = measureResult,
-                                                        brush = Brush.horizontalGradient(
-                                                            0f to focusedColor,
-                                                            (progress * lead - edge).coerceIn(0f, 1f) to focusedColor,
-                                                            (progress * lead + edge).coerceIn(0f, 1f) to unfocusedColor,
-                                                            (progress * trail).coerceIn(0f, 1f) to unfocusedColor,
-                                                            1f to unfocusedColor
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                            // LRC 弹跳（V2 LyricsLineLrcBounce 移植）：当前行激活时逐词级联 spring（真实 TweenSpec/Spring spec，非近似）
-                                            // 词按整行 TextLayoutResult 的首尾包围盒绘制，行测量/换行/锚定不变
-                                            val lrcBouncing = isCurrentLambda() &&
-                                                (bounceScales.any { it.value != 1f } || bounceFloats.any { it.value != 0f })
-                                            if (lrcBouncing) {
-                                                val bounceStyle = if (otherSide) mainStyle.copy(textAlign = TextAlign.End) else mainStyle
-                                                return@Line onDrawBehind {
-                                                    var charOffset = 0
-                                                    bounceUnits.forEachIndexed { unitIndex, unit ->
-                                                        val scale = bounceScales[unitIndex].value
-                                                        val float = bounceFloats[unitIndex].value
-                                                        val box = runCatching {
-                                                            val maxIdx = (mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
-                                                            val firstBox = measureResult.getBoundingBox(charOffset.coerceAtMost(maxIdx))
-                                                            val lastBox = measureResult.getBoundingBox(
-                                                                (charOffset + unit.length - 1).coerceAtMost(maxIdx)
-                                                            )
-                                                            Rect(
-                                                                left = minOf(firstBox.left, lastBox.left),
-                                                                top = minOf(firstBox.top, lastBox.top),
-                                                                right = maxOf(firstBox.right, lastBox.right),
-                                                                bottom = maxOf(firstBox.bottom, lastBox.bottom)
-                                                            )
-                                                        }.getOrNull()
-                                                        charOffset += unit.length
-                                                        if (box == null) return@forEachIndexed
-                                                        val layout = measurer.measure(
-                                                            text = unit,
-                                                            style = bounceStyle,
-                                                            constraints = measureResult.layoutInput.constraints
-                                                        )
-                                                        withTransform({
-                                                            translate(left = box.center.x, top = box.center.y + float)
-                                                            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
-                                                            translate(left = -box.center.x, top = -box.center.y)
-                                                        }) {
-                                                            drawText(
-                                                                textLayoutResult = layout,
-                                                                topLeft = box.topLeft,
-                                                                color = focusedColor
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            // 仅当前行高亮；非当前行一律基准（暗）渲染，保证填充只存在于当前行
-                                            if (isCurrentLambda()) {
-                                                return@Line onDrawWithContent {
-                                                    drawText(
-                                                        textLayoutResult = measureResult,
-                                                        color = focusedColor
-                                                    )
-                                                }
-                                            }
-                                            return@Line onDrawWithContent {
-                                                drawText(
-                                                    textLayoutResult = measureResult,
-                                                    color = unfocusedColor
-                                                )
-                                            }
-                                        }
-
-                                        if (!isCurrentLambda()) {
-                                            // 是逐字 但不是当前行 —— 一律基准（暗）渲染，无填充/无发光/无残留
-                                            return@Line onDrawWithContent {
-                                                drawText(
-                                                    textLayoutResult = measureResult,
-                                                    color = unfocusedColor
-                                                )
-                                            }
-                                        }
-
-                                        // 以下为逐字处理（V2 AnimatedWordV2 移植：C:/CArchiveTune LyricsV2.kt）
-                                        // 词起止 = 连续边界（前一条目结束时间 → 本条结束时间），与 V2 的 word.startTime/endTime 语义一致
-                                        // 缩放/发光/液体扫描 与源实现逐项一致；上浮偏移由真实 TweenSpec（50ms/350ms，FastOutSlowInEasing）驱动
-                                        // RTL 检测（V2 isRtlText）：扫描方向按行文本翻转
-                                        val isRtl = lineIsRtl
-
-                                        var sum = 0
-                                        var lastTime = mainLyric.firstOrNull()?.first ?: 0f
-
-                                        val wordsToDraw = arrayListOf<DrawWord>()
-
-                                        mainLyric.fastForEachIndexed { _, word ->
-                                            val thisWord = word.second
-                                            if (thisWord.isEmpty()) {
-                                                return@fastForEachIndexed
-                                            }
-
-                                            // 词起止 = 连续边界（前一条目结束时间 → 本条结束时间）
-                                            val wordStartMs = lastTime
-                                            val wordEndMs = word.first
-                                            lastTime = wordEndMs
-
-                                            // 背景和声词（TTML isBackground）：条目文本带不可见标记前缀，渲染更小更暗（V2 第二行效果）
-                                            val isBackground = thisWord.startsWith(BACKGROUND_WORD_MARKER)
-                                            val visibleText = (if (isBackground) thisWord.removePrefix(BACKGROUND_WORD_MARKER) else thisWord).trimEnd()
-                                            val visibleLen = visibleText.length
-
-                                            if (visibleLen == 0) {
-                                                sum += thisWord.length
-                                                return@fastForEachIndexed
-                                            }
-
-                                            // 标记字符不占宽度；词框从可见首字符开始
-                                            val startIdx = sum + if (isBackground) 1 else 0
-                                            val endIdx = startIdx + visibleLen
-                                            sum += thisWord.length
-
-                                            // 词框 = 整行 TextLayoutResult 中该词首尾字符包围盒（行测量/换行不变）
-                                            val box = runCatching {
-                                                val maxIdx = (mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
-                                                val firstBox = measureResult.getBoundingBox(startIdx.coerceAtMost(maxIdx))
-                                                val lastBox = measureResult.getBoundingBox((endIdx - 1).coerceAtMost(maxIdx))
-                                                Rect(
-                                                    left = minOf(firstBox.left, lastBox.left),
-                                                    top = minOf(firstBox.top, lastBox.top),
-                                                    right = maxOf(firstBox.right, lastBox.right),
-                                                    bottom = maxOf(firstBox.bottom, lastBox.bottom)
-                                                )
-                                            }.getOrNull() ?: return@fastForEachIndexed
-
-                                            val layout = measurer.measure(
-                                                text = visibleText,
-                                                style = if (otherSide) mainStyle.copy(
-                                                    textAlign = TextAlign.End
-                                                ) else mainStyle,
-                                                constraints = measureResult.layoutInput.constraints
-                                            )
-
-                                            wordsToDraw += DrawWord(
-                                                layout = layout,
-                                                topLeft = box.topLeft,
-                                                box = box,
-                                                startMs = wordStartMs,
-                                                endMs = wordEndMs,
-                                                floatOffset = wordFloats.getOrNull(wordsToDraw.size) ?: 0f,
-                                                isBackground = isBackground
-                                            )
-                                        }
-
-                                        onDrawBehind {
-                                            val now = liveTime.intValue.toFloat()
-
-                                            // 词数守卫：避免极端数据下崩溃
-                                            if (wordsToDraw.isEmpty()) {
-                                                drawText(
-                                                    textLayoutResult = measureResult,
-                                                    color = focusedColor.copy(alpha = v2InactiveAlpha)
-                                                )
-                                                return@onDrawBehind
-                                            }
-
-                                            // ── 逐词状态：每个词实例独立从自己的 [startMs, endMs) 推导（CArchiveTune AnimatedWordV2 原式）──
-                                            // 进度/填充/发光全部是当前播放时间的直接函数 → 跳转/暂停立即追上，绝无旧动画残留
-                                            val glowPad = 10.dp.toPx()
-                                            val densityValue = density
-
-                                            // Pass 1 —— 底字（所有词，含活动词，永不失可见性）
-                                            wordsToDraw.fastForEach { l ->
-                                                val p = wordProgress(now, l.startMs, l.endMs)
-                                                val s = sin(p * PI).toFloat()
-                                                val region = Rect(
-                                                    l.box.left - glowPad,
-                                                    l.box.top - glowPad,
-                                                    l.box.right + glowPad,
-                                                    l.box.bottom + glowPad
-                                                )
-                                                val wordScale = 1f + 0.008f * s // 微缩：幅度 0.008（峰值 +0.8%）
-                                                val bgScale = if (l.isBackground) 0.65f else 1f
-                                                withTransform({
-                                                    translate(left = region.center.x, top = region.center.y + l.floatOffset * densityValue)
-                                                    scale(scaleX = wordScale * bgScale, scaleY = wordScale * bgScale, pivot = Offset.Zero)
-                                                    translate(left = -region.center.x, top = -region.center.y)
-                                                }) {
-                                                    drawText(
-                                                        textLayoutResult = l.layout,
-                                                        topLeft = l.topLeft,
-                                                        color = focusedColor.copy(
-                                                            alpha = if (l.isBackground) v2InactiveAlpha * 0.7f * 0.85f else v2InactiveAlpha
-                                                        )
-                                                    )
-                                                }
-                                            }
-
-                                            // Pass 2 —— 逐词填充叠加（V2 原式：每词独立液体扫描）+ 活动词发光
-                                            // 每个词的扫描边界/发光/进度都只由它自己的 [startMs, endMs) 推导：短词快、长词慢，绝不使用行级共享进度
-                                            wordsToDraw.fastForEach { l ->
-                                                val isComplete = now >= l.endMs
-                                                val isActive = !isComplete && now >= l.startMs
-                                                val p = wordProgress(now, l.startMs, l.endMs)
-                                                if (!isComplete && !isActive) return@fastForEach // 未开始：仅底字
-                                                val s = sin(p * PI).toFloat()
-                                                val region = Rect(
-                                                    l.box.left - glowPad,
-                                                    l.box.top - glowPad,
-                                                    l.box.right + glowPad,
-                                                    l.box.bottom + glowPad
-                                                )
-                                                val wordScale = 1f + 0.008f * s
-                                                val bgScale = if (l.isBackground) 0.65f else 1f
-
-                                                // 发光：仅唯一活动词（now 落在哪个 [startMs, endMs) 即为哪个词）且满足时长门槛；词一结束即刻消失
-                                                val durationMs = (l.endMs - l.startMs).coerceAtLeast(0f)
-                                                val glowQualifies = isActive && durationMs >= v2GlowMinWordDurationMs
-                                                val glowProgress = (p * 2f).coerceAtMost(1f)
-                                                val glowAlpha = if (glowQualifies) glowProgress * 0.45f else 0f
-                                                val glowRadius = if (glowQualifies) glowProgress * 12f else 0f
-
-                                                withTransform({
-                                                    translate(left = region.center.x, top = region.center.y + l.floatOffset * densityValue)
-                                                    scale(scaleX = wordScale * bgScale, scaleY = wordScale * bgScale, pivot = Offset.Zero)
-                                                    translate(left = -region.center.x, top = -region.center.y)
-                                                }) {
-                                                    drawIntoCanvas { canvas -> canvas.saveLayer(region, Paint()) }
-                                                    drawText(
-                                                        textLayoutResult = l.layout,
-                                                        topLeft = l.topLeft,
-                                                        color = focusedColor.copy(
-                                                            alpha = if (l.isBackground) 0.75f * 0.85f else 1f
-                                                        ),
-                                                        shadow = if (glowAlpha > 0f) {
-                                                            Shadow(
-                                                                color = focusedColor.copy(alpha = glowAlpha),
-                                                                offset = Offset.Zero,
-                                                                blurRadius = glowRadius.coerceAtLeast(1f)
-                                                            )
-                                                        } else {
-                                                            null
-                                                        }
-                                                    )
-
-                                                    // 液体扫描遮罩（DstIn，V2 原式：8dp 过渡宽度，边界 = (区域宽+2*edge)*p - edge）
-                                                    // 进度直接来自本词时间戳 → 短词扫得快、长词扫得慢，跳转立即追上
-                                                    if (isActive && !isComplete) {
-                                                        val edgeWidth = 8.dp.toPx()
-                                                        val fullWidth = region.width + edgeWidth * 2f
-                                                        val center = if (isRtl) {
-                                                            region.width - (fullWidth * p - edgeWidth)
-                                                        } else {
-                                                            fullWidth * p - edgeWidth
-                                                        }
-                                                        drawRect(
-                                                            brush = Brush.horizontalGradient(
-                                                                colors = if (isRtl) {
-                                                                    listOf(Color.Transparent, Color.Black)
-                                                                } else {
-                                                                    listOf(Color.Black, Color.Transparent)
-                                                                },
-                                                                startX = center - edgeWidth,
-                                                                endX = center + edgeWidth
-                                                            ),
-                                                            topLeft = region.topLeft,
-                                                            size = region.size,
-                                                            blendMode = BlendMode.DstIn
-                                                        )
-                                                    }
-                                                    drawIntoCanvas { canvas -> canvas.restore() }
-                                                }
-                                            }
-                                        }
-                                    }
+                                val currentPercent = if (wordSyncedWords.isNotEmpty() && wordIndex < wordSyncedWords.size) {
+                                    val wordDur = (wordEndTime - wordStartTime).coerceAtLeast(1f)
+                                    ((liveTime.intValue - wordStartTime).coerceIn(0f, wordDur) / wordDur)
+                                } else {
+                                    ((liveTime.intValue - lastTime) / avgTime)
                                 }
-                                YosWrapper {
-                                    AnimatedVisibility(showTranslation && translation != null) {
-                                        translation?.let {
-                                            val translationAlpha = animateFloatAsState(
-                                                targetValue = if (isCurrentLambda()) 0.5f else 0.14f,
-                                                animationSpec = if (isCurrentLambda()) alphaTweenSpecWithDelay else alphaTweenSpecWithoutDelay
-                                            )
 
-                                            val translationOtherSidePadding = if (otherSide) {
-                                                Modifier.padding(
-                                                    start = 20.dp,
-                                                    end = 20.dp
-                                                )
-                                            } else {
-                                                Modifier.padding(
-                                                    start = 20.dp,
-                                                    end = 20.dp
-                                                )
-                                            }
-
-                                            Text(
-                                                text = it,
-                                                fontSize = subTextSize.sp,
-                                                color = subTextBasicColor,
-                                                fontWeight = FontWeight.Normal,
-                                                modifier = Modifier
-                                                    .graphicsLayer {
-                                                        this.alpha =
-                                                            translationAlpha.value
-                                                        compositingStrategy =
-                                                            CompositingStrategy.ModulateAlpha
-                                                    }
-                                                    .then(translationOtherSidePadding)
-                                                    .padding(top = 5.dp),
-                                                lineHeight = (subTextSize + 5).sp,
-                                                letterSpacing = 0.3.sp,
-                                                textAlign = textAlign
-                                            )
-                                        }
-                                    }
+                                wordsToDraw += DrawWord(
+                                    time = lastTime + avgTime,
+                                    word = charWord,
+                                    layout = layout,
+                                    topLeft = measureResult.getBoundingBox(
+                                        sum.coerceAtMost(mainLyric.sumOf { it.second.length } - 1).coerceAtLeast(0)
+                                    ).topLeft.minus(Offset(0f, topLeftWeight)),
+                                    brush = { _, percent ->
+                                        if (thisWord == " ") return@DrawWord unfocusedSolidBrush
+                                        val alpha = (0.15f + 0.85f * percent.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+                                        SolidColor(focusedColor.copy(alpha = alpha))
+                                    },
+                                    percent = { if (thisWord == " ") 0f else currentPercent }
+                                ).also {
+                                    sum += charWord.length
+                                    lastTime += avgTime
                                 }
                             }
+                        }
+
+                        onDrawBehind {
+                            wordsToDraw.fastForEach { drawWord ->
+                                drawText(
+                                    textLayoutResult = drawWord.layout,
+                                    topLeft = drawWord.topLeft,
+                                    brush = drawWord.brush(0.3f, drawWord.percent())
+                                )
+                            }
+                        }
+                    }
+
+                    // ---- Translation ----
+                    AnimatedVisibility(showTranslation && translation != null) {
+                        translation?.let {
+                            val translationAlpha = animateFloatAsState(
+                                targetValue = if (isCurrentLambda()) 0.5f else 0.14f,
+                                animationSpec = if (isCurrentLambda()) alphaTweenWithDelay else alphaTweenWithoutDelay
+                            )
+                            Text(
+                                text = it,
+                                fontSize = subTextSize.sp,
+                                color = subTextBasicColor,
+                                fontWeight = FontWeight.Normal,
+                                modifier = Modifier
+                                    .graphicsLayer {
+                                        alpha = translationAlpha.value
+                                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                                    }
+                                    .padding(start = 20.dp, end = 20.dp, top = 5.dp),
+                                lineHeight = (subTextSize + 5).sp,
+                                letterSpacing = 0.3.sp,
+                                textAlign = textAlign
+                            )
                         }
                     }
                 }
@@ -1753,99 +773,63 @@ fun LazyItemScope.LyricItem(
     }
 }
 
+// ---- LyricCard wrapper ----
 @Composable
 private fun LyricCard(
     scale: () -> Float,
     cardPadding: Modifier,
     otherSideTransformOrigin: TransformOrigin,
     viewAlign: Alignment.Horizontal,
-    //otherSideThisLine: () -> Boolean,
-    //onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) =
-    YosWrapper {
-        Column(
-            modifier = Modifier
-                .graphicsLayer {
-                    //compositingStrategy = CompositingStrategy.ModulateAlpha
-                    val scaleValue = scale()
-                    scaleX = scaleValue
-                    scaleY = scaleValue
-                    transformOrigin = otherSideTransformOrigin
-                }
-                .fillMaxWidth()
-                .then(cardPadding)
-                .padding(top = 9.dp, bottom = 9.dp),
-            horizontalAlignment = viewAlign
-        ) {
-            content()
-        }
-    }
-
-@Composable
-fun CountdownAnimation(progress: () -> Float, colorLambda: () -> Color) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val scale = infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = yosEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Box(
-        modifier = Modifier.graphicsLayer {
-            //compositingStrategy = CompositingStrategy.Offscreen
-            scaleX = scale.value
-            scaleY = scale.value
-            alpha = 0.8f
-        },
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 5.dp)
-        ) {
-            for (i in 1..3) {
-                /*val alpha = animateFloatAsState(
-                    targetValue = if (progress() >= i / 4f) min(
-                        1f,
-                        (progress() - (i - 1) / 4f) * 4
-                    ) else 0f,
-                    animationSpec = tween(
-                        if (progress() > 0) (progress() * 1200).toInt() else 1200,
-                        easing = LinearEasing
-                    )
-                )*/
-
-                val average = 1f / 3f
-                val beforePadding = (i-1) * average
-                val thisPercent = (progress() - beforePadding)  / ((i * average) - beforePadding)
-                val alpha = 0.2f + (0.8f * thisPercent).coerceIn(0f, 0.8f)
-
-                Box(
-                    modifier = Modifier
-                        .size(11.dp)
-                        .background(
-                            colorLambda().copy(alpha = alpha),
-                            shape = CircleShape
-                        )
-                )
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .graphicsLayer {
+                val s = scale()
+                scaleX = s
+                scaleY = s
+                transformOrigin = otherSideTransformOrigin
             }
+            .fillMaxWidth()
+            .then(cardPadding)
+            .padding(top = 9.dp, bottom = 9.dp),
+        horizontalAlignment = viewAlign
+    ) {
+        content()
+    }
+}
+
+// ---- Gap dots: 3 dots, sequential opacity fill ----
+@Composable
+fun GapDotsAnim(progress: () -> Float, colorLambda: () -> Color) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 5.dp)
+    ) {
+        for (i in 0 until 3) {
+            val segmentStart = i / 3f
+            val segmentEnd = (i + 1) / 3f
+            val raw = (progress() - segmentStart) / (segmentEnd - segmentStart)
+            val dotAlpha = (0.2f + 0.8f * raw.coerceIn(0f, 1f)).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .size(11.dp)
+                    .background(colorLambda().copy(alpha = dotAlpha), shape = CircleShape)
+            )
         }
     }
 }
 
-
+// ---- Main text style ----
 @Composable
 fun mainTextStyle(): TextStyle {
-    val fontSize = SettingsLibrary.LyricFontSize
+    val fontWeight = SettingsLibrary.LyricFontWeight
+    val lineBalance = SettingsLibrary.LyricLineBalance
     return TextStyle(
-        fontSize = fontSize.sp,
-        lineHeight = (fontSize + 10).sp,
-        fontWeight =
-        when (SettingsLibrary.LyricFontWeight) {
+        fontFamily = SfProFontFamily,
+        fontSize = 30.5.sp,
+        lineHeight = 40.5.sp,
+        fontWeight = when (fontWeight) {
             "Thin" -> FontWeight.Thin
             "ExtraLight" -> FontWeight.ExtraLight
             "Light" -> FontWeight.Light
@@ -1855,7 +839,7 @@ fun mainTextStyle(): TextStyle {
             "Bold" -> FontWeight.Bold
             "ExtraBold" -> FontWeight.ExtraBold
             "Black" -> FontWeight.Black
-            else -> FontWeight.ExtraBold
+            else -> FontWeight.Bold
         },
         letterSpacing = 0.05.sp,
         lineHeightStyle = LineHeightStyle(
@@ -1863,52 +847,20 @@ fun mainTextStyle(): TextStyle {
             trim = LineHeightStyle.Trim.None
         ),
         lineBreak = LineBreak(
-            strategy = if (SettingsLibrary.LyricLineBalance) LineBreak.Strategy.Balanced else LineBreak.Strategy.Simple,
-            LineBreak.Strictness.Default,
-            LineBreak.WordBreak.Default
+            strategy = if (lineBalance) LineBreak.Strategy.Balanced else LineBreak.Strategy.Simple,
+            strictness = LineBreak.Strictness.Default,
+            wordBreak = LineBreak.WordBreak.Default
         )
     )
 }
 
-/*val BackgroundTextStyle = TextStyle(
-    fontSize = 34.sp,
-    lineHeight = 42.sp,
-    fontWeight = FontWeight.Bold
-).copy(
-    lineHeightStyle = LineHeightStyle(
-        alignment = LineHeightStyle.Alignment.Center,
-        trim = LineHeightStyle.Trim.None
-    )
-)*/
-
+// ---- Data class for drawing words ----
 @Stable
 private data class DrawWord(
+    val time: Float,
+    val word: String,
     val layout: TextLayoutResult,
     val topLeft: Offset,
-    val box: Rect,
-    val startMs: Float,
-    val endMs: Float,
-    val floatOffset: Float,
-    val isBackground: Boolean
+    val brush: (px: Float, percent: Float) -> Brush,
+    val percent: () -> Float
 )
-
-/*
-fun processWords(input: String): List<String> {
-    val result = mutableListOf<String>()
-    var word = ""
-    for (char in input) {
-        if (char == ' ') {
-            if (word.isNotEmpty()) {
-                result.add(word)
-                word = ""
-            }
-            result.add(" ")
-        } else {
-            word += char
-        }
-    }
-    if (word.isNotEmpty()) {
-        result.add(word)
-    }
-    return result
-}*/
