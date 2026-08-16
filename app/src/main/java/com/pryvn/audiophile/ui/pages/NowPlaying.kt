@@ -93,6 +93,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -939,23 +940,17 @@ Lyric ->
                                              onMinimizeNowPlaying = onMinimizeNowPlaying,
                                              isLyricsView = true,
                                              onRefetchLyrics = {
-                                                scope.launch(Dispatchers.IO) {
+                                                // Detached scope: the sheet/page scope may be disposed
+                                                // on dismiss, which would cancel the fetch before it starts.
+                                                CoroutineScope(Dispatchers.IO).launch {
                                                     val track = thisMusicPlaying.value ?: return@launch
-                                                    MediaViewModelObject.isLoadingLyrics.value = true
-                                                    LyricsProcessor.resetLyricsState()
-                                                    MediaViewModelObject.lrcEntries.value = emptyList()
-                                                    MediaViewModelObject.otherSideForLines.clear()
-                                                    val lyrics = ArchiveTuneApis.fetchLyrics(
+                                                    LyricsProcessor.refetchLyrics(
                                                         title = track.title,
                                                         artist = track.artists,
                                                         album = track.album,
                                                         durationMs = track.duration,
                                                         videoId = track.mediaId,
                                                     )
-                                                    if (lyrics != null && lyrics.text.isNotBlank()) {
-                                                        LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
-                                                    }
-                                                    MediaViewModelObject.isLoadingLyrics.value = false
                                                 }
                                             },
                                             onAlbumClick = { nowPageOnChanged(Album) },
@@ -2548,23 +2543,18 @@ fun NowPlayingOverflowSheet(
                     },
                     onRefetchLyrics = {
                         onDismiss()
-                        scope.launch(Dispatchers.IO) {
+                        // Detached scope: the sheet's rememberCoroutineScope is cancelled
+                        // when the sheet leaves composition after onDismiss(), which could
+                        // cancel the fetch before it starts.
+                        CoroutineScope(Dispatchers.IO).launch {
                             val track = song ?: return@launch
-                            MediaViewModelObject.isLoadingLyrics.value = true
-                            LyricsProcessor.resetLyricsState()
-                            MediaViewModelObject.lrcEntries.value = emptyList()
-                            MediaViewModelObject.otherSideForLines.clear()
-                            val lyrics = ArchiveTuneApis.fetchLyrics(
+                            LyricsProcessor.refetchLyrics(
                                 title = track.title,
                                 artist = track.artists,
                                 album = track.album,
                                 durationMs = track.duration,
                                 videoId = track.mediaId,
                             )
-                            if (lyrics != null && lyrics.text.isNotBlank()) {
-                                LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
-                            }
-                            MediaViewModelObject.isLoadingLyrics.value = false
                         }
                     },
                 )
@@ -2626,30 +2616,6 @@ fun OverflowMenuBody(
 
     val sleepTimerActive = SleepTimer.state.value is SleepTimerState.Active
     val accent = MaterialTheme.colorScheme.primary
-
-    val scope = rememberCoroutineScope()
-
-    val onRefetchLyrics: () -> Unit = {
-        onDismiss()
-        scope.launch(Dispatchers.IO) {
-            val track = song ?: return@launch
-            MediaViewModelObject.isLoadingLyrics.value = true
-            LyricsProcessor.resetLyricsState()
-            MediaViewModelObject.lrcEntries.value = emptyList()
-            MediaViewModelObject.otherSideForLines.clear()
-            val lyrics = ArchiveTuneApis.fetchLyrics(
-                title = track.title,
-                artist = track.artists,
-                album = track.album,
-                durationMs = track.duration,
-                videoId = track.mediaId,
-            )
-            if (lyrics != null && lyrics.text.isNotBlank()) {
-                LyricsProcessor.applyLyrics(lyrics, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
-            }
-            MediaViewModelObject.isLoadingLyrics.value = false
-        }
-    }
 
     val items = remember(
         addToPlaylistLabel, sleepTimerLabel, refetchLyricsLabel, shareLyricsLabel,
@@ -2741,6 +2707,7 @@ fun NowPlayingOverflowHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title.orEmpty(),
+                fontFamily = SfProFontFamily,
                 fontSize = 16.sp,
                 fontWeight = userFontWeight(),
                 maxLines = 1,
@@ -2764,8 +2731,9 @@ fun NowPlayingOverflowHeader(
                     text = artistAnnotatedText,
                     style = androidx.compose.ui.text.TextStyle(
                         color = Color.White.copy(alpha = 0.7f),
+                        fontFamily = SfProFontFamily,
                         fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontWeight = userFontWeight(),
                     ),
                     modifier = Modifier.padding(top = 3.dp),
                     maxLines = 1,
@@ -2798,7 +2766,9 @@ fun NowPlayingOverflowHeader(
             if (!song.album.isNullOrBlank()) {
                 Text(
                     text = song.album,
+                    fontFamily = SfProFontFamily,
                     fontSize = 12.5.sp,
+                    fontWeight = userFontWeight(),
                     modifier = Modifier
                         .padding(top = 2.dp)
                         .alpha(0.5f)

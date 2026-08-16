@@ -115,8 +115,22 @@ object TTMLParser {
                             }
                         }
                     } else if (child.nodeType == org.w3c.dom.Node.TEXT_NODE) {
-                        val text = child.textContent?.trim() ?: ""
-                        if (text.isNotBlank()) plainText = text
+                        val rawText = child.textContent ?: ""
+                        val text = rawText.trim()
+                        if (text.isNotBlank()) {
+                            plainText = text
+                        } else if (rawText.isNotEmpty() && !rawText.contains('\n')) {
+                            // Whitespace-only text node between spans marks a WORD boundary:
+                            // attach the space to the previous word so syllables within a
+                            // word stay glued together while real words get separated.
+                            if (words.isNotEmpty() && !words.last().text.endsWith(" ")) {
+                                val last = words.last()
+                                words[words.lastIndex] = last.copy(text = last.text + " ")
+                            }
+                            if (plainText.isNotBlank() && !plainText.endsWith(" ")) {
+                                plainText += " "
+                            }
+                        }
                     }
                 }
 
@@ -132,36 +146,13 @@ object TTMLParser {
                 }
 
                 if (!hasWordTiming && plainText.isNotBlank()) {
-                    val chars = mutableListOf<ParsedWord>()
-                    val charList = plainText.toList()
-                    val charDuration = (endTime - startTime) / charList.size.coerceAtLeast(1)
-                    charList.forEachIndexed { idx, c ->
-                        if (c != ' ') {
-                            chars.add(
-                                ParsedWord(
-                                    c.toString(),
-                                    startTime + idx * charDuration,
-                                    startTime + (idx + 1) * charDuration,
-                                    isBackground
-                                )
-                            )
-                        }
-                    }
-                    if (chars.isNotEmpty()) {
-                        lines.add(
-                            ParsedLine(
-                                plainText, startTime, endTime, chars, isBackground, agent,
-                                key, transliterationByKey[key], subtitleByKey[key]
-                            )
+                    val words = syntheticWordsBySpace(plainText, startTime, endTime, isBackground)
+                    lines.add(
+                        ParsedLine(
+                            plainText, startTime, endTime, words, isBackground, agent,
+                            key, transliterationByKey[key], subtitleByKey[key]
                         )
-                    } else if (plainText.isNotBlank()) {
-                        lines.add(
-                            ParsedLine(
-                                plainText, startTime, endTime, emptyList(), isBackground, agent,
-                                key, transliterationByKey[key], subtitleByKey[key]
-                            )
-                        )
-                    }
+                    )
                 } else if (hasWordTiming) {
                     lines.add(
                         ParsedLine(
@@ -203,7 +194,17 @@ object TTMLParser {
             val words = mutableListOf<ParsedWord>()
             var hasWordTiming = false
 
+            var lastSpanEnd = 0
             for (span in spanRegex.findAll(content)) {
+                // Whitespace between this span and the previous one marks a word boundary.
+                val gap = content.substring(lastSpanEnd, span.range.first)
+                if (gap.isNotEmpty() && gap.all { it.isWhitespace() } &&
+                    words.isNotEmpty() && !words.last().text.endsWith(" ")
+                ) {
+                    val last = words.last()
+                    words[words.lastIndex] = last.copy(text = last.text + " ")
+                }
+                lastSpanEnd = span.range.last + 1
                 val wBegin = span.groupValues[1]
                 val wEnd = span.groupValues[2]
                 val wText = span.groupValues[3]
@@ -226,24 +227,65 @@ object TTMLParser {
             }
 
             if (!hasWordTiming) {
-                val chars = mutableListOf<ParsedWord>()
-                val charList = plainText.toList()
-                val charDuration = (endTime - startTime) / charList.size.coerceAtLeast(1)
-                charList.forEachIndexed { i, c ->
-                    if (c != ' ') {
-                        chars.add(ParsedWord(c.toString(), startTime + i * charDuration, startTime + (i + 1) * charDuration, isBackground))
-                    }
-                }
-                if (chars.isNotEmpty()) {
-                    lines.add(ParsedLine(plainText, startTime, endTime, chars, isBackground, agent))
-                } else if (plainText.isNotBlank()) {
-                    lines.add(ParsedLine(plainText, startTime, endTime, emptyList(), isBackground, agent))
+                if (plainText.isNotBlank()) {
+                    val words = syntheticWordsBySpace(plainText, startTime, endTime, isBackground)
+                    lines.add(ParsedLine(plainText, startTime, endTime, words, isBackground, agent))
                 }
             } else {
                 lines.add(ParsedLine(plainText, startTime, endTime, words, isBackground, agent))
             }
         }
         return lines.sortedBy { it.startTime }
+    }
+
+    /**
+     * Builds word-level segments from a plain line of text by splitting on
+     * whitespace and distributing the line's timing across the words. Without this,
+     * a line that carries no span timing would render as one animated segment per
+     * letter ("h e l l o") instead of proper words ("hello world").
+     */
+    private fun syntheticWordsBySpace(
+        text: String,
+        startTime: Double,
+        endTime: Double,
+        isBackground: Boolean,
+    ): List<ParsedWord> {
+        val charList = text.toList()
+        val totalChars = charList.size.coerceAtLeast(1)
+        val duration = (endTime - startTime) / totalChars
+        val result = mutableListOf<ParsedWord>()
+        var word = StringBuilder()
+        var wordStartChar = 0
+        charList.forEachIndexed { idx, c ->
+            if (c.isWhitespace()) {
+                if (word.isNotEmpty()) {
+                    result.add(
+                        ParsedWord(
+                            word.toString(),
+                            startTime + wordStartChar * duration,
+                            startTime + (wordStartChar + word.length) * duration,
+                            isBackground
+                        )
+                    )
+                    word = StringBuilder()
+                }
+                wordStartChar = idx + 1
+            } else {
+                if (word.isEmpty()) wordStartChar = idx
+                word.append(c)
+            }
+        }
+        if (word.isNotEmpty()) {
+            result.add(
+                ParsedWord(
+                    word.toString(),
+                    startTime + wordStartChar * duration,
+                    startTime + (wordStartChar + word.length) * duration,
+                    isBackground
+                )
+            )
+        }
+        return result
     }
 
     private fun Document.parseMetadataTextByKey(containerLocalName: String): Map<String, String> {
@@ -363,7 +405,9 @@ object TTMLParser {
                 var lastEnd = lineStart
                 var lastIndex = 0
                 for (wm in wordMatches) {
-                    val before = lyricText.substring(lastIndex, wm.range.first).trim()
+                    // trimStart only: keep the trailing space so adjacent words render
+                    // with their natural gap (the renderer does not insert spaces).
+                    val before = lyricText.substring(lastIndex, wm.range.first).trimStart()
                     if (before.isNotBlank()) {
                         val wordEnd = parseLrcTimeToSec(wm.groupValues[1])
                         words.add(ParsedWord(before, lastEnd, wordEnd))
@@ -385,7 +429,8 @@ object TTMLParser {
                     var cursor = 0
                     var lastEnd = lineStart
                     for (bracket in bracketMatches) {
-                        val fragment = rawLine.substring(cursor, bracket.range.first).trim()
+                        // trimStart only: keep the trailing space between words.
+                        val fragment = rawLine.substring(cursor, bracket.range.first).trimStart()
                         cursor = bracket.range.last + 1
                         if (fragment.isNotBlank()) {
                             val wordEnd = parseLrcTimeToSec(bracket.groupValues[1])

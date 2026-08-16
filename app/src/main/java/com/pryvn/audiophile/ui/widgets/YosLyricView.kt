@@ -71,6 +71,11 @@ private const val LRC_LEAD_MS = 300L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
+// Gap-dots AnimatedVisibility exit tween is 340ms; wait past it (plus the
+// 30ms settle delay and a small margin) before measuring the scroll target
+// so the collapsed dots row doesn't skew the target line's offset.
+private const val GAP_DOTS_COLLAPSE_WAIT_MS = 420L
+
 /**
  * YosLyricView main widget
  * @param lrcEntriesLambda Processed LRC text (each entry is List<Pair<Float, String>>)
@@ -115,22 +120,48 @@ fun YosLyricView(
             if (dominantBackground.luminance() < 0.4f) Color.White
             else Color.Black
 
-        LyricsV2(
-            player = MediaControlPlayerAdapter,
-            sliderPositionProvider = { null },
-            lyricsSyncOffset = 0,
-            modifier = modifier,
-            textColorOverride = lyricTextColor,
-            lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
-            pollingEnabled = pollingEnabled,
-            onBackgroundClick = onBackClick,
-        )
+        // During a lyric refetch, show the loading state so the action gives
+        // visible feedback even for word-synced songs.
+        if (MediaViewModelObject.isLoadingLyrics.value) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = modifier
+                    .fillMaxHeight(if (weightLambda()) 0.56f else 1f)
+                    .fillMaxWidth()
+                    .then(
+                        if (interactive) {
+                            Modifier.clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) { onBackClick() }
+                        } else {
+                            Modifier
+                        },
+                    )
+            ) {
+                LyricsSpinnerContent(color = lyricTextColor)
+            }
+        } else {
+            LyricsV2(
+                player = MediaControlPlayerAdapter,
+                sliderPositionProvider = { null },
+                lyricsSyncOffset = 0,
+                modifier = modifier,
+                textColorOverride = lyricTextColor,
+                lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
+                pollingEnabled = pollingEnabled,
+                onBackgroundClick = onBackClick,
+            )
+        }
         return
     }
 
     // ---- Empty / Loading state ----
-    if (lrcEntries.isEmpty() || otherSideForLines.isEmpty()) {
-        val isLoading = MediaViewModelObject.isLoadingLyrics.value
+    // isLoading is hoisted so the loading state also shows during "Refetch
+    // lyrics" (entries are still populated then — we keep them until a better
+    // result arrives, but the user should still see the fetching feedback).
+    val isLoading = MediaViewModelObject.isLoadingLyrics.value
+    if (isLoading || lrcEntries.isEmpty() || otherSideForLines.isEmpty()) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -148,19 +179,7 @@ fun YosLyricView(
                 )
         ) {
             if (isLoading) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    AppleLoadingSpinner(
-                        modifier = Modifier.size(56.dp)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = "Loading lyrics...",
-                        fontSize = 14.sp,
-                        fontFamily = SfProFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        color = mainTextBasicColor.copy(alpha = 0.5f)
-                    )
-                }
+                LyricsSpinnerContent(color = mainTextBasicColor)
             } else {
                 Text(
                     text = "Lyrics couldn't be loaded",
@@ -397,7 +416,19 @@ fun YosLyricView(
             } catch (_: Exception) { false }
             if (skip) return@LaunchedEffect
 
-            delay(30)
+            // When the line we are scrolling away from is a blank gap-dots line,
+            // its AnimatedVisibility exit (~340ms fade/scale collapse) is still
+            // running while this effect fires. Measuring targetItem.offset
+            // mid-collapse yields a stale value and the target line lands
+            // off-anchor (the reported "line jumps after the gap dots" bug).
+            // Wait for the collapse to finish before measuring, then re-verify
+            // the index hasn't advanced again.
+            val leavingGapDots = try {
+                targetIdx - 2 >= 0 &&
+                        lrcEntries[targetIdx - 2][1].second.isBlank()
+            } catch (_: Exception) { false }
+
+            delay(if (leavingGapDots) GAP_DOTS_COLLAPSE_WAIT_MS else 30)
 
             if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
 
@@ -946,6 +977,23 @@ fun mainTextStyle(): TextStyle {
             wordBreak = LineBreak.WordBreak.Default
         )
     )
+}
+
+@Composable
+private fun LyricsSpinnerContent(color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        AppleLoadingSpinner(
+            modifier = Modifier.size(56.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Loading lyrics...",
+            fontSize = 14.sp,
+            fontFamily = SfProFontFamily,
+            fontWeight = FontWeight.Medium,
+            color = color.copy(alpha = 0.5f)
+        )
+    }
 }
 
 // ---- Data class for drawing words ----

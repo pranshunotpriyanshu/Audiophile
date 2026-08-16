@@ -1,9 +1,14 @@
 package com.pryvn.audiophile.code.utils.lrc
 
+import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
+import com.pryvn.audiophile.code.lyrics.LyricsHelper
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * Converts word-synced lines into the lyric-view entry shape:
@@ -152,6 +157,69 @@ object LyricsProcessor {
                 subtitle = null,
             )
         }
+
+    /**
+     * Re-queries every lyric provider and applies the result ONLY when it scores
+     * strictly higher than the currently displayed lyrics (TTML > synced LRC >
+     * plain text). If the fresh fetch returns nothing or a lower-ranked result,
+     * the previously displayed lyrics are left completely untouched.
+     *
+     * @return true when the displayed lyrics were replaced with the fresh result.
+     */
+    suspend fun refetchLyrics(
+        title: String?,
+        artist: String?,
+        album: String?,
+        durationMs: Long,
+        videoId: String?,
+    ): Boolean = withContext(NonCancellable + Dispatchers.IO) {
+        // Show the "Loading lyrics…" state immediately so the action has
+        // visible feedback; the fetch itself may take up to ~15s.
+        MediaViewModelObject.isLoadingLyrics.value = true
+        try {
+            val currentText = MediaViewModelObject.onlineLyrics.value
+            val currentScore = currentText?.let {
+                LyricsHelper.scoreLyrics(
+                    AudiophileLyrics(
+                        provider = MediaViewModelObject.lyricsSource.value ?: "",
+                        text = it,
+                        isWordSynced = MediaViewModelObject.hasWordSyncedLyrics.value,
+                    )
+                )
+            } ?: 0
+
+            val fresh = try {
+                ArchiveTuneApis.fetchLyrics(
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    durationMs = durationMs,
+                    videoId = videoId,
+                )
+            } catch (_: Exception) {
+                null
+            }
+
+            if (fresh == null || fresh.text.isBlank() ||
+                LyricsHelper.scoreLyrics(fresh) <= currentScore
+            ) {
+                return@withContext false
+            }
+
+            val cacheKey = videoId ?: (title ?: "unknown")
+            MediaViewModelObject.lyricsCache[cacheKey] = fresh.text
+            if (MediaViewModelObject.lyricsCache.size > 20) {
+                val keys = MediaViewModelObject.lyricsCache.keys.toList()
+                for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
+                    MediaViewModelObject.lyricsCache.remove(keys[i])
+                }
+            }
+            applyLyrics(fresh, lrcEntriesSetter = { MediaViewModelObject.lrcEntries.value = it })
+            true
+        } finally {
+            MediaViewModelObject.isLoadingLyrics.value = false
+        }
+    }
 
     fun clearWordSync() {
         MediaViewModelObject.hasWordSyncedLyrics.value = false

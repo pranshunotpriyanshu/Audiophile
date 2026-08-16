@@ -131,6 +131,12 @@ object LyricsHelper {
     }
 
     /**
+     * Public scoring used by "Refetch lyrics" to decide whether a freshly fetched
+     * result is better than the currently displayed lyrics.
+     */
+    fun scoreLyrics(lyrics: AudiophileLyrics?): Int = score(lyrics)
+
+    /**
      * Scoring:
      * 100  — TTML / word-synced (either flagged by provider or detected)
      *  50  — line-synced LRC (has [mm:ss.xx] timestamps)

@@ -8,12 +8,16 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Density
 import androidx.core.view.WindowCompat
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 
 private val DarkColorScheme = darkColorScheme(
@@ -73,9 +77,21 @@ fun YosMusicTheme(
 
     val appTypography = buildTypography()
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = appTypography,
-        content = content
+    // Apply the app-wide font-size setting as a global density font scale so every
+    // .sp text — including components with hardcoded sizes — follows the setting
+    // instead of only the Material body styles.
+    val baseDensity = LocalDensity.current
+    val appFontScale = (SettingsLibrary.AppFontSize / 16f).coerceIn(0.75f, 2f)
+    val scaledDensity = Density(
+        density = baseDensity.density,
+        fontScale = baseDensity.fontScale * appFontScale
     )
+
+    CompositionLocalProvider(LocalDensity provides scaledDensity) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = appTypography,
+            content = content
+        )
+    }
 }

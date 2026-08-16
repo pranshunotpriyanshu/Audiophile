@@ -49,7 +49,6 @@ fun screenTitleFontWeight(): FontWeight = FontWeight.Bold
 
 fun buildTypography(
     fontFamily: FontFamily = SfProFontFamily,
-    fontSize: Float = SettingsLibrary.AppFontSize,
     fontWeight: FontWeight = fontWeightFromString(SettingsLibrary.AppFontWeight),
 ): Typography = Typography(
     displayLarge = TextStyle(fontFamily = fontFamily, fontSize = 57.sp, fontWeight = fontWeight, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
@@ -61,9 +60,9 @@ fun buildTypography(
     titleLarge = TextStyle(fontFamily = fontFamily, fontSize = 22.sp, fontWeight = fontWeight, lineHeight = 28.sp),
     titleMedium = TextStyle(fontFamily = fontFamily, fontSize = 16.sp, fontWeight = fontWeight, lineHeight = 24.sp, letterSpacing = 0.15.sp),
     titleSmall = TextStyle(fontFamily = fontFamily, fontSize = 14.sp, fontWeight = fontWeight, lineHeight = 20.sp, letterSpacing = 0.1.sp),
-    bodyLarge = TextStyle(fontFamily = fontFamily, fontSize = fontSize.sp, fontWeight = fontWeight, lineHeight = (fontSize * 1.3).sp, letterSpacing = 0.0618.sp),
-    bodyMedium = TextStyle(fontFamily = fontFamily, fontSize = (fontSize * 0.875).sp, fontWeight = fontWeight, lineHeight = (fontSize * 1.2).sp, letterSpacing = 0.25.sp),
-    bodySmall = TextStyle(fontFamily = fontFamily, fontSize = (fontSize * 0.75).sp, fontWeight = fontWeight, lineHeight = (fontSize * 1.1).sp, letterSpacing = 0.4.sp),
+    bodyLarge = TextStyle(fontFamily = fontFamily, fontSize = 16.sp, fontWeight = fontWeight, lineHeight = 20.8.sp, letterSpacing = 0.0618.sp),
+    bodyMedium = TextStyle(fontFamily = fontFamily, fontSize = 14.sp, fontWeight = fontWeight, lineHeight = 19.2.sp, letterSpacing = 0.25.sp),
+    bodySmall = TextStyle(fontFamily = fontFamily, fontSize = 12.sp, fontWeight = fontWeight, lineHeight = 17.6.sp, letterSpacing = 0.4.sp),
     labelLarge = TextStyle(fontFamily = fontFamily, fontSize = 14.sp, fontWeight = fontWeight, lineHeight = 20.sp, letterSpacing = 0.1.sp),
     labelMedium = TextStyle(fontFamily = fontFamily, fontSize = 12.sp, fontWeight = fontWeight, lineHeight = 16.sp, letterSpacing = 0.5.sp),
     labelSmall = TextStyle(fontFamily = fontFamily, fontSize = 11.sp, fontWeight = fontWeight, lineHeight = 16.sp, letterSpacing = 0.5.sp),

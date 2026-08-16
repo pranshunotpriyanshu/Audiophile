@@ -167,9 +167,11 @@ import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInte
 import com.pryvn.audiophile.ui.pages.settings.integration.ShazamRecognitionScreen
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.AnimatedAlbumCoversSetting
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.AnimatedAlbumCoverBlacklistSetting
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.YosMusicTheme
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.isAudiophileInDarkMode
+import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.basic.BottomNavigator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
@@ -1088,7 +1090,8 @@ class MainActivity : ComponentActivity() {
                                                                         Text(
                                                                             text = MediaController.musicPlaying.value?.title
                                                                                 ?: defaultTitle,
-                                                                            fontWeight = FontWeight.Medium,
+                                                                            fontFamily = SfProFontFamily,
+                                                                            fontWeight = userFontWeight(),
                                                                             fontSize = 16.sp,
                                                                             lineHeight = 16.sp,
                                                                             maxLines = 1,

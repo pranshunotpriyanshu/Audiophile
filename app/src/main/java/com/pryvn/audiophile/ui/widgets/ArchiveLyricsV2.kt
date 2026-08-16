@@ -878,7 +878,6 @@ private fun LyricsLineV2(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = arrangement,
         ) {
-            var prevWasNewline = false
             expandedMain.forEachIndexed { wordIndex, word ->
                 if (word.text == " ") {
                     Text(
@@ -890,28 +889,17 @@ private fun LyricsLineV2(
                             ),
                         color = Color.Transparent,
                     )
-                    prevWasNewline = false
                     return@forEachIndexed
                 }
                 if (word.text == "\n") {
                     Spacer(modifier = Modifier.fillMaxWidth())
-                    prevWasNewline = true
                     return@forEachIndexed
                 }
 
-                if (wordIndex > 0 && !prevWasNewline) {
-                    Text(
-                        text = " ",
-                        style =
-                            TextStyle(
-                                fontFamily = SfProFontFamily,
-                                fontSize = if (isLineAllBackground) (baseFontSize * 0.82f).sp else baseFontSize.sp,
-                            ),
-                        color = Color.Transparent,
-                    )
-                }
-                prevWasNewline = false
-
+                // No space is inserted between words here: word-boundary whitespace
+                // is baked into each word's text at parse time (TTML whitespace text
+                // nodes / enhanced-LRC trailing spaces), so syllables of one word stay
+                // glued together while real words keep their natural gap.
                 AnimatedWordV2(
                     word = word,
                     wordIndex = wordIndex,
