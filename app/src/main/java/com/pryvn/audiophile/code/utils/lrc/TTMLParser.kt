@@ -259,6 +259,12 @@ object TTMLParser {
         charList.forEachIndexed { idx, c ->
             if (c.isWhitespace()) {
                 if (word.isNotEmpty()) {
+                    // Bake the boundary whitespace into the word text: the renderer
+                    // never inserts spaces between words, so without this the words
+                    // would render glued together ("helloworld"). The trailing space
+                    // also extends the word's timing span to cover the gap, which
+                    // keeps the next word's start time exactly aligned.
+                    word.append(' ')
                     result.add(
                         ParsedWord(
                             word.toString(),

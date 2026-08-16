@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +32,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
+import com.pryvn.audiophile.code.cache.AudioCacheStore
+import com.pryvn.audiophile.code.lyrics.LyricsCacheStore
+import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.code.api.InnerTubeClient
@@ -48,6 +52,8 @@ import com.pryvn.audiophile.ui.widgets.basic.Title
 fun Settings(navController: NavController) =
     SettingBackground {
         val context = LocalContext.current
+        var showClearAudioConfirm by remember { mutableStateOf(false) }
+        var showClearLyricsConfirm by remember { mutableStateOf(false) }
         Title(title = stringResource(id = R.string.page_settings_title),
             onBack = {
                 navController.popBackStack()
@@ -287,6 +293,83 @@ fun Settings(navController: NavController) =
                         ListHeader(content = stringResource(id = R.string.settings_audio_fade_in_out_desc))
 
                         GroupSpacer()
+                        // ---- Cache section ----
+                        ListHeader(stringResource(id = R.string.settings_cache_title))
+                        RoundColumn {
+                            // Compose-observable counts: refresh automatically when
+                            // a background download completes or a cache is cleared.
+                            val audioCount = AudioCacheStore.cachedCount
+                            val audioBytes = AudioCacheStore.cachedBytes
+                            val lyricCount = LyricsCacheStore.cachedCount
+                            CacheStatItem(
+                                title = stringResource(id = R.string.settings_cache_cached_songs),
+                                value = audioCount.toString(),
+                            )
+                            Divider()
+                            CacheStatItem(
+                                title = stringResource(id = R.string.settings_cache_lyrics),
+                                value = lyricCount.toString(),
+                            )
+                            Divider()
+                            CacheStatItem(
+                                title = stringResource(id = R.string.settings_cache_audio_size),
+                                value = AudioCacheStore.formatBytes(audioBytes),
+                            )
+                            Divider()
+                            LabelItem(
+                                title = stringResource(id = R.string.settings_cache_clear_audio),
+                                superLink = true,
+                            ) {
+                                showClearAudioConfirm = true
+                            }
+                            Divider()
+                            LabelItem(
+                                title = stringResource(id = R.string.settings_cache_clear_lyrics),
+                                superLink = true,
+                            ) {
+                                showClearLyricsConfirm = true
+                            }
+                        }
+
+                        if (showClearAudioConfirm) {
+                            AppleConfirmSheet(
+                                title = stringResource(R.string.settings_cache_clear_audio_confirm_title),
+                                message = stringResource(R.string.settings_cache_clear_audio_confirm_message),
+                                confirmText = stringResource(R.string.settings_cache_clear_confirm),
+                                cancelText = stringResource(R.string.playlist_picker_cancel),
+                                onConfirm = {
+                                    showClearAudioConfirm = false
+                                    AudioCacheStore.clear()
+                                    Toast.makeText(
+                                        context,
+                                        R.string.settings_cache_audio_cleared,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                },
+                                onDismiss = { showClearAudioConfirm = false },
+                            )
+                        }
+                        if (showClearLyricsConfirm) {
+                            AppleConfirmSheet(
+                                title = stringResource(R.string.settings_cache_clear_lyrics_confirm_title),
+                                message = stringResource(R.string.settings_cache_clear_lyrics_confirm_message),
+                                confirmText = stringResource(R.string.settings_cache_clear_confirm),
+                                cancelText = stringResource(R.string.playlist_picker_cancel),
+                                onConfirm = {
+                                    showClearLyricsConfirm = false
+                                    LyricsCacheStore.clear()
+                                    MediaViewModelObject.lyricsCache.clear()
+                                    Toast.makeText(
+                                        context,
+                                        R.string.settings_cache_lyrics_cleared,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                },
+                                onDismiss = { showClearLyricsConfirm = false },
+                            )
+                        }
+
+                        GroupSpacer()
                         // ---- Play section ----
                         ListHeader(stringResource(id = R.string.settings_play))
                         RoundColumn {
@@ -312,6 +395,29 @@ fun Settings(navController: NavController) =
                 }
             })
     }
+
+@Composable
+private fun CacheStatItem(title: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 15.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            fontSize = 16.5.sp,
+            lineHeight = 20.5.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.alpha(0.5f),
+        )
+    }
+}
 
 @Composable
 private fun ProfilePictureRow() {

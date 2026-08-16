@@ -1,7 +1,9 @@
 package com.pryvn.audiophile.ui.pages
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +40,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import android.content.Context
+import android.net.Uri
 import java.io.File
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
@@ -50,6 +53,7 @@ import com.pryvn.audiophile.code.api.toYTSongItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.PlaybackSource
+import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.toHighResThumbnail
 import com.pryvn.audiophile.data.models.ImageViewModel
 import com.pryvn.audiophile.data.objects.LibraryObject
@@ -62,12 +66,21 @@ import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
+import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 
 private fun HistoryEntry.toYTSongItem(): YTSongItem = YTSongItem(
     videoId = videoId,
     title = title,
     artists = artists?.split(", ")?.map { YTArtist(name = it) } ?: emptyList(),
     thumbnailUrl = thumbnailUrl,
+)
+
+private fun YTSongItem.toYosMediaItem(): YosMediaItem = YosMediaItem(
+    uri = Uri.parse("ytmusic://$videoId"),
+    mediaId = videoId,
+    title = title,
+    artists = artists.joinToString(", ") { it.name },
+    thumb = thumbnailUrl?.let { Uri.parse(it) },
 )
 
 @Composable
@@ -245,6 +258,9 @@ fun Home(
     val listState = rememberLazyListState()
     val bottomInset = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
 
+    val songMenuOpen = remember { mutableStateOf(false) }
+    val menuSong = remember { mutableStateOf<YosMediaItem?>(null) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -353,6 +369,10 @@ fun Home(
                                         MediaController.playOnline(tryTheseSongs[page])
                                     }
                                 },
+                                onLongClick = {
+                                    menuSong.value = tryTheseSongs[page].toYosMediaItem()
+                                    songMenuOpen.value = true
+                                },
                             )
                         }
                     }
@@ -371,13 +391,20 @@ fun Home(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
                             items(featuredSongs, key = { it.title + (it.videoId ?: "") }) { item ->
-                                FeaturedSongCard(item = item, onClick = {
-                                    item.videoId?.let {
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(item.toYTSongItem())
+                                FeaturedSongCard(
+                                    item = item,
+                                    onClick = {
+                                        item.videoId?.let {
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.playOnline(item.toYTSongItem())
+                                            }
                                         }
-                                    }
-                                })
+                                    },
+                                    onLongClick = {
+                                        menuSong.value = item.toYTSongItem().toYosMediaItem()
+                                        songMenuOpen.value = true
+                                    },
+                                )
                             }
                         }
                     }
@@ -396,23 +423,30 @@ fun Home(
                             ) {
                                 items(recentlyPlayed, key = { it.videoId }) { entry: HistoryEntry ->
                                     val song = entry.toYTSongItem()
-                                    SongCard(song = song, onClick = {
-                                        scope.launch(Dispatchers.IO) {
-                                            when (entry.source) {
-                                                PlaybackSource.LOCAL -> {
-                                                    // Find local song by mediaId and play via prepare
-                                                    val localSong = MediaController.mainMusicList
-                                                        .find { it.mediaId == entry.videoId }
-                                                    localSong?.let {
-                                                        MediaController.prepare(it, listOf(it))
+                                    SongCard(
+                                        song = song,
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                when (entry.source) {
+                                                    PlaybackSource.LOCAL -> {
+                                                        // Find local song by mediaId and play via prepare
+                                                        val localSong = MediaController.mainMusicList
+                                                            .find { it.mediaId == entry.videoId }
+                                                        localSong?.let {
+                                                            MediaController.prepare(it, listOf(it))
+                                                        }
+                                                    }
+                                                    PlaybackSource.ONLINE -> {
+                                                        MediaController.playOnline(song)
                                                     }
                                                 }
-                                                PlaybackSource.ONLINE -> {
-                                                    MediaController.playOnline(song)
-                                                }
                                             }
-                                        }
-                                    })
+                                        },
+                                        onLongClick = {
+                                            menuSong.value = song.toYosMediaItem()
+                                            songMenuOpen.value = true
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -432,11 +466,18 @@ fun Home(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                                 items(relatedSongs, key = { it.videoId }) { song: YTSongItem ->
-                                    SongCard(song = song, onClick = {
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song)
-                                        }
-                                    })
+                                    SongCard(
+                                        song = song,
+                                        onClick = {
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.playOnline(song)
+                                            }
+                                        },
+                                        onLongClick = {
+                                            menuSong.value = song.toYosMediaItem()
+                                            songMenuOpen.value = true
+                                        },
+                                    )
                                 }
                         }
                     }
@@ -457,24 +498,33 @@ fun Home(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             items(section.items, key = { it.title + (it.videoId ?: it.browseId ?: "") }) { item ->
-                                HomeCard(item = item, onClick = {
-                                    if (item.playlistId != null) {
-                                        LibraryObject.setTargetPlaylistId(item.playlistId)
-                                        navController.toUI(UI.OnlinePlaylist)
-                                    } else if (item.browseId?.startsWith("VL") == true || item.browseId?.startsWith("PL") == true) {
-                                        LibraryObject.setTargetPlaylistId(item.browseId)
-                                        navController.toUI(UI.OnlinePlaylist)
-                                    } else if (item.browseId != null) {
-                                        LibraryObject.setTargetBrowseId(item.browseId)
-                                        navController.toUI(UI.OnlineAlbumInfo)
-                                    } else {
-                                        item.videoId?.let {
-                                            scope.launch(Dispatchers.IO) {
-                                                MediaController.playOnline(item.toYTSongItem())
+                                HomeCard(
+                                    item = item,
+                                    onClick = {
+                                        if (item.playlistId != null) {
+                                            LibraryObject.setTargetPlaylistId(item.playlistId)
+                                            navController.toUI(UI.OnlinePlaylist)
+                                        } else if (item.browseId?.startsWith("VL") == true || item.browseId?.startsWith("PL") == true) {
+                                            LibraryObject.setTargetPlaylistId(item.browseId)
+                                            navController.toUI(UI.OnlinePlaylist)
+                                        } else if (item.browseId != null) {
+                                            LibraryObject.setTargetBrowseId(item.browseId)
+                                            navController.toUI(UI.OnlineAlbumInfo)
+                                        } else {
+                                            item.videoId?.let {
+                                                scope.launch(Dispatchers.IO) {
+                                                    MediaController.playOnline(item.toYTSongItem())
+                                                }
                                             }
                                         }
-                                    }
-                                })
+                                    },
+                                    onLongClick = if (item.videoId != null) {
+                                        {
+                                            menuSong.value = item.toYTSongItem().toYosMediaItem()
+                                            songMenuOpen.value = true
+                                        }
+                                    } else null,
+                                )
                             }
                         }
                     }
@@ -484,11 +534,20 @@ fun Home(
                 if (curatedSongs.isNotEmpty()) {
                     item("curated_title") { SectionTitle("Curated Songs") }
                     item("curated_pager") {
-                        CuratedSongsPager(songs = curatedSongs, onClick = { song ->
-                            song.videoId?.let {
-                                scope.launch(Dispatchers.IO) { MediaController.playOnline(song.toYTSongItem()) }
-                            }
-                        })
+                        CuratedSongsPager(
+                            songs = curatedSongs,
+                            onClick = { song ->
+                                song.videoId?.let {
+                                    scope.launch(Dispatchers.IO) { MediaController.playOnline(song.toYTSongItem()) }
+                                }
+                            },
+                            onLongClick = { song ->
+                                song.videoId?.let {
+                                    menuSong.value = song.toYTSongItem().toYosMediaItem()
+                                    songMenuOpen.value = true
+                                }
+                            },
+                        )
                     }
                 }
             }
@@ -518,6 +577,12 @@ fun Home(
                 }
             }
         }
+
+        SongOverflowSheet(
+            isOpen = songMenuOpen,
+            song = menuSong.value,
+            navController = navController,
+        )
 
     }
 }
@@ -580,15 +645,20 @@ private fun SectionMessage(text: String) {
 
 // ─── Featured Song Card (large artwork) ────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FeaturedSongCard(
     item: HomeItem,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .width(280.dp)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
     ) {
         Box(
             modifier = Modifier
@@ -653,15 +723,20 @@ private fun FeaturedSongCard(
 
 // ─── Song Card (medium, for Recently Played / Related) ─────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SongCard(
     song: YTSongItem,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .width(150.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CachedArtworkImage(
@@ -697,18 +772,21 @@ private fun SongCard(
 
 // ─── Try These Card (random from library, pager item) ───────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TryTheseCard(
     song: YTSongItem,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .width(278.dp)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
+                onLongClick = onLongClick,
             ),
     ) {
         Box(
@@ -764,10 +842,12 @@ private fun TryTheseCard(
 
 // ─── Curated Songs 4—N pager ───────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CuratedSongsPager(
     songs: List<HomeItem>,
     onClick: (HomeItem) -> Unit,
+    onLongClick: (HomeItem) -> Unit = {},
 ) {
     val columns = songs.chunked(4)
     val columnsPerPage = 4
@@ -791,7 +871,10 @@ private fun CuratedSongsPager(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = { onClick(song) })
+                                .combinedClickable(
+                                    onClick = { onClick(song) },
+                                    onLongClick = { onLongClick(song) },
+                                )
                         ) {
                             Column {
                 CachedArtworkImage(
@@ -831,15 +914,20 @@ private fun CuratedSongsPager(
 
 // ─── Original Home card (For You section) ──────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HomeCard(
     item: HomeItem,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
             .width(150.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CachedArtworkImage(

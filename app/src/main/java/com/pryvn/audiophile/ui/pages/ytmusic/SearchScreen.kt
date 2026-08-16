@@ -7,7 +7,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -585,21 +587,25 @@ fun SearchPage(navController: NavController) {
                             modifier = Modifier.padding(bottom = 10.dp, top = 4.dp)
                         )
                     }
-                    items(recommendations, key = { "rec_${it.videoId}" }) { song ->
+                    items(recommendations, key = { "rec_${it.videoId}" }) { rec ->
+                        val item = YosMediaItem(
+                            uri = Uri.parse("ytmusic://${rec.videoId}"),
+                            mediaId = rec.videoId,
+                            title = rec.title,
+                            artists = rec.artists.joinToString(", ") { it.name },
+                            thumb = rec.thumbnailUrl?.let { Uri.parse(it) }
+                        )
                         SearchSongRow(
-                            song = YosMediaItem(
-                                uri = Uri.parse("ytmusic://${song.videoId}"),
-                                mediaId = song.videoId,
-                                title = song.title,
-                                artists = song.artists.joinToString(", ") { it.name },
-                                thumb = song.thumbnailUrl?.let { Uri.parse(it) }
-                            ),
+                            song = item,
                             onPlay = {
                                 scope.launch(Dispatchers.IO) {
-                                    MediaController.playOnline(song)
+                                    MediaController.playOnline(rec)
                                 }
                             },
-                            onOverflow = { }
+                            onOverflow = {
+                                selectedSongForMenu.value = item
+                                songOverflowSheetOpen.value = true
+                            }
                         )
                     }
                 }
@@ -798,6 +804,10 @@ fun SearchPage(navController: NavController) {
                                             scope.launch(Dispatchers.IO) {
                                                 MediaController.playOnline(song)
                                             }
+                                        },
+                                        onOverflow = {
+                                            selectedSongForMenu.value = item.toYosMediaItem()
+                                            songOverflowSheetOpen.value = true
                                         }
                                     )
                                     is YTAlbumSearchItem -> AlbumResultRowWithCategory(item, "Album")
@@ -826,11 +836,18 @@ fun SearchPage(navController: NavController) {
                                 }
                             }) { idx ->
                                 when (val item = filteredOnlineResults[idx]) {
-                                    is YTSongItem -> AppleSearchResultRow(item) { song ->
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song)
+                                    is YTSongItem -> AppleSearchResultRow(
+                                        song = item,
+                                        onClick = { song ->
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.playOnline(song)
+                                            }
+                                        },
+                                        onOverflow = {
+                                            selectedSongForMenu.value = item.toYosMediaItem()
+                                            songOverflowSheetOpen.value = true
                                         }
-                                    }
+                                    )
                                     is YTAlbumSearchItem -> AppleAlbumSearchRow(item)
                                     is YTArtistSearchItem -> AppleArtistSearchRow(item) {
                                         LibraryObject.setTargetBrowseId(item.browseId)
@@ -867,6 +884,7 @@ fun SearchPage(navController: NavController) {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun SearchSongRow(
     song: YosMediaItem,
     onPlay: () -> Unit,
@@ -885,7 +903,10 @@ private fun SearchSongRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(YosRoundedCornerShape(12.dp))
-            .clickable(onClick = onPlay)
+            .combinedClickable(
+                onClick = onPlay,
+                onLongClick = onOverflow,
+            )
             .padding(vertical = 7.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1368,20 +1389,26 @@ private fun ApplePlaylistSearchRow(
 }
 
 @Composable
-private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun AppleSearchResultRow(
+    song: YTSongItem,
+    onClick: (YTSongItem) -> Unit,
+    onOverflow: (() -> Unit)? = null,
+) {
     var isPressed by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = { onClick(song) }
+                onClick = { onClick(song) },
+                onLongClick = onOverflow,
             )
             .scale(if (isPressed) 0.98f else 1f)
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CachedArtworkImage(
@@ -1439,16 +1466,39 @@ private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit
                 modifier = Modifier.padding(start = 10.dp)
             )
         }
+        if (onOverflow != null) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOverflow,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_nowplaying_more),
+                    contentDescription = "Options",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
     }
 }
 
 // ─── Category-First Result Rows (for Top Results) ──────────────────────────
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun SearchResultRowWithCategory(
     song: YTSongItem,
     category: String,
-    onClick: (YTSongItem) -> Unit
+    onClick: (YTSongItem) -> Unit,
+    onOverflow: (() -> Unit)? = null,
 ) {
     var isPressed by remember { mutableStateOf(false) }
 
@@ -1456,13 +1506,14 @@ private fun SearchResultRowWithCategory(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = { onClick(song) }
+                onClick = { onClick(song) },
+                onLongClick = onOverflow,
             )
             .scale(if (isPressed) 0.98f else 1f)
-            .padding(horizontal = 20.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CachedArtworkImage(
@@ -1521,6 +1572,27 @@ private fun SearchResultRowWithCategory(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f).copy(alpha = 0.6f),
                 modifier = Modifier.padding(start = 10.dp)
             )
+        }
+        if (onOverflow != null) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOverflow,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_nowplaying_more),
+                    contentDescription = "Options",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }
@@ -1924,3 +1996,10 @@ private fun LibraryAlbumRow(
         }
     }
 }
+private fun YTSongItem.toYosMediaItem(): YosMediaItem = YosMediaItem(
+    uri = Uri.parse("ytmusic://$videoId"),
+    mediaId = videoId,
+    title = title,
+    artists = artists.joinToString(", ") { it.name },
+    thumb = thumbnailUrl?.let { Uri.parse(it) },
+)

@@ -4,7 +4,9 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +53,7 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import com.cormor.overscroll.core.overScrollVertical
 import com.cormor.overscroll.core.rememberOverscrollFlingBehavior
@@ -65,6 +68,7 @@ import com.pryvn.audiophile.data.libraries.artistsName
 import com.pryvn.audiophile.data.libraries.defaultArtists
 import com.pryvn.audiophile.data.libraries.defaultArtistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
+import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.userFontWeight
@@ -74,6 +78,7 @@ import com.pryvn.audiophile.ui.widgets.basic.ShadowImage
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
+import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -400,6 +405,7 @@ private fun AlbumDivider(modifier: Modifier = Modifier) =
             .background(Color.Black withNight Color.White)
     )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AlbumSongsItem(
     modifier: Modifier = Modifier,
@@ -407,10 +413,18 @@ private fun AlbumSongsItem(
     mainArtists: List<String>,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val songMenuOpen = remember(music.uri, music.mediaId) { mutableStateOf(false) }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    Vibrator.longClick(context)
+                    songMenuOpen.value = true
+                },
+            )
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -457,4 +471,9 @@ private fun AlbumSongsItem(
             }
         }
     }
+
+    SongOverflowSheet(
+        isOpen = songMenuOpen,
+        song = music,
+    )
 }

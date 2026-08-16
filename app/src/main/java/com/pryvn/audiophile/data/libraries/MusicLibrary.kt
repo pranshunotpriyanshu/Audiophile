@@ -107,7 +107,12 @@ data class YosMediaItem(
     val addDate: Long? = null,
     val duration: Long = 0L,
     val modifiedDate: Long? = null,
-    val cdTrackNumber: Int? = null
+    val cdTrackNumber: Int? = null,
+    /** Private tag marking this item as already-offline (cached) media. It is
+     *  never rendered anywhere in the UI; it only lets the code (e.g. the song
+     *  overflow menu) identify local media without re-deriving it from the URI
+     *  scheme. */
+    val isLocalMedia: Boolean = false
 ) : Parcelable
 
 @Stable
@@ -279,7 +284,7 @@ object MusicLibrary {
         Log.d("PlaybackDebug", "MediaMetadata: title=${this.title} artist=${this.artists} artwork=${this.thumb} album=${this.album} duration=${this.duration}")
         return MediaItem.Builder()
             .setUri(this.uri)
-            .setMediaId(this.mediaId!!)
+            .setMediaId(this.mediaId ?: this.uri?.toString() ?: "")
             .setMimeType(this.mimeType)
             .setMediaMetadata(
                 MediaMetadata.Builder()

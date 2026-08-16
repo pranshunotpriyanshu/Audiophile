@@ -3,7 +3,9 @@ package com.pryvn.audiophile.ui.pages.library.artists
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +45,8 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.pryvn.audiophile.code.utils.others.Vibrator
+import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -421,16 +425,25 @@ private fun ArtistHero(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ArtistSongRow(
     music: YosMediaItem,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val songMenuOpen = remember(music.uri, music.mediaId) { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp)
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    Vibrator.longClick(context)
+                    songMenuOpen.value = true
+                },
+            )
             .padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -463,6 +476,11 @@ private fun ArtistSongRow(
             )
         }
     }
+
+    SongOverflowSheet(
+        isOpen = songMenuOpen,
+        song = music,
+    )
 }
 
 private fun ArtistSongSubtitle(music: YosMediaItem): String {

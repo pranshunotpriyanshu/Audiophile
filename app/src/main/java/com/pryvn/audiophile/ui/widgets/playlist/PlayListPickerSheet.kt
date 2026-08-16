@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -52,6 +53,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,11 +67,16 @@ import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.data.libraries.PlayListLibrary.addMusic
 import com.pryvn.audiophile.data.libraries.PlayListLibrary.playList
 import com.pryvn.audiophile.data.libraries.YosMediaItem
+import com.pryvn.audiophile.data.libraries.defaultTitle
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.basic.SheetAnimatedContent
 import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationBackward
 import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationForward
 import com.pryvn.audiophile.ui.widgets.basic.YosBottomSheetDialog
+import com.pryvn.audiophile.ui.widgets.basic.sheetBackground
+import com.pryvn.audiophile.ui.widgets.basic.sheetSeparator
+import com.pryvn.audiophile.ui.widgets.basic.sheetTextColor
 
 /**
  * Reusable bottom sheet for picking an existing playlist to add a song to,
@@ -97,6 +104,7 @@ import com.pryvn.audiophile.ui.widgets.basic.YosBottomSheetDialog
 fun PlayListPickerSheet(
     isOpen: MutableState<Boolean>,
     songToAdd: YosMediaItem?,
+    songsToAdd: List<YosMediaItem>? = null,
     onCreated: ((PlayList) -> Unit)? = null,
     centered: Boolean = false,
 ) {
@@ -120,6 +128,7 @@ fun PlayListPickerSheet(
                 ) {
                     PlayListPickerContent(
                         songToAdd = songToAdd,
+                        songsToAdd = songsToAdd,
                         onDone = { isOpen.value = false },
                         onCreated = onCreated,
                     )
@@ -132,6 +141,7 @@ fun PlayListPickerSheet(
     YosBottomSheetDialog(onDismissRequest = { isOpen.value = false }) {
         PlayListPickerContent(
             songToAdd = songToAdd,
+            songsToAdd = songsToAdd,
             onDone = { isOpen.value = false },
             onCreated = onCreated,
         )
@@ -165,6 +175,7 @@ fun PlayListPickerSheet(
 fun PlayListPickerContent(
     songToAdd: YosMediaItem?,
     onDone: () -> Unit,
+    songsToAdd: List<YosMediaItem>? = null,
     onBack: (() -> Unit)? = null,
     onCreated: ((PlayList) -> Unit)? = null,
     /**
@@ -181,22 +192,48 @@ fun PlayListPickerContent(
      */
     bulkAddSource: PlayList? = null,
     onBulkAdd: ((PlayList) -> Unit)? = null,
+    /**
+     * Apple Music skin for hosts that embed the picker inside the
+     * [com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet] sheet: rows are
+     * grouped into rounded cards with adaptive text/separator colors and
+     * proper inset padding.
+     */
+    appleTheme: Boolean = false,
 ) {
     val context = LocalContext.current
     val bulkMode = bulkAddSource != null
     // Local UI state: are we in "create new playlist" mode (text input
-    // visible) or the default list view? Bulk mode lands in list view
-    // by default; the user can still tap "Create New Playlist" to make
-    // a fresh target.
-    var createMode by remember { mutableStateOf(songToAdd == null && !bulkMode) }
+    // visible) or the default list view? Bulk mode (multi-song add or
+    // playlist-copy) lands in list view by default; the user can still tap
+    // "Create New Playlist" to make a fresh target.
+    var createMode by remember {
+        mutableStateOf(songToAdd == null && songsToAdd == null && !bulkMode)
+    }
     val navigationDirection = remember {
         mutableIntStateOf(SheetNavigationForward)
     }
     var newPlaylistName by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf<String?>(null) }
 
+    // When the user taps a playlist that already contains the song(s), a
+    // centered confirmation asks whether to insert duplicates or skip.
+    var duplicateTarget by remember { mutableStateOf<PlayList?>(null) }
+    var duplicateSongs by remember { mutableStateOf<List<YosMediaItem>>(emptyList()) }
+
+    val pendingSongs: () -> List<YosMediaItem> = { songsToAdd ?: listOfNotNull(songToAdd) }
+
+    fun playlistContains(playlist: PlayList, music: YosMediaItem): Boolean =
+        playlist.songDataList.any { existing ->
+            if (existing.mediaId != null && music.mediaId != null) existing.mediaId == music.mediaId
+            else existing.uri == music.uri
+        }
+
+    val addAllTo: (PlayList) -> Unit = { playlist ->
+        pendingSongs().forEach { playlist.addMusic(it) }
+    }
+
     val resetTransient: () -> Unit = {
-        createMode = songToAdd == null && !bulkMode
+        createMode = songToAdd == null && songsToAdd == null && !bulkMode
         newPlaylistName = ""
         nameError = null
     }
@@ -204,6 +241,44 @@ fun PlayListPickerContent(
     val finish: () -> Unit = {
         resetTransient()
         onDone()
+    }
+
+    // Shared "tap a playlist row" handler for both the Apple-skinned and
+    // regular layouts (bulk copy, duplicate guard, toast, finish).
+    val onPickPlaylist: (PlayList) -> Unit = { playlist ->
+        if (bulkMode) {
+            onBulkAdd?.invoke(playlist)
+        } else {
+            val alreadyPresent = pendingSongs().filter { playlistContains(playlist, it) }
+            if (alreadyPresent.isNotEmpty()) {
+                // Ask before inserting duplicates.
+                duplicateTarget = playlist
+                duplicateSongs = pendingSongs()
+            } else {
+                addAllTo(playlist)
+                if (songsToAdd != null) {
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.playlist_picker_added_many_toast,
+                            songsToAdd.size,
+                            playlist.name,
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } else if (songToAdd != null) {
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.playlist_picker_added_toast,
+                            playlist.name,
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+                finish()
+            }
+        }
     }
 
     val confirmCreate: () -> Unit = {
@@ -219,25 +294,40 @@ fun PlayListPickerContent(
                 PlayListLibrary.create(trimmed)
                 val created = playList.firstOrNull { it.name == trimmed }
                 if (created != null) {
-                    if (songToAdd != null) {
-                        created.addMusic(songToAdd)
-                        Toast.makeText(
-                            context,
-                            context.getString(
-                                R.string.playlist_picker_added_toast,
-                                trimmed,
-                            ),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            context,
-                            context.getString(
-                                R.string.playlist_picker_created_toast,
-                                trimmed,
-                            ),
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                    when {
+                        songsToAdd != null -> {
+                            songsToAdd.forEach { created.addMusic(it) }
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_many_toast,
+                                    songsToAdd.size,
+                                    trimmed,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                        songToAdd != null -> {
+                            created.addMusic(songToAdd)
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_toast,
+                                    trimmed,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                        else -> {
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_created_toast,
+                                    trimmed,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     }
                     onCreated?.invoke(created)
                 }
@@ -279,6 +369,7 @@ fun PlayListPickerContent(
                 stringResource(R.string.playlist_picker_title)
             },
             onBack = headerBack,
+            apple = appleTheme,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -292,7 +383,7 @@ fun PlayListPickerContent(
                 },
                 errorMessage = nameError,
                 onConfirm = confirmCreate,
-                onCancel = if (songToAdd == null && !bulkMode) {
+                onCancel = if (songToAdd == null && songsToAdd == null && !bulkMode) {
                     finish
                 } else {
                     {
@@ -302,7 +393,75 @@ fun PlayListPickerContent(
                         nameError = null
                     }
                 },
+                apple = appleTheme,
             )
+        } else if (appleTheme) {
+            // Apple Music skin: Create New + existing playlists live in one
+            // rounded card on the grey sheet surface, separated by hairline
+            // dividers — matching AppleSheetMenuGroup.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(sheetBackground()),
+            ) {
+                CreateNewRow(
+                    onClick = {
+                        Vibrator.click(context)
+                        navigationDirection.intValue = SheetNavigationForward
+                        createMode = true
+                    },
+                    apple = true,
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 0.5.dp,
+                    color = sheetSeparator(),
+                )
+                ExistingPlayListList(
+                    songToAdd = songToAdd,
+                    songsToAdd = songsToAdd,
+                    excludeId = bulkAddSource?.listID,
+                    apple = true,
+                    onAdd = { playlist -> onPickPlaylist(playlist) },
+                )
+            }
+            duplicateTarget?.let { target ->
+                DuplicateAddConfirmDialog(
+                    songTitle = duplicateSongs.firstOrNull()?.title ?: defaultTitle,
+                    playlistName = target.name,
+                    onAddDuplicate = {
+                        addAllTo(target)
+                        duplicateTarget = null
+                        duplicateSongs = emptyList()
+                        if (songsToAdd != null) {
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_many_toast,
+                                    songsToAdd.size,
+                                    target.name,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } else if (songToAdd != null) {
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_toast,
+                                    target.name,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                        finish()
+                    },
+                    onSkip = {
+                        duplicateTarget = null
+                        duplicateSongs = emptyList()
+                    },
+                )
+            }
         } else {
             CreateNewRow(
                 onClick = {
@@ -317,24 +476,46 @@ fun PlayListPickerContent(
 
             ExistingPlayListList(
                 songToAdd = songToAdd,
+                songsToAdd = songsToAdd,
                 excludeId = bulkAddSource?.listID,
-                onAdd = { playlist ->
-                    if (bulkMode) {
-                        onBulkAdd?.invoke(playlist)
-                    } else if (songToAdd != null) {
-                        playlist.addMusic(songToAdd)
-                        Toast.makeText(
-                            context,
-                            context.getString(
-                                R.string.playlist_picker_added_toast,
-                                playlist.name,
-                            ),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                    finish()
-                },
+                onAdd = { playlist -> onPickPlaylist(playlist) },
             )
+            duplicateTarget?.let { target ->
+                DuplicateAddConfirmDialog(
+                    songTitle = duplicateSongs.firstOrNull()?.title ?: defaultTitle,
+                    playlistName = target.name,
+                    onAddDuplicate = {
+                        addAllTo(target)
+                        duplicateTarget = null
+                        duplicateSongs = emptyList()
+                        if (songsToAdd != null) {
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_many_toast,
+                                    songsToAdd.size,
+                                    target.name,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } else if (songToAdd != null) {
+                            Toast.makeText(
+                                context,
+                                context.getString(
+                                    R.string.playlist_picker_added_toast,
+                                    target.name,
+                                ),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                        finish()
+                    },
+                    onSkip = {
+                        duplicateTarget = null
+                        duplicateSongs = emptyList()
+                    },
+                )
+            }
         }
     }
 }
@@ -343,6 +524,7 @@ fun PlayListPickerContent(
 private fun PickerHeader(
     title: String,
     onBack: (() -> Unit)?,
+    apple: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -379,6 +561,8 @@ private fun PickerHeader(
             text = title,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
+            fontFamily = if (apple) SfProFontFamily else null,
+            color = if (apple) sheetTextColor() else Color.Unspecified,
         )
     }
 }
@@ -390,6 +574,7 @@ private fun CreatePlaylistBody(
     errorMessage: String?,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
+    apple: Boolean = false,
 ) {
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
@@ -486,6 +671,7 @@ private fun CreatePlaylistBody(
             Text(
                 text = stringResource(R.string.playlist_picker_cancel),
                 fontSize = 16.5.sp,
+                color = if (apple) sheetTextColor() else Color.Unspecified,
             )
         }
 
@@ -515,7 +701,10 @@ private fun CreatePlaylistBody(
 }
 
 @Composable
-private fun CreateNewRow(onClick: () -> Unit) {
+private fun CreateNewRow(
+    onClick: () -> Unit,
+    apple: Boolean = false,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -525,7 +714,7 @@ private fun CreateNewRow(onClick: () -> Unit) {
                 indication = null,
                 onClick = onClick,
             )
-            .padding(vertical = 12.dp, horizontal = 4.dp),
+            .padding(vertical = 12.dp, horizontal = if (apple) 16.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -549,6 +738,8 @@ private fun ExistingPlayListList(
     songToAdd: YosMediaItem?,
     excludeId: String?,
     onAdd: (PlayList) -> Unit,
+    songsToAdd: List<YosMediaItem>? = null,
+    apple: Boolean = false,
 ) {
     val playlists = remember(playList, excludeId) {
         playList.filter { it.listID != excludeId }.sortedBy { it.name }
@@ -584,8 +775,11 @@ private fun ExistingPlayListList(
         ) { _, playlist ->
             ExistingPlayListRow(
                 playlist = playlist,
-                isAlreadyIn = songToAdd != null && playlist.songDataList.any { it.uri == songToAdd.uri },
+                isAlreadyIn = (songsToAdd ?: listOfNotNull(songToAdd)).any { song ->
+                    playlist.songDataList.any { it.uri == song.uri }
+                },
                 onClick = { onAdd(playlist) },
+                apple = apple,
             )
         }
     }
@@ -596,6 +790,7 @@ private fun ExistingPlayListRow(
     playlist: PlayList,
     isAlreadyIn: Boolean,
     onClick: () -> Unit,
+    apple: Boolean = false,
 ) {
     val context = LocalContext.current
     Row(
@@ -609,7 +804,7 @@ private fun ExistingPlayListRow(
                 Vibrator.click(context)
                 onClick()
             }
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 10.dp, horizontal = if (apple) 16.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Image(
@@ -627,6 +822,7 @@ private fun ExistingPlayListRow(
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                color = if (apple) sheetTextColor() else Color.Unspecified,
             )
             Text(
                 text = pluralSongCount(playlist.songDataList.size),
@@ -636,6 +832,7 @@ private fun ExistingPlayListRow(
                     .alpha(0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                color = if (apple) sheetTextColor().copy(alpha = 0.55f) else Color.Unspecified,
             )
         }
         if (isAlreadyIn) {
@@ -659,6 +856,93 @@ private fun Divider() {
             .height(0.5.dp)
             .background(Color.Black withNight Color.White),
     )
+}
+
+/**
+ * Centered confirmation shown when the chosen playlist already contains the
+ * song(s): "{song} already exists in {playlist}" — add a duplicate or skip.
+ */
+@Composable
+private fun DuplicateAddConfirmDialog(
+    songTitle: String,
+    playlistName: String,
+    onAddDuplicate: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onSkip,
+        properties = DialogProperties(usePlatformDefaultWidth = true),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White withNight Color.Black,
+            contentColor = Color.Black withNight Color.White,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = stringResource(R.string.playlist_picker_duplicate_message, songTitle, playlistName),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 22.sp,
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(23.dp))
+                            .background((Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                Vibrator.click(context)
+                                onSkip()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.playlist_picker_duplicate_skip),
+                            fontSize = 16.sp,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(23.dp))
+                            .clip(RoundedCornerShape(23.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                Vibrator.click(context)
+                                onAddDuplicate()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.playlist_picker_duplicate_add),
+                            color = Color.White,
+                            fontSize = 16.sp,
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

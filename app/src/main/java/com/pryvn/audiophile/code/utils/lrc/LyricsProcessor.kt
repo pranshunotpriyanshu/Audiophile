@@ -2,6 +2,7 @@ package com.pryvn.audiophile.code.utils.lrc
 
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
 import com.pryvn.audiophile.code.api.AudiophileLyrics
+import com.pryvn.audiophile.code.lyrics.LyricsCacheStore
 import com.pryvn.audiophile.code.lyrics.LyricsHelper
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
@@ -208,6 +209,7 @@ object LyricsProcessor {
 
             val cacheKey = videoId ?: (title ?: "unknown")
             MediaViewModelObject.lyricsCache[cacheKey] = fresh.text
+            LyricsCacheStore.put(cacheKey, fresh.text)
             if (MediaViewModelObject.lyricsCache.size > 20) {
                 val keys = MediaViewModelObject.lyricsCache.keys.toList()
                 for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {

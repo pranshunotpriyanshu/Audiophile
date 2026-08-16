@@ -57,10 +57,14 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import com.pryvn.audiophile.MainActivity
 import com.pryvn.audiophile.R
+import com.pryvn.audiophile.YosBasicApplication
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.pryvn.audiophile.code.MediaController.mediaControl
 import com.pryvn.audiophile.code.MediaController.mediaSession
 import com.pryvn.audiophile.code.MediaController.musicPlaying
@@ -73,6 +77,8 @@ import com.pryvn.audiophile.code.api.innertube.models.SongItem
 import com.pryvn.audiophile.code.api.innertube.YouTube
 import com.pryvn.audiophile.archivetune.ArchiveTuneAdapter
 import com.pryvn.audiophile.code.SmartRadioQueue
+import com.pryvn.audiophile.code.cache.AudioCacheStore
+import com.pryvn.audiophile.code.lyrics.LyricsCacheStore
 import com.pryvn.audiophile.code.utils.lrc.LyricsProcessor
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lrc.YosLrcFactory
@@ -256,24 +262,38 @@ object MediaController {
         play: Boolean = true
     ) {
         Log.d("QueueTap", "prepare() called: music.title=${music.title}, thisMusicList.size=${thisMusicList.size}, thisMusicList.hash=${thisMusicList.hashCode()}, playingMusicList.hash=${playingMusicList.value?.hashCode()}, sameRef=${thisMusicList === playingMusicList.value}, sameValue=${thisMusicList == playingMusicList.value}")
+
+        // Surface the tapped song in NowPlaying immediately so the UI switches
+        // to it (with a loading indicator) while its stream resolves — instead of
+        // staying on the previous song until playback is fully ready. Mirrors
+        // what playOnline/playPlaylist already do before resolving.
+        musicPlaying.value = music
+        MediaViewModelObject.bitmap.value = music.thumb
+        MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
+
         if (thisMusicList != playingMusicList.value) {
 
             var index = 0
 
             val itemList = thisMusicList.mapIndexed { thisIndex, it ->
-                val resolved = if (it.uri?.scheme == "ytmusic") {
-                    val videoId = it.uri.host ?: it.mediaId ?: ""
-                    val response = YTPlayerUtils.resolvePlayable(videoId)
-                    if (response.isSuccess) {
-                        it.copy(uri = Uri.parse(response.getOrThrow().streamUrl))
-                    } else it
-                } else it
-
-                if ((music.mediaId != null && resolved.mediaId != null && resolved.mediaId == music.mediaId) ||
-                    (resolved.uri != null && resolved.uri == music.uri)
-                ) {
+                val isTarget = (music.mediaId != null && it.mediaId != null && it.mediaId == music.mediaId) ||
+                    (it.uri != null && it.uri == music.uri)
+                if (isTarget) {
                     index = thisIndex
                 }
+
+                // Only the tapped song is resolved up-front so playback starts
+                // immediately, even for playlists full of online songs. The rest
+                // of the queue keeps its deferred ytmusic:// URI and is resolved
+                // lazily by the background queue resolver as it approaches.
+                // (Previously every song was resolved synchronously here, which
+                // made tapping a custom-playlist song appear to do nothing while
+                // the whole queue was resolved — and a single failure aborted it.)
+                val resolved = if (it.uri?.scheme == "ytmusic" && isTarget) {
+                    val videoId = it.uri.host ?: it.mediaId ?: ""
+                    val resolvedUrl = resolvePlayableUrl(videoId)
+                    if (resolvedUrl != null) it.copy(uri = Uri.parse(resolvedUrl)) else it
+                } else it
 
                 resolved.toMediaItem()
             }
@@ -282,6 +302,16 @@ object MediaController {
             withContext(Dispatchers.Main) {
                 mediaControl?.setMediaItems(itemList, index, position)
                 mediaControl?.prepare()
+            }
+
+            // Cache the song that is about to play into the permanent audio cache.
+            // Runs on a detached scope so the download never blocks playback start.
+            itemList.getOrNull(index)?.let { target ->
+                val videoId = target.mediaId ?: music.mediaId
+                val url = target.uri?.toString()
+                if (videoId != null && url?.startsWith("http") == true) {
+                    cacheInBackground(videoId, url, thisMusicList.getOrNull(index))
+                }
             }
 
             println("prepare: switching playlist")
@@ -325,9 +355,11 @@ object MediaController {
         } else {
             Log.d("QueueTap", "prepare() ELSE branch taken: indexOf(music)=${thisMusicList.indexOf(music)}, music.mediaId=${music.mediaId}, music.uri=${music.uri}")
             val index = thisMusicList.indexOf(music)
-            withContext(Dispatchers.Main) {
-                mediaControl?.seekToDefaultPosition(index)
-                mediaControl?.fadePlay()
+            if (index >= 0) {
+                withContext(Dispatchers.Main) {
+                    mediaControl?.seekToDefaultPosition(index)
+                    mediaControl?.fadePlay()
+                }
             }
         }
 
@@ -376,6 +408,72 @@ object MediaController {
 
     // Session-lifetime cache of successfully resolved stream URLs.
     private val resolvedStreamUrls = ConcurrentHashMap<String, String>()
+
+    // ── Persistent resolved-stream cache ───────────────────────────────────
+    // Mirrors [resolvedStreamUrls] on disk so a queue restored after an app
+    // restart starts instantly instead of re-resolving every stream. Entries
+    // older than the TTL (YouTube stream URLs expire) are dropped on load.
+    private const val RESOLVED_URLS_TTL_MS = 6L * 60 * 60 * 1000
+    private const val RESOLVED_URLS_FILE = "resolved_stream_urls.json"
+
+    private data class PersistedResolvedUrl(
+        val url: String,
+        val cachedAtMs: Long,
+    )
+
+    private val resolvedUrlsLock = Any()
+    private var persistedResolvedUrlsLoaded = false
+    private val persistedResolvedUrls = HashMap<String, PersistedResolvedUrl>()
+    private val resolvedUrlsScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val resolvedUrlsGson = Gson()
+
+    private fun ensurePersistedResolvedUrlsLoaded() {
+        if (persistedResolvedUrlsLoaded) return
+        synchronized(resolvedUrlsLock) {
+            if (persistedResolvedUrlsLoaded) return
+            val file = File(YosBasicApplication.instance.filesDir, RESOLVED_URLS_FILE)
+            val now = System.currentTimeMillis()
+            runCatching {
+                if (file.isFile) {
+                    val type = object : TypeToken<HashMap<String, PersistedResolvedUrl>>() {}.type
+                    val map = resolvedUrlsGson.fromJson<HashMap<String, PersistedResolvedUrl>>(file.readText(), type)
+                    map?.forEach { (id, entry) ->
+                        if (now - entry.cachedAtMs <= RESOLVED_URLS_TTL_MS) {
+                            persistedResolvedUrls[id] = entry
+                        }
+                    }
+                }
+            }
+            persistedResolvedUrlsLoaded = true
+        }
+    }
+
+    /** Fresh persisted stream URL for [videoId], or null when none / expired. */
+    private fun persistedUrlFor(videoId: String): String? {
+        ensurePersistedResolvedUrlsLoaded()
+        synchronized(resolvedUrlsLock) {
+            val entry = persistedResolvedUrls[videoId] ?: return null
+            if (System.currentTimeMillis() - entry.cachedAtMs > RESOLVED_URLS_TTL_MS) {
+                persistedResolvedUrls.remove(videoId)
+                return null
+            }
+            return entry.url
+        }
+    }
+
+    /** Records a freshly resolved stream URL so it survives app restarts. */
+    private fun rememberPersistedUrl(videoId: String, url: String) {
+        ensurePersistedResolvedUrlsLoaded()
+        synchronized(resolvedUrlsLock) {
+            persistedResolvedUrls[videoId] = PersistedResolvedUrl(url, System.currentTimeMillis())
+        }
+        resolvedUrlsScope.launch {
+            runCatching {
+                val file = File(YosBasicApplication.instance.filesDir, RESOLVED_URLS_FILE)
+                file.writeText(resolvedUrlsGson.toJson(persistedResolvedUrls))
+            }
+        }
+    }
 
     // IDs whose stream resolution failed, so they are never attempted again
     // or re-inserted during this process lifetime.
@@ -799,6 +897,46 @@ object MediaController {
         Log.d("AutoQueue", "Current item $videoId updated with resolved stream; resuming playback")
         player.prepare()
         player.fadePlayIfAvailable()
+
+        // Cache the song that is now actually playing into the permanent audio cache.
+        if (url.startsWith("http")) {
+            cacheInBackground(videoId, url, musicPlaying.value)
+        }
+    }
+
+    /**
+     * Kicks off a permanent audio-cache download on a detached scope so the
+     * caller (playback preparation / stream resolution) never waits on it.
+     */
+    private fun cacheInBackground(videoId: String, url: String, item: YosMediaItem?) {
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            AudioCacheStore.download(videoId, url, item)
+        }
+    }
+
+    /**
+     * Force-downloads [music] into the permanent audio cache, resolving its
+     * stream URL on demand when the item still points at a ytmusic URI. No-op
+     * when the song is already cached or a download is already in flight.
+     * Used by the "Force Download" action in the Downloading Status menu and
+     * the per-song overflow menu.
+     */
+    fun forceDownloadSong(music: YosMediaItem) {
+        val videoId = music.mediaId ?: return
+        if (videoId.isBlank()) return
+        if (AudioCacheStore.getCachedUri(videoId) != null) return
+        if (AudioCacheStore.progressOf(videoId) != null) return
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            val url = when {
+                music.uri?.scheme == "ytmusic" -> {
+                    val response = YTPlayerUtils.resolvePlayable(videoId)
+                    if (response.isSuccess) response.getOrThrow().streamUrl ?: return@launch else return@launch
+                }
+                music.uri?.scheme?.startsWith("http") == true -> music.uri.toString()
+                else -> return@launch
+            }
+            cacheInBackground(videoId, url, music)
+        }
     }
 
     /**
@@ -1099,7 +1237,7 @@ object MediaController {
         MediaViewModelObject.bitmap.value = null
         MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
 
-        val resolved = ArchiveTuneAdapter.resolve(videoId)
+        val resolved = resolveStreamWithFallback(videoId, title)
         ensureActive()
         if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
@@ -1131,7 +1269,12 @@ object MediaController {
         MediaViewModelObject.bitmap.value = thumbUri
         MediaViewModelObject.playbackLoadingState.value = PlaybackLoadingState.ResolvingStream
 
-        val resolved = ArchiveTuneAdapter.resolve(song.videoId)
+        val resolved = resolveStreamWithFallback(
+            videoId = song.videoId,
+            title = song.title,
+            artists = song.artists.map { it.name },
+            durationSeconds = song.durationSeconds,
+        )
         ensureActive()
         if (resolved.url.isBlank()) throw Exception("Empty stream URL received.")
         val mediaItem = YosMediaItem(
@@ -1290,25 +1433,74 @@ object MediaController {
         title: String? = null,
         artists: List<String> = emptyList(),
         durationSeconds: Int? = null,
+    ): ResolvedStream =
+        resolveStreamWithFallback(videoId, title, artists, durationSeconds)
+
+    /**
+     * Resolves a playable stream for [videoId] through every provider in order:
+     * permanent audio cache → ArchiveTune (primary, with its own memory and
+     * persistent caches) → InnerTube player API (with Piped fallback). Throws
+     * when nothing yields a URL so callers that need a playable item fail
+     * loudly instead of queueing a dead `ytmusic://` URI.
+     */
+    private suspend fun resolveStreamWithFallback(
+        videoId: String,
+        title: String? = null,
+        artists: List<String> = emptyList(),
+        durationSeconds: Int? = null,
     ): ResolvedStream {
-        return runCatching { ArchiveTuneAdapter.resolve(videoId) }
-            .fold(
-                onSuccess = { resolved ->
-                    ResolvedStream(
-                        url = resolved.url,
-                        mimeType = resolved.mimeType,
-                        title = title ?: resolved.title,
-                        durationSeconds = durationSeconds ?: resolved.durationSeconds,
-                        artists = resolved.artists,
-                        thumbnailUrl = resolved.thumbnailUrl,
-                        album = resolved.album,
-                    )
-                },
-                onFailure = { e ->
-                    Log.e("MediaController", "Failed to resolve stream for $videoId", e)
-                    throw e
-                }
-            )
+        val url = resolvePlayableUrl(videoId)
+            ?: throw Exception("Empty stream URL received for $videoId.")
+        return ResolvedStream(
+            url = url,
+            mimeType = "audio/mp4",
+            title = title,
+            durationSeconds = durationSeconds,
+            artists = artists.joinToString(", "),
+            thumbnailUrl = null,
+            album = null,
+        )
+    }
+
+    /**
+     * Tries every stream provider in order and returns the first playable URL,
+     * or null when every provider failed. Never throws.
+     */
+    private suspend fun resolvePlayableUrl(videoId: String): String? {
+        if (videoId.isBlank()) return null
+        // 1. Serve from the permanent audio cache when already downloaded.
+        AudioCacheStore.getCachedUri(videoId)?.let { return it }
+        // 2. A previously resolved URL (this session, or persisted from an
+        //    earlier session) lets the queue start instantly without
+        //    re-resolving the stream.
+        resolvedStreamUrls[videoId]?.let { return it }
+        persistedUrlFor(videoId)?.let { url ->
+            resolvedStreamUrls[videoId] = url
+            return url
+        }
+        // 3. ArchiveTune primary resolver (memory + persistent stream cache).
+        runCatching { ArchiveTuneAdapter.resolve(videoId) }
+            .getOrNull()
+            ?.takeIf { it.url.isNotBlank() }
+            ?.let { resolved ->
+                resolvedStreamUrls[videoId] = resolved.url
+                rememberPersistedUrl(videoId, resolved.url)
+                return resolved.url
+            }
+        // 4. InnerTube player API with Piped fallback — catches songs the
+        //    primary resolver rejects so "some songs refuse to play" becomes
+        //    a no-op instead of a dead tap. (resolvePlayable already returns
+        //    a Result, so no runCatching wrapper here.)
+        YTPlayerUtils.resolvePlayable(videoId)
+            .getOrNull()
+            ?.takeIf { !it.streamUrl.isNullOrBlank() }
+            ?.let { response ->
+                val resolvedUrl = response.streamUrl!!
+                resolvedStreamUrls[videoId] = resolvedUrl
+                rememberPersistedUrl(videoId, resolvedUrl)
+                return resolvedUrl
+            }
+        return null
     }
 
     suspend fun addToQueue(music: YosMediaItem): Boolean {
@@ -2341,7 +2533,14 @@ class YosPlaybackService : MediaSessionService() {
                                     }
 
                                     val cacheKey = videoIdAtFetch ?: (currentTrack.title ?: "unknown")
-                                    val cached = MediaViewModelObject.lyricsCache[cacheKey]
+                                    // In-memory hot cache first, then the permanent disk store.
+                                    var cached = MediaViewModelObject.lyricsCache[cacheKey]
+                                    if (cached == null) {
+                                        LyricsCacheStore.get(cacheKey)?.let {
+                                            cached = it
+                                            MediaViewModelObject.lyricsCache[cacheKey] = it
+                                        }
+                                    }
                                     if (cached != null) {
                                         if (musicPlaying.value?.mediaId != videoIdAtFetch) return@launch
                                         ensureActive()
@@ -2372,6 +2571,7 @@ class YosPlaybackService : MediaSessionService() {
                                         ensureActive()
                                         if (onlineLyrics != null && onlineLyrics.text.isNotBlank()) {
                                             MediaViewModelObject.lyricsCache[cacheKey] = onlineLyrics.text
+                                            LyricsCacheStore.put(cacheKey, onlineLyrics.text)
                                             if (MediaViewModelObject.lyricsCache.size > 20) {
                                                 val keys = MediaViewModelObject.lyricsCache.keys.toList()
                                                 for (i in 0 until (MediaViewModelObject.lyricsCache.size - 20)) {
@@ -2418,6 +2618,7 @@ class YosPlaybackService : MediaSessionService() {
                                         }
                                         if (embeddedLyrics != null && embeddedLyrics.isNotBlank()) {
                                             MediaViewModelObject.lyricsCache[key] = embeddedLyrics
+                                            LyricsCacheStore.put(key, embeddedLyrics)
                                         } else {
                                             val lyrics = ArchiveTuneApis.fetchLyrics(
                                                 title = track.title,
@@ -2428,6 +2629,7 @@ class YosPlaybackService : MediaSessionService() {
                                             )
                                             if (lyrics != null && lyrics.text.isNotBlank()) {
                                                 MediaViewModelObject.lyricsCache[key] = lyrics.text
+                                                LyricsCacheStore.put(key, lyrics.text)
                                             }
                                         }
                                         if (MediaViewModelObject.lyricsCache.size > 20) {

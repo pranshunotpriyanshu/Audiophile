@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
@@ -32,31 +34,39 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.Popup
 import androidx.navigation.NavController
 import com.github.promeg.pinyinhelper.Pinyin
@@ -66,6 +76,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
+import com.pryvn.audiophile.code.cache.AudioCacheStore
+import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.MusicLibrary.songs
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary.EnableDescending
@@ -81,6 +93,8 @@ import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.TitleBarIcon
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.widgets.playlist.PlayListPickerSheet
+import android.widget.Toast
 
 @Composable
 fun NormalMusic(navController: NavController) {
@@ -125,6 +139,59 @@ fun NormalMusic(navController: NavController) {
             val useSearch = remember { derivedStateOf { searchText.value.isNotEmpty() } }
             val list: MutableState<List<YosMediaItem>> = remember { mutableStateOf(musicList.sortX()) }
 
+            // Multi-select (entered from the song overflow sheet's "Select"
+            // item, available on every playlist screen). The offline "Cached"
+            // library additionally gets a remove-from-cache action.
+            val context = LocalContext.current
+            val isCachedLibrary = remember(pageInfo.first) {
+                pageInfo.first == context.getString(R.string.page_library_playlists_cached_title)
+            }
+            val selectionMode = remember { mutableStateOf(false) }
+            val selectedSongs = remember { mutableStateListOf<YosMediaItem>() }
+            val pickerOpen = remember { mutableStateOf(false) }
+
+            val toggleSelected: (YosMediaItem) -> Unit = { music ->
+                if (selectedSongs.contains(music)) selectedSongs.remove(music) else selectedSongs.add(music)
+                if (selectedSongs.isEmpty()) selectionMode.value = false
+            }
+
+            // Entered from the song overflow sheet's "Select" item (long-press
+            // the row, then pick Select) — for every playlist screen.
+            val enterSelectMode: (YosMediaItem) -> Unit = { music ->
+                Vibrator.longClick(context)
+                if (!selectionMode.value) {
+                    selectionMode.value = true
+                    selectedSongs.clear()
+                }
+                toggleSelected(music)
+            }
+
+            val removeConfirmOpen = remember { mutableStateOf(false) }
+            val removeSelected: () -> Unit = {
+                removeConfirmOpen.value = true
+            }
+            val confirmRemoveSelected: () -> Unit = {
+                removeConfirmOpen.value = false
+                if (selectedSongs.isNotEmpty()) {
+                    val removed = selectedSongs.size
+                    AudioCacheStore.removeSongs(selectedSongs.toList())
+                    val freshSongs = AudioCacheStore.cachedSongs()
+                    LibraryObject.setTargetListWithTitle(pageInfo.first, freshSongs)
+                    list.value = freshSongs.sortX()
+                    selectionMode.value = false
+                    selectedSongs.clear()
+                    Toast.makeText(
+                        context,
+                        context.resources.getQuantityString(
+                            R.plurals.cached_library_removed_count,
+                            removed,
+                            removed,
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+
             YosWrapper {
                 LaunchedEffect(searchText.value, SongSort, EnableDescending) {
                     withContext(Dispatchers.IO) {
@@ -144,7 +211,7 @@ fun NormalMusic(navController: NavController) {
                                             }
                                 }.toList()
                             } else {
-                                musicList
+                                LibraryObject.getTargetListWithTitle().second
                             }
                         }
                         list.value = filteredList.sortX()
@@ -164,22 +231,64 @@ fun NormalMusic(navController: NavController) {
                     }, buttonPosition.value)
                 }
 
+                PlayListPickerSheet(
+                    isOpen = pickerOpen,
+                    songToAdd = null,
+                    songsToAdd = selectedSongs.toList(),
+                )
+
+                if (removeConfirmOpen.value) {
+                    RemoveFromCacheConfirmDialog(
+                        count = selectedSongs.size,
+                        onConfirm = confirmRemoveSelected,
+                        onDismiss = { removeConfirmOpen.value = false },
+                    )
+                }
+
                 Title(
-                    title = pageInfo.first, onBack = {
-                        navController.popBackStack()
+                    title = if (selectionMode.value) {
+                        stringResource(R.string.cached_library_selected, selectedSongs.size)
+                    } else {
+                        pageInfo.first
                     },
-                    rightBarIcon = {
-                        TitleBarIcon(
-                            modifier = Modifier.onGloballyPositioned {
-                                if (buttonPosition.value.y == 0f) {
-                                    buttonPosition.value = it.localToRoot(Offset.Zero)
-                                }
-                            },
-                            icon = Icons.Rounded.MoreHoriz,
-                            onBack = {
-                                expanded.value = true
+                    onBack = {
+                        if (selectionMode.value) {
+                            selectionMode.value = false
+                            selectedSongs.clear()
+                        } else {
+                            navController.popBackStack()
+                        }
+                    },
+                    rightBarIcon = if (selectionMode.value) {
+                        {
+                            // Select mode: add the selected songs to a playlist;
+                            // only the offline Cached library can drop them from
+                            // the cache, so that button is exclusive to it.
+                            SelectModeBarIcon(
+                                iconRes = R.drawable.ic_action_add,
+                                onClick = { pickerOpen.value = true },
+                            )
+                            if (isCachedLibrary) {
+                                SelectModeBarIcon(
+                                    iconRes = R.drawable.ic_action_delete,
+                                    onClick = removeSelected,
+                                )
                             }
-                        )
+                        }
+                    } else {
+                        {
+                            TitleBarIcon(
+                                modifier = Modifier.onGloballyPositioned {
+                                    if (buttonPosition.value.y == 0f) {
+                                        buttonPosition.value = it.localToRoot(Offset.Zero)
+                                    }
+                                },
+                                icon = Icons.Rounded.MoreHoriz,
+                                onBack = {
+                                    expanded.value = true
+                                }
+                            )
+                        }
                     }
                 ) {
                     item("SearchField") {
@@ -242,7 +351,15 @@ fun NormalMusic(navController: NavController) {
                         key = { _, music -> music }
                     ) { index, music ->
                         MusicList(
-                            music
+                            music,
+                            selectionMode = selectionMode.value,
+                            selected = selectedSongs.contains(music),
+                            onSelect = {
+                                enterSelectMode(music)
+                            },
+                            onToggleSelected = {
+                                toggleSelected(music)
+                            },
                         ) {
                             scope.launch(Dispatchers.IO) {
                                 MediaController.prepare(
@@ -253,7 +370,7 @@ fun NormalMusic(navController: NavController) {
                         }
 
                         key(index) {
-                            val needDivider = index < musicList.size - 1
+                            val needDivider = index < list.value.size - 1
                             if (needDivider) {
                                 Spacer(
                                     modifier = Modifier
@@ -298,6 +415,127 @@ private fun List<YosMediaItem>.sortX() =
             it
         }
     }
+
+@Composable
+private fun RemoveFromCacheConfirmDialog(
+    count: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = true),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White withNight Color.Black,
+            contentColor = Color.Black withNight Color.White,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = stringResource(R.string.cached_library_remove_confirm_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = context.resources.getQuantityString(
+                        R.plurals.cached_library_remove_confirm_message,
+                        count,
+                        count,
+                    ),
+                    fontSize = 14.sp,
+                    modifier = Modifier.alpha(0.6f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 19.sp,
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .clip(RoundedCornerShape(23.dp))
+                            .background((Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                Vibrator.click(context)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cached_library_remove_cancel),
+                            fontSize = 16.sp,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp)
+                            .background(MaterialTheme.colorScheme.error, RoundedCornerShape(23.dp))
+                            .clip(RoundedCornerShape(23.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                Vibrator.click(context)
+                                onConfirm()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cached_library_remove_confirm),
+                            color = Color.White,
+                            fontSize = 16.sp,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectModeBarIcon(
+    iconRes: Int,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .statusBarsPadding()
+            .padding(end = 10.dp)
+            .size(28.dp)
+            .background((Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f), shape = CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            modifier = Modifier.size(19.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
 
 @Composable
 fun FloatingMenu(

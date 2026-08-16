@@ -432,6 +432,30 @@ fun YosLyricView(
 
             if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
 
+            // The gap-dots slot also collapses via animateContentSize (a spring)
+            // that outlives the 340ms exit tween, so a fixed delay can still
+            // measure the target mid-collapse — the reported "next line
+            // overshoots the anchor after the gap dots" bug. Poll the target's
+            // offset until it settles across frames; only then is the layout
+            // final and the scroll exact, so the line can never overshoot.
+            if (leavingGapDots) {
+                var lastOffset = Float.NaN
+                repeat(30) {
+                    if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
+                    val currentOffset = (visibleItems.value.find { it.index == targetIdx }?.offset ?: return@LaunchedEffect).toFloat()
+                    if (lastOffset.isNaN()) {
+                        lastOffset = currentOffset
+                    } else if (abs(currentOffset - lastOffset) < 0.5f) {
+                        return@LaunchedEffect
+                    } else {
+                        lastOffset = currentOffset
+                    }
+                    withFrameNanos { }
+                }
+            }
+
+            if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
+
             val targetOffset = height.intValue * 0.0618f
             val targetItem = visibleItems.value.find { it.index == targetIdx }
             if (targetItem != null) {

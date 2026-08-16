@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -352,6 +353,32 @@ fun LyricsV2(
     LaunchedEffect(currentLineIndex, isManualScrolling, lyricsScroll) {
         if (!lyricsScroll || isManualScrolling || !isSynced) return@LaunchedEffect
         if (currentLineIndex < 0 || currentLineIndex >= entriesWithWords.size) return@LaunchedEffect
+
+        // When the line we just left was a gap-dots instrumental row, its
+        // shrinkVertically exit (340ms) is still animating while this effect
+        // fires. Measuring the target offset mid-shrink yields a stale value
+        // and the next line overshoots the anchor. Wait for the shrink, then
+        // poll the target's offset until it settles across frames.
+        val prevIndex = currentLineIndex - 1
+        val prevWasGap = prevIndex >= 0 &&
+            entriesWithWords.getOrNull(prevIndex)
+                ?.let { it !== HEAD_LYRICS_ENTRY && it.isInstrumental } == true
+        if (prevWasGap) {
+            delay(360)
+            var lastOffset = Float.NaN
+            repeat(20) {
+                val currentOffset = (listState.layoutInfo.visibleItemsInfo
+                    .find { it.index == currentLineIndex }?.offset ?: return@repeat).toFloat()
+                if (lastOffset.isNaN()) {
+                    lastOffset = currentOffset
+                } else if (abs(currentOffset - lastOffset) < 0.5f) {
+                    return@repeat
+                } else {
+                    lastOffset = currentOffset
+                }
+                withFrameNanos { }
+            }
+        }
 
         val targetOffset = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
 

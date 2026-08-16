@@ -79,8 +79,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Slider
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderPositions
 import androidx.compose.material3.Surface
@@ -95,6 +93,7 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -188,6 +187,7 @@ import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.MediaController.mediaControl
+import com.pryvn.audiophile.code.cache.AudioCacheStore
 import com.pryvn.audiophile.code.MediaController.musicPlaying
 import com.pryvn.audiophile.code.MediaController.playingMusicList
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
@@ -221,7 +221,6 @@ import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.libraries.toHighResThumbnailUri
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.data.models.MainViewModel
-import com.pryvn.audiophile.ui.markNextNavigationFromNowPlaying
 import com.pryvn.audiophile.data.models.MediaViewModel
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.PlaybackLoadingState
@@ -237,27 +236,17 @@ import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.pages.library.FloatingMenu
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
-import com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet
-import com.pryvn.audiophile.ui.widgets.basic.AppleSheetHeader
-import com.pryvn.audiophile.ui.widgets.basic.AppleSheetMenuRow
+import androidx.compose.foundation.combinedClickable
+import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
 import com.pryvn.audiophile.ui.widgets.basic.rememberAnimatedAlbumCoverState
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
-import com.pryvn.audiophile.ui.widgets.basic.YosBottomSheetDialog
-import com.pryvn.audiophile.ui.widgets.basic.ActionSheetBody
-import com.pryvn.audiophile.ui.widgets.basic.SheetAnimatedContent
-import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationForward
-import com.pryvn.audiophile.ui.widgets.basic.SheetNavigationBackward
-import com.pryvn.audiophile.ui.widgets.basic.ActionItem
-import com.pryvn.audiophile.ui.widgets.playlist.PlayListPickerContent
-import com.pryvn.audiophile.ui.widgets.sleeptimer.SleepTimerContent
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.effects.overlayEffect
 import com.pryvn.audiophile.ui.widgets.LyricsInteractionController
-import com.pryvn.audiophile.ui.widgets.LyricShareContent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import sh.calvin.reorderable.ReorderableItem
@@ -1474,15 +1463,30 @@ PlayingList ->
             }
         }
 
-        NowPlayingOverflowSheet(
+        // The same Apple Music-style song sheet used everywhere else, with the
+        // Now Playing-only actions (sleep timer, lyrics, download status)
+        // appended as their own group.
+        SongOverflowSheet(
             isOpen = overflowSheetOpen,
             song = snapshotSong.value,
             navController = navController,
-            onMinimizeNowPlaying = onMinimizeNowPlaying,
-            onOpenLibraryTarget = {
-                navController.markNextNavigationFromNowPlaying()
-                navController.toUI(it.route)
+            onPickSleepTimer = { },
+            onRefetchLyrics = {
+                // Detached scope: the sheet is dismissed before this runs, so
+                // its composition scope would be cancelled — fetch on our own.
+                CoroutineScope(Dispatchers.IO).launch {
+                    val track = snapshotSong.value ?: return@launch
+                    LyricsProcessor.refetchLyrics(
+                        title = track.title,
+                        artist = track.artists,
+                        album = track.album,
+                        durationMs = track.duration,
+                        videoId = track.mediaId,
+                    )
+                }
             },
+            onPickLyricShare = { },
+            onPickDownloadStatus = { },
         )
         }
     }
@@ -1721,21 +1725,9 @@ fun PlayingList(
                         .weight(1f)
                 ) {
                     Text(
-                        text = stringResource(id = R.string.page_library_playlists),
+                        text = stringResource(id = R.string.queue_title),
                         fontSize = 16.5.sp,
                         fontWeight = headingFontWeight(),
-                    )
-                    Text(
-                        text = stringResource(
-                            id = R.string.page_library_playlists_music_total,
-                            upNext.size
-                        ),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .overlayEffect()
-                            .alpha(0.35f)
                     )
                 }
 
@@ -2059,6 +2051,7 @@ fun LazyItemScope.QueueSectionHeader(
 
 private val QueueRowHeight = 64.dp
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LazyItemScope.QueueMusicListItem(
     music: YosMediaItem,
@@ -2071,6 +2064,9 @@ fun LazyItemScope.QueueMusicListItem(
     val context = LocalContext.current
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Long-press opens this song's 3-dot menu from any queue row.
+    val songMenuOpen = remember(music.uri, music.mediaId) { mutableStateOf(false) }
     var rowWidthPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
     var rowHeightPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
     var swipeOffsetPx by remember(music.uri, music.mediaId) { mutableFloatStateOf(0f) }
@@ -2078,6 +2074,12 @@ fun LazyItemScope.QueueMusicListItem(
     var resetAnimationJob by remember(music.uri, music.mediaId) { mutableStateOf<Job?>(null) }
     var deleteAnimating by remember(music.uri, music.mediaId) { mutableStateOf(false) }
     var deleteCollapsing by remember(music.uri, music.mediaId) { mutableStateOf(false) }
+
+    // Live download progress for this song (snapshot read: recomposes as bytes
+    // stream in). When present the row grows a little so the bar never
+    // overflows into the neighbouring queue rows.
+    val downloadProgress = AudioCacheStore.progressOf(music.mediaId)
+    val progressRowHeight = if (downloadProgress != null) QueueRowHeight + 12.dp else QueueRowHeight
 
     val swipeRightEnabled = onMoveToNextQueue != null
     val swipeLeftEnabled = onRemove != null
@@ -2195,10 +2197,16 @@ fun LazyItemScope.QueueMusicListItem(
             )
             Row(
                 modifier = Modifier
-                    .height(QueueRowHeight).fillMaxWidth()
+                    .height(progressRowHeight).fillMaxWidth()
                     .graphicsLayer { translationX = swipeOffsetPx }
                     .then(swipeModifier)
-                    .clickable { itemClick() }
+                    .combinedClickable(
+                        onClick = itemClick,
+                        onLongClick = {
+                            Vibrator.longClick(context)
+                            songMenuOpen.value = true
+                        },
+                    )
                     .then(
                         if (isCurrentItem) Modifier.padding(horizontal = 20.dp).background(draggedItemBackground, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp)
                         else Modifier.padding(start = 30.dp, end = 12.dp)
@@ -2221,6 +2229,30 @@ fun LazyItemScope.QueueMusicListItem(
                         modifier = Modifier.alpha(0.5f), maxLines = 1,
                         overflow = TextOverflow.Ellipsis, fontSize = 11.5.sp, lineHeight = 11.5.sp,
                     )
+                    if (downloadProgress != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val fraction = downloadProgress.fraction
+                        if (fraction >= 0f) {
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp)),
+                                color = Color(0xFF1E88E5),
+                                trackColor = Color(0xFF1E88E5).copy(alpha = 0.18f),
+                            )
+                        } else {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(1.5.dp)),
+                                color = Color(0xFF1E88E5),
+                                trackColor = Color(0xFF1E88E5).copy(alpha = 0.18f),
+                            )
+                        }
+                    }
                 }
                 Box(
                     modifier = Modifier.size(36.dp).then(reorderHandleModifier),
@@ -2236,6 +2268,11 @@ fun LazyItemScope.QueueMusicListItem(
             }
         }
     }
+
+    SongOverflowSheet(
+        isOpen = songMenuOpen,
+        song = music,
+    )
 }
 
 @Composable
@@ -2478,319 +2515,6 @@ fun ActionButtonsRow(
         }
     }
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NowPlayingOverflowSheet(
-    isOpen: MutableState<Boolean>,
-    song: YosMediaItem?,
-    navController: NavController,
-    onMinimizeNowPlaying: suspend () -> Unit,
-    onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
-) {
-    if (!isOpen.value) return
-
-    var screen by remember { mutableStateOf(OverflowScreen.Menu) }
-    val navigationDirection = remember {
-        mutableIntStateOf(SheetNavigationForward)
-    }
-    val scope = rememberCoroutineScope()
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    val openedAt = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(Unit) {
-        openedAt.longValue = TimeUtils.getNowMills()
-    }
-
-    val onDismiss: () -> Unit = {
-        if (TimeUtils.getNowMills() - openedAt.longValue >= 800L) {
-            isOpen.value = false
-            screen = OverflowScreen.Menu
-            navigationDirection.intValue = SheetNavigationForward
-        }
-    }
-
-    YosBottomSheetDialog(
-        bottomSheetState = sheetState,
-        blurred = true,
-        onDismissRequest = onDismiss,
-    ) {
-        SheetAnimatedContent(
-            targetState = screen,
-            navigationDirection = navigationDirection.intValue,
-            modifier = Modifier.fillMaxWidth(),
-            label = "NowPlayingOverflowSheet",
-        ) { currentScreen ->
-            when (currentScreen) {
-                OverflowScreen.Menu -> OverflowMenuBody(
-                    song = song,
-                    navController = navController,
-                    onMinimizeNowPlaying = onMinimizeNowPlaying,
-                    onOpenLibraryTarget = onOpenLibraryTarget,
-                    onDismiss = onDismiss,
-                    onPickPlaylist = {
-                        navigationDirection.intValue = SheetNavigationForward
-                        screen = OverflowScreen.Playlist
-                    },
-                    onPickSleepTimer = {
-                        navigationDirection.intValue = SheetNavigationForward
-                        screen = OverflowScreen.SleepTimer
-                    },
-                    onPickLyricShare = {
-                        navigationDirection.intValue = SheetNavigationForward
-                        screen = OverflowScreen.LyricShare
-                    },
-                    onRefetchLyrics = {
-                        onDismiss()
-                        // Detached scope: the sheet's rememberCoroutineScope is cancelled
-                        // when the sheet leaves composition after onDismiss(), which could
-                        // cancel the fetch before it starts.
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val track = song ?: return@launch
-                            LyricsProcessor.refetchLyrics(
-                                title = track.title,
-                                artist = track.artists,
-                                album = track.album,
-                                durationMs = track.duration,
-                                videoId = track.mediaId,
-                            )
-                        }
-                    },
-                )
-
-                OverflowScreen.Playlist -> PlayListPickerContent(
-                    songToAdd = song,
-                    onDone = onDismiss,
-                    onBack = {
-                        navigationDirection.intValue = SheetNavigationBackward
-                        screen = OverflowScreen.Menu
-                    },
-                )
-
-                OverflowScreen.SleepTimer -> SleepTimerContent(
-                    onDone = {},
-                    onBack = {
-                        navigationDirection.intValue = SheetNavigationBackward
-                        screen = OverflowScreen.Menu
-                    },
-                )
-
-                OverflowScreen.LyricShare -> LyricShareContent(
-                    song = song,
-                    onBack = {
-                        navigationDirection.intValue = SheetNavigationBackward
-                        screen = OverflowScreen.Menu
-                    },
-                    onDone = onDismiss,
-                )
-            }
-        }
-    }
-}
-
-enum class OverflowScreen { Menu, Playlist, SleepTimer, LyricShare }
-
-enum class OverflowLibraryTarget(val route: String)
-{
-    Artist(UI.ArtistInfo),
-    Album(UI.AlbumInfo),
-}
-
-@Composable
-fun OverflowMenuBody(
-    song: YosMediaItem?,
-    navController: NavController,
-    onMinimizeNowPlaying: suspend () -> Unit,
-    onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
-    onDismiss: () -> Unit,
-    onPickPlaylist: () -> Unit,
-    onPickSleepTimer: () -> Unit,
-    onPickLyricShare: () -> Unit,
-    onRefetchLyrics: () -> Unit,
-) {
-    val addToPlaylistLabel = stringResource(R.string.now_playing_overflow_add_to_playlist)
-    val sleepTimerLabel = stringResource(R.string.now_playing_overflow_sleep_timer)
-    val refetchLyricsLabel = stringResource(R.string.now_playing_overflow_refetch_lyrics)
-    val shareLyricsLabel = stringResource(R.string.now_playing_overflow_share_lyrics)
-
-    val sleepTimerActive = SleepTimer.state.value is SleepTimerState.Active
-    val accent = MaterialTheme.colorScheme.primary
-
-    val items = remember(
-        addToPlaylistLabel, sleepTimerLabel, refetchLyricsLabel, shareLyricsLabel,
-        sleepTimerActive, accent,
-        onPickPlaylist, onPickSleepTimer, onRefetchLyrics, onPickLyricShare,
-    ) {
-        listOf(
-            ActionItem(
-                iconRes = R.drawable.ic_action_add,
-                label = addToPlaylistLabel,
-                onClick = onPickPlaylist,
-            ),
-            ActionItem(
-                iconRes = R.drawable.ic_setting_moon,
-                label = sleepTimerLabel,
-                tint = if (sleepTimerActive) accent else null,
-                onClick = onPickSleepTimer,
-            ),
-            ActionItem(
-                iconRes = R.drawable.ic_refresh,
-                label = refetchLyricsLabel,
-                onClick = onRefetchLyrics,
-            ),
-            ActionItem(
-                iconRes = R.drawable.ic_action_share,
-                label = shareLyricsLabel,
-                onClick = onPickLyricShare,
-            ),
-        )
-    }
-
-    ActionSheetBody(
-        header = if (song != null) {
-            {
-                NowPlayingOverflowHeader(
-                    song = song,
-                    navController = navController,
-                    onMinimizeNowPlaying = onMinimizeNowPlaying,
-                    onOpenLibraryTarget = onOpenLibraryTarget,
-                    onDismiss = onDismiss,
-                )
-            }
-        } else null,
-        items = items,
-    )
-}
-
-@Composable
-fun NowPlayingOverflowHeader(
-    song: YosMediaItem,
-    navController: NavController,
-    onMinimizeNowPlaying: suspend () -> Unit,
-    onOpenLibraryTarget: (OverflowLibraryTarget) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    val shape = YosRoundedCornerShape(8.dp)
-    val targetArtistNames = remember(song) {
-        song.artistsList.orEmpty().filter { it.isNotBlank() }
-    }
-    val targetAlbumName = remember(song) {
-        song.album?.takeIf { it.isNotBlank() }
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val thumbUrl = song.thumb?.toString() ?: ""
-        AsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(song.thumb)
-                .crossfade(true)
-                .size(CoilSize(128, 128))
-                .memoryCacheKey(thumbUrl)
-                .diskCacheKey(thumbUrl)
-                .build(),
-            contentDescription = null,
-            modifier = Modifier
-                .size(64.dp)
-                .graphicsLayer {
-                    compositingStrategy = CompositingStrategy.Offscreen
-                    clip = true
-                    this.shape = shape
-                },
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title.orEmpty(),
-                fontFamily = SfProFontFamily,
-                fontSize = 16.sp,
-                fontWeight = userFontWeight(),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (targetArtistNames.isNotEmpty()) {
-                val artistAnnotatedText = remember(targetArtistNames) {
-                    buildAnnotatedString {
-                        targetArtistNames.forEachIndexed { index, artistName ->
-                            pushStringAnnotation(tag = "artist", annotation = artistName)
-                            append(artistName)
-                            pop()
-                            if (index < targetArtistNames.lastIndex) {
-                                append("、")
-                            }
-                        }
-                    }
-                }
-
-                ClickableText(
-                    text = artistAnnotatedText,
-                    style = androidx.compose.ui.text.TextStyle(
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontFamily = SfProFontFamily,
-                        fontSize = 13.5.sp,
-                        fontWeight = userFontWeight(),
-                    ),
-                    modifier = Modifier.padding(top = 3.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    onClick = { offset ->
-                        val artistName = artistAnnotatedText
-                            .getStringAnnotations(tag = "artist", start = offset, end = offset)
-                            .firstOrNull()
-                            ?.item
-                            ?: return@ClickableText
-
-                        LibraryObject.setTargetArtistName(artistName)
-                        LibraryObject.setArtistSongsSearchOnOpen(false)
-                        navController.markNextNavigationFromNowPlaying()
-                        onDismiss()
-                        onOpenLibraryTarget(OverflowLibraryTarget.Artist)
-                    },
-                )
-            } else if (!song.artists.isNullOrBlank()) {
-                Text(
-                    text = song.artists,
-                    fontSize = 13.5.sp,
-                    modifier = Modifier
-                        .padding(top = 3.dp)
-                        .alpha(0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (!song.album.isNullOrBlank()) {
-                Text(
-                    text = song.album,
-                    fontFamily = SfProFontFamily,
-                    fontSize = 12.5.sp,
-                    fontWeight = userFontWeight(),
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .alpha(0.5f)
-                        .clickable(
-                            enabled = targetAlbumName != null,
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                        ) {
-                            val albumName = targetAlbumName ?: return@clickable
-                            LibraryObject.setTargetAlbumName(albumName)
-                            navController.markNextNavigationFromNowPlaying()
-                            onDismiss()
-                            onOpenLibraryTarget(OverflowLibraryTarget.Album)
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 
 @Composable
 fun PlayingBar(

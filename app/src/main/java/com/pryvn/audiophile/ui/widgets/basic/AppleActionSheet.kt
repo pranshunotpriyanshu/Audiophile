@@ -5,11 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -20,9 +22,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 
-private val SheetBackground = Color(0xFF2C2C2E)
-private val SheetSurface = Color(0xFF1C1C1E)
-private val SeparatorColor = Color.White.copy(alpha = 0.12f)
+// Apple-style action sheet colors, adaptive to the system theme (iOS uses a
+// near-black sheet in dark mode and a light grey sheet in light mode).
+@Composable
+fun sheetSurface(): Color = if (isSystemInDarkTheme()) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
+
+@Composable
+fun sheetBackground(): Color = if (isSystemInDarkTheme()) Color(0xFF2C2C2E) else Color(0xFFFFFFFF)
+
+@Composable
+fun sheetSeparator(): Color =
+    if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.09f)
+
+@Composable
+fun sheetTextColor(): Color = if (isSystemInDarkTheme()) Color.White else Color.Black
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +47,7 @@ fun AppleActionSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = SheetSurface,
+        containerColor = sheetSurface(),
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         tonalElevation = 0.dp,
         dragHandle = {
@@ -44,7 +57,7 @@ fun AppleActionSheet(
                     .width(36.dp)
                     .height(5.dp)
                     .clip(RoundedCornerShape(2.5.dp))
-                    .background(Color.White.copy(alpha = 0.3f)),
+                    .background(sheetTextColor().copy(alpha = 0.3f)),
             )
         },
         scrimColor = Color.Black.copy(alpha = 0.5f),
@@ -75,7 +88,7 @@ fun AppleSheetHeader(
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = SfProFontFamily,
-            color = Color.White,
+            color = sheetTextColor(),
             textAlign = TextAlign.Center,
             maxLines = 2,
         )
@@ -85,7 +98,7 @@ fun AppleSheetHeader(
                 text = subtitle,
                 fontSize = 14.sp,
                 fontFamily = SfProFontFamily,
-                color = Color.White.copy(alpha = 0.45f),
+                color = sheetTextColor().copy(alpha = 0.45f),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
             )
@@ -93,34 +106,58 @@ fun AppleSheetHeader(
     }
 }
 
+/**
+ * Rounded, grouped container for a set of [AppleSheetMenuRow]s — the way iOS
+ * groups action sheet buttons into one card.
+ */
+@Composable
+fun AppleSheetMenuGroup(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(sheetBackground()),
+        content = content,
+    )
+}
+
 @Composable
 fun AppleSheetMenuRow(
     text: String,
     onClick: () -> Unit,
-    tint: Color = Color.White,
+    tint: Color? = null,
     isDestructive: Boolean = false,
     showTopDivider: Boolean = false,
     icon: Int? = null,
+    enabled: Boolean = true,
 ) {
+    val resolvedTint = tint ?: sheetTextColor()
     if (showTopDivider) {
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 16.dp),
             thickness = 0.5.dp,
-            color = SeparatorColor,
+            color = sheetSeparator(),
         )
     }
+    val rowAlpha = if (enabled) 1f else 0.35f
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(
+                enabled = enabled,
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
                 onClick = onClick,
             )
             .background(Color.Transparent)
-            .padding(horizontal = 4.dp, vertical = 16.dp),
+            .padding(horizontal = 4.dp, vertical = 16.dp)
+            .alpha(rowAlpha),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
@@ -128,7 +165,7 @@ fun AppleSheetMenuRow(
                 painter = painterResource(id = icon),
                 contentDescription = null,
                 modifier = Modifier.size(22.dp),
-                tint = if (isDestructive) Color(0xFFFF453A) else tint.copy(alpha = 0.6f),
+                tint = if (isDestructive) Color(0xFFFF453A) else resolvedTint.copy(alpha = 0.6f),
             )
             Spacer(Modifier.width(12.dp))
         }
@@ -137,9 +174,10 @@ fun AppleSheetMenuRow(
             fontSize = 17.sp,
             fontFamily = SfProFontFamily,
             fontWeight = FontWeight.Normal,
-            color = if (isDestructive) Color(0xFFFF453A) else tint,
+            color = if (isDestructive) Color(0xFFFF453A) else resolvedTint,
             textAlign = if (icon != null) TextAlign.Start else TextAlign.Center,
             modifier = Modifier.weight(1f),
+            maxLines = if (enabled) 1 else 3,
         )
     }
 }
@@ -167,7 +205,7 @@ fun AppleConfirmSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(SheetBackground)
+                    .background(sheetBackground())
                     .padding(horizontal = 24.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -176,7 +214,7 @@ fun AppleConfirmSheet(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = SfProFontFamily,
-                    color = Color.White,
+                    color = sheetTextColor(),
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(8.dp))
@@ -184,7 +222,7 @@ fun AppleConfirmSheet(
                     text = message,
                     fontSize = 14.sp,
                     fontFamily = SfProFontFamily,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = sheetTextColor().copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
                 )
@@ -194,7 +232,7 @@ fun AppleConfirmSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(SheetBackground),
+                    .background(sheetBackground()),
             ) {
                 AppleSheetMenuRow(
                     text = confirmText,
@@ -207,7 +245,7 @@ fun AppleConfirmSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(SheetBackground),
+                    .background(sheetBackground()),
             ) {
                 AppleSheetMenuRow(
                     text = cancelText,

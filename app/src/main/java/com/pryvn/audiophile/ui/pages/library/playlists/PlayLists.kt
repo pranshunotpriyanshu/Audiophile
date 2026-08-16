@@ -93,6 +93,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
+import com.pryvn.audiophile.code.cache.AudioCacheStore
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
 import com.pryvn.audiophile.data.libraries.MusicLibrary.songs
@@ -340,19 +341,60 @@ fun PlayLists(navController: NavController) {
                     PlayListDivider()
                 }
 
-                item("FavList") {
-                    val targetTitle = context.getString(R.string.page_library_playlists_fav_title)
-                    PlayListItem(playListType = PlayListType.Favorite, title = targetTitle) {
-                        if (reorderActive.value) { return@PlayListItem }
-                        scope.launch(Dispatchers.IO) {
-                            val targetList = FavPlayListLibrary.favPlayList
-                            LibraryObject.setTargetListWithTitle(targetTitle, targetList)
-                            withContext(Dispatchers.Main) {
-                                navController.toUI(UI.NormalMusic)
+                // Favorite Songs: only visible once it actually has songs.
+                val favList = FavPlayListLibrary.favPlayList
+                if (favList.isNotEmpty()) {
+                    item("FavList") {
+                        val targetTitle = context.getString(R.string.page_library_playlists_fav_title)
+                        PlayListItem(
+                            playListType = PlayListType.Favorite,
+                            title = targetTitle,
+                            subtitle = pluralStringResource(
+                                R.plurals.playlist_picker_song_count,
+                                favList.size,
+                                favList.size,
+                            ),
+                        ) {
+                            if (reorderActive.value) { return@PlayListItem }
+                            scope.launch(Dispatchers.IO) {
+                                val targetList = FavPlayListLibrary.favPlayList
+                                LibraryObject.setTargetListWithTitle(targetTitle, targetList)
+                                withContext(Dispatchers.Main) {
+                                    navController.toUI(UI.NormalMusic)
+                                }
                             }
                         }
+                        PlayListDivider()
                     }
-                    PlayListDivider()
+                }
+
+                // Offline library: every song whose audio file is permanently
+                // cached on device, browsable and playable without a network.
+                // Only shown while there is at least one cached song.
+                val cachedCount = AudioCacheStore.cachedCount
+                if (cachedCount > 0) {
+                    item("CachedList") {
+                        val cachedSongs = remember(cachedCount) { AudioCacheStore.cachedSongs() }
+                        val cachedTitle = context.getString(R.string.page_library_playlists_cached_title)
+                        PlayListItem(
+                            playListType = PlayListType.Cached,
+                            title = cachedTitle,
+                            subtitle = pluralStringResource(
+                                R.plurals.playlist_picker_song_count,
+                                cachedSongs.size,
+                                cachedSongs.size,
+                            ),
+                        ) {
+                            if (reorderActive.value) { return@PlayListItem }
+                            scope.launch(Dispatchers.IO) {
+                                LibraryObject.setTargetListWithTitle(cachedTitle, cachedSongs)
+                                withContext(Dispatchers.Main) {
+                                    navController.toUI(UI.NormalMusic)
+                                }
+                            }
+                        }
+                        PlayListDivider()
+                    }
                 }
 
                 itemsIndexed(
@@ -741,11 +783,11 @@ private fun PlayListContextMenuHeader(playList: PlayList)
 {
     val context = LocalContext.current
     val shape = YosRoundedCornerShape(5.dp)
-    val songsInPlaylist = remember(playList.songDataList) {
-        playList.songDataList.mapNotNull { uri ->
-            songs.firstOrNull { it.uri == uri }
-        }
-    }
+    // songDataList already holds full YosMediaItems (uri, thumb, …), so the
+    // collage can consume them directly. (This used to look each one up in
+    // MusicLibrary.songs by comparing a Uri to a YosMediaItem — never
+    // matching — which left the auto-cover permanently empty.)
+    val songsInPlaylist = playList.songDataList
 
     Row(
         modifier = Modifier
@@ -1107,38 +1149,39 @@ private fun PlayListContextMenuItem(
             .padding(start = 19.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = label,
-                fontSize = 14.5.sp,
-                lineHeight = 16.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (labelTrailingIconRes != null) {
-                Spacer(modifier = Modifier.width(5.dp))
-                Icon(
-                    painter = painterResource(id = labelTrailingIconRes),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(12.dp)
-                        .graphicsLayer {
-                            rotationZ = animatedLabelTrailingIconRotation
-                        },
-                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.48f),
-                )
-            }
-        }
+        // Leading action icon on the left (Apple-style), label filling the
+        // remaining width, and the trailing chevron pinned to the far right.
+        // Previously the label+chevron were bunched on the left with the action
+        // icon at the right edge, which left a large empty gap in the middle.
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = label,
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f),
         )
+        Text(
+            text = label,
+            fontSize = 14.5.sp,
+            lineHeight = 16.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 14.dp),
+        )
+        if (labelTrailingIconRes != null) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                painter = painterResource(id = labelTrailingIconRes),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(12.dp)
+                    .graphicsLayer {
+                        rotationZ = animatedLabelTrailingIconRotation
+                    },
+                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.48f),
+            )
+        }
     }
 }
 
@@ -1156,7 +1199,7 @@ private fun PlayListContextMenuDivider(color: Color)
 
 @Stable
 private enum class PlayListType {
-    Add, Favorite
+    Add, Favorite, Cached
 }
 
 @Composable
@@ -1240,7 +1283,12 @@ private fun LazyItemScope.PlayListItem(playList: PlayList, itemClick: () -> Unit
 }
 
 @Composable
-private fun LazyItemScope.PlayListItem(playListType: PlayListType, title: String, itemClick: () -> Unit) {
+private fun LazyItemScope.PlayListItem(
+    playListType: PlayListType,
+    title: String,
+    subtitle: String? = null,
+    itemClick: () -> Unit,
+) {
     val itemInteractionSource = remember { MutableInteractionSource() }
     val itemPressed = itemInteractionSource.collectIsPressedAsState()
 
@@ -1268,6 +1316,7 @@ private fun LazyItemScope.PlayListItem(playListType: PlayListType, title: String
         {
             PlayListType.Add -> R.drawable.placeholder_playlist_new
             PlayListType.Favorite -> R.drawable.placeholder_playlist_fav
+            PlayListType.Cached -> R.drawable.placeholder_playlist_cached
         }
         Image(painter = painterResource(id = coverResId),
             contentDescription = null,
@@ -1307,12 +1356,22 @@ private fun LazyItemScope.PlayListItem(playListType: PlayListType, title: String
         ) {
             Text(
                 text = title,
-                modifier = Modifier.padding(bottom = 1.dp),
+                modifier = Modifier.padding(bottom = if (subtitle != null) 2.dp else 1.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 16.sp,
                 lineHeight = 16.sp,
             )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(0.45f),
+                )
+            }
         }
 
         Icon(
@@ -1387,11 +1446,10 @@ private fun LazyItemScope.PinnedAwarePlayListItem(
         // auto-collage fallback. Cheap — same lookup performed each
         // time the row recomposes; with a few hundred songs in the
         // library this is sub-millisecond.
-        val songsInPlaylist = androidx.compose.runtime.remember(playList.songDataList) {
-            playList.songDataList.mapNotNull { uri ->
-                com.pryvn.audiophile.data.libraries.MusicLibrary.songs.firstOrNull { it.uri == uri }
-            }
-        }
+        // songDataList already holds full YosMediaItems — feed them straight
+        // to the auto-collage (see PlayListContextMenuHeader for the bug this
+        // fixes: the old URI lookup never matched).
+        val songsInPlaylist = playList.songDataList
         val coverContext = LocalContext.current
         Box(modifier = Modifier.size(64.dp)) {
             Box(
@@ -1476,12 +1534,26 @@ private fun LazyItemScope.PinnedAwarePlayListItem(
         ) {
             Text(
                 text = playList.name,
-                modifier = Modifier.padding(bottom = 1.dp),
+                modifier = Modifier.padding(bottom = if (reorderActive) 0.dp else 2.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 16.sp,
                 lineHeight = 16.sp,
             )
+            if (!reorderActive) {
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.playlist_picker_song_count,
+                        playList.songDataList.size,
+                        playList.songDataList.size,
+                    ),
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(0.45f),
+                )
+            }
         }
 
         if (reorderEnabled) {
