@@ -367,7 +367,6 @@ fun YTMusicSearchScreen(
                                 items(uiState.resultsSections) { section ->
                                     ResultsSection(section, onSongClick = { song ->
                                         scope.launch(Dispatchers.IO) {
-                                            Log.d("PlaybackDebug", "Search tap: videoId=${song.videoId} title=${song.title} artist=${song.artists.joinToString(", ") { it.name }} thumbnail=${song.thumbnailUrl}")
                                             MediaController.playOnline(song)
                                         }
                                     }, onPlaylistClick = { playlist ->

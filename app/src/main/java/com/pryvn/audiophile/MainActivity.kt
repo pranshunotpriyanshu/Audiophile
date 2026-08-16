@@ -371,7 +371,7 @@ class MainActivity : ComponentActivity() {
                             mutableStateOf(defaultHome)
                         }
 
-                        val pagerState = rememberPagerState(pageCount = { 4 })
+                        val pagerState = rememberPagerState(pageCount = { 3 })
 
                         // Actual display below
 

@@ -90,6 +90,7 @@ fun YosLyricView(
     uiConfig: YosUIConfig = YosUIConfig(),
     weightLambda: () -> Boolean,
     wordSyncedLambda: () -> Boolean = { false },
+    pollingEnabled: () -> Boolean = { true },
     modifier: Modifier,
     onBackClick: () -> Unit,
 ) {
@@ -121,6 +122,7 @@ fun YosLyricView(
             modifier = modifier,
             textColorOverride = lyricTextColor,
             lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
+            pollingEnabled = pollingEnabled,
             onBackgroundClick = onBackClick,
         )
         return
@@ -424,7 +426,7 @@ fun YosLyricView(
         var stableIdx = currentLyricIndex.intValue
         var stableCount = 0
         while (isActive) {
-            if (!lyricLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            if (!lyricLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || !pollingEnabled()) {
                 delay(500)
                 continue
             }
@@ -841,7 +843,7 @@ fun LazyItemScope.LyricItem(
                             )
                             Text(
                                 text = it,
-                                fontSize = subTextSize.sp,
+                                fontSize = (subTextSize * (SettingsLibrary.LyricFontSize / 30.5f)).sp,
                                 color = subTextBasicColor,
                                 fontWeight = FontWeight.Normal,
                                 modifier = Modifier
@@ -850,7 +852,7 @@ fun LazyItemScope.LyricItem(
                                         compositingStrategy = CompositingStrategy.ModulateAlpha
                                     }
                                     .padding(start = 20.dp, end = 20.dp, top = 5.dp),
-                                lineHeight = (subTextSize + 5).sp,
+                                lineHeight = ((subTextSize + 5) * (SettingsLibrary.LyricFontSize / 30.5f)).sp,
                                 letterSpacing = 0.3.sp,
                                 textAlign = textAlign
                             )
@@ -913,11 +915,14 @@ fun GapDotsAnim(progress: () -> Float, colorLambda: () -> Color) {
 @Composable
 fun mainTextStyle(): TextStyle {
     val fontWeight = SettingsLibrary.LyricFontWeight
+    // Line-synced lyrics follow the user's font-size setting too (default 30.5 sp),
+    // with line height scaled by the same factor to preserve the current ratio.
+    val lyricFontSize = SettingsLibrary.LyricFontSize
     val lineBalance = SettingsLibrary.LyricLineBalance
     return TextStyle(
         fontFamily = SfProFontFamily,
-        fontSize = 30.5.sp,
-        lineHeight = 40.5.sp,
+        fontSize = lyricFontSize.sp,
+        lineHeight = (lyricFontSize * (40.5f / 30.5f)).sp,
         fontWeight = when (fontWeight) {
             "Thin" -> FontWeight.Thin
             "ExtraLight" -> FontWeight.ExtraLight

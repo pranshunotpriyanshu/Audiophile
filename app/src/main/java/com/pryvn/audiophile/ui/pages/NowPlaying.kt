@@ -159,7 +159,7 @@ import androidx.compose.ui.util.fastMap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.imageLoader
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -544,7 +544,8 @@ fun NowPlaying(
         LaunchedEffect(bitmap.value) {
             if (bitmap.value == null) return@LaunchedEffect
             withContext(Dispatchers.IO) {
-                val loader = ImageLoader(paletteContext)
+                // Shared Coil loader: artwork is served from the app-wide caches.
+                val loader = paletteContext.imageLoader
                 try {
                     val request = ImageRequest.Builder(paletteContext)
                         .data(bitmap.value)

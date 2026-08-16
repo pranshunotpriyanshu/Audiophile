@@ -158,6 +158,14 @@ private fun lyricFontWeight(): FontWeight {
     }
 }
 
+// Word-synced lyrics honor the font-weight setting too: active/past lines render
+// at the configured weight and upcoming lines step one weight class down so the
+// current line keeps its emphasis while still following the setting.
+private fun lyricActiveFontWeight(): FontWeight = lyricFontWeight()
+
+private fun lyricInactiveFontWeight(): FontWeight =
+    FontWeight((lyricFontWeight().weight - 200).coerceAtLeast(100))
+
 // Main Composable
 // ──────────────────────────────────────────────────────────────────────
 
@@ -170,6 +178,7 @@ fun LyricsV2(
     modifier: Modifier = Modifier,
     textColorOverride: Color? = null,
     lyricsLineBlurOverride: Boolean? = null,
+    pollingEnabled: () -> Boolean = { true },
     onBackgroundClick: () -> Unit = {},
 ) {
     val isInteractive = LyricsInteractionController.isInteractive()
@@ -745,7 +754,7 @@ fun LyricsV2(
                                         style =
                                             TextStyle(
                                                 fontSize = if (isAllBackground) (lyricsTextSize * 0.82f).sp else lyricsTextSize.sp,
-                                                fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                                fontWeight = if (isActive) lyricActiveFontWeight() else lyricInactiveFontWeight(),
                                                 fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal,
                                                 lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
                                                 fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
@@ -1074,7 +1083,7 @@ private fun AnimatedWordV2(
     val wordGlowRadius = if (isWordActive) glowProgress * 12f * glowFactor else 0f
 
     val actualFontSize = if (isBackground) fontSize * 0.85f else fontSize
-    val fontWeight = if (isLineActive || isLinePast) FontWeight.ExtraBold else FontWeight.SemiBold
+    val fontWeight = if (isLineActive || isLinePast) lyricActiveFontWeight() else lyricInactiveFontWeight()
     val baseColor = textColor.copy(alpha = if (isBackground) inactiveAlpha * 0.7f else inactiveAlpha)
     val fillColor = textColor.copy(alpha = if (isBackground) 0.75f else 1f)
     val glowPadding = 10.dp
@@ -1197,7 +1206,7 @@ private fun LyricsLineLrcBounce(
 ) {
     val words = remember(text) { text.toLyricsWrappingUnits() }
     val effectiveFontSize = if (isAllBackground) fontSize * 0.82f else fontSize
-    val fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold
+    val fontWeight = if (isActive) lyricActiveFontWeight() else lyricInactiveFontWeight()
     val fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal
 
     // Single spring animation for the entire line instead of per-word Animatables
@@ -1263,7 +1272,7 @@ private fun LrcBouncingWord(
         style =
             MaterialTheme.typography.headlineMedium.copy(
                 fontSize = fontSize.sp,
-                fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+                fontWeight = if (isActive) lyricActiveFontWeight() else lyricInactiveFontWeight(),
                 fontStyle = fontStyle,
                 lineHeight = (fontSize * lineSpacing).sp,
                 fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,

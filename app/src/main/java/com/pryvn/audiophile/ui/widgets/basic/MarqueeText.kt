@@ -11,6 +11,8 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -22,12 +24,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -45,8 +50,27 @@ fun MarqueeText(
     edgeGradientWidth: Dp = 14.dp,
     initialDelayMillis: Long = 1200L,
     endDelayMillis: Long = 1200L,
-    velocityDpPerSec: Int = 30
+    velocityDpPerSec: Int = 30,
+    enabled: Boolean = true
 ) {
+    if (!enabled) {
+        Text(
+            text = text,
+            style = style.copy(
+                color = if (color != Color.Unspecified) color else style.color,
+                fontSize = if (fontSize != TextUnit.Unspecified) fontSize else style.fontSize,
+                fontWeight = fontWeight ?: style.fontWeight,
+                letterSpacing = if (letterSpacing != TextUnit.Unspecified) letterSpacing else style.letterSpacing,
+                textAlign = textAlign ?: style.textAlign,
+                lineHeight = if (lineHeight != TextUnit.Unspecified) lineHeight else style.lineHeight
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = modifier
+        )
+        return
+    }
+
     val mergedStyle = style.copy(
         color = if (color != Color.Unspecified) color else style.color,
         fontSize = if (fontSize != TextUnit.Unspecified) fontSize else style.fontSize,
@@ -121,6 +145,11 @@ private fun MarqueeContent(
     val scrollState = rememberScrollState()
     val maxScroll = (textWidth - containerWidth).coerceAtLeast(0)
 
+    // Pause the marquee while the app is not in the foreground so a backgrounded
+    // player screen never keeps animating frames.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+
     LaunchedEffect(text, maxScroll) {
         if (maxScroll <= 0) return@LaunchedEffect
 
@@ -128,6 +157,10 @@ private fun MarqueeContent(
         val durationMillis = ((distance / velocityDpPerSec) * 30f).roundToInt().coerceAtLeast(1500)
 
         while (true) {
+            if (!lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+                delay(250)
+                continue
+            }
             scrollState.scrollTo(0)
             delay(initialDelayMillis)
 

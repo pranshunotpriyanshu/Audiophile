@@ -33,8 +33,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.imageLoader
 import coil.request.ImageRequest
 import coil.size.Size as CoilSize
 import com.flaviofaria.kenburnsview.KenBurnsView
@@ -72,7 +72,9 @@ fun YosFloatingLight(
         LaunchedEffect(album()) {
             if (album() == null) return@LaunchedEffect
             withContext(Dispatchers.IO) {
-                val imageLoader = ImageLoader(context)
+                // Use the shared Coil loader so artwork hits the app-wide memory + disk
+                // caches instead of being re-downloaded/re-decoded on every visit.
+                val imageLoader = context.imageLoader
                 try {
                     val request = ImageRequest.Builder(context)
                         .data(album())
@@ -87,8 +89,8 @@ fun YosFloatingLight(
                         ).toDrawable(context.resources)
                         thisBitmap.recycle()
                     }
-                } finally {
-                    imageLoader.shutdown()
+                } catch (_: Exception) {
+                    // keep previous drawable on failure
                 }
             }
         }
@@ -135,19 +137,16 @@ fun YosFloatingLight(
                         if (it.drawable != drawable.value) {
                             val thisOptionType = Option.Set.name
                             if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：设置背景")
                             it.setImageDrawable(drawable.value!!)
                             lastOption.value = thisOptionType
                         } else if (!isPlaying() || !active) {
                             val thisOptionType = Option.Pause.name
                             if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：暂停")
                             it.pause()
                             lastOption.value = thisOptionType
                         } else {
                             val thisOptionType = Option.Resume.name
                             if (lastOption.value == thisOptionType) return@AndroidView
-                            println("流光：恢复")
                             it.resume()
                             lastOption.value = thisOptionType
                         }

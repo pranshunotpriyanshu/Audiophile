@@ -46,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +97,7 @@ import com.pryvn.audiophile.data.libraries.PlaybackSource
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.objects.LibraryObject
+import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
@@ -111,6 +113,7 @@ import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class SourceMode { Audiophile, Library }
 
@@ -162,10 +165,15 @@ fun SearchPage(navController: NavController) {
         if (uiState.isFocused && sourceMode == SourceMode.Audiophile && uiState.query.isBlank()) {
             isLoadingRecommendations = true
             try {
-                val result = YouTubeApi.recentlyPlayedSongs(10)
-                result.onSuccess { songs ->
-                    recommendations = songs
-                }.onFailure {
+                val result = withTimeoutOrNull(10_000L) { YouTubeApi.recentlyPlayedSongs(10) }
+                if (result != null) {
+                    result.onSuccess { songs ->
+                        recommendations = songs
+                    }.onFailure {
+                        recommendations = emptyList()
+                    }
+                } else {
+                    // timed out: keep the previous recommendations, if any
                     recommendations = emptyList()
                 }
             } catch (_: Exception) {
@@ -865,6 +873,14 @@ private fun SearchSongRow(
     onOverflow: () -> Unit
 ) {
     val context = LocalContext.current
+    val isCurrentSong = remember(song.uri) {
+        derivedStateOf {
+            MediaController.musicPlaying.value?.uri == song.uri
+        }
+    }
+    // Only scroll the marquee while the song is actually playing — when paused or
+    // idle the row must stay static so the UI stops producing frames.
+    val isPlaying = MediaViewModelObject.isPlaying
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -904,13 +920,15 @@ private fun SearchSongRow(
                 text = song.title ?: "Unknown Title",
                 color = Color.Black withNight Color.White,
                 fontSize = 15.5.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                enabled = isCurrentSong.value && isPlaying.value
             )
             Spacer(modifier = Modifier.height(2.dp))
             MarqueeText(
                 text = "${song.artists ?: "Unknown Artist"} • ${song.album ?: "Unknown Album"}",
                 color = Color.Gray,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                enabled = isCurrentSong.value && isPlaying.value
             )
         }
 

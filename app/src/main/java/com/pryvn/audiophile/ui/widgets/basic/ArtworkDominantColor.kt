@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.drawable.toBitmap
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.imageLoader
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,7 +33,9 @@ fun rememberArtworkDominantColor(url: String?): Color {
         }
         withContext(Dispatchers.IO) {
             try {
-                val loader = ImageLoader(context)
+                // Shared Coil loader: artwork is served from the app-wide memory/disk
+                // cache instead of being re-downloaded and re-decoded on every visit.
+                val loader = context.imageLoader
                 val request = ImageRequest.Builder(context).data(url).build()
                 val bitmap = loader.execute(request).drawable?.toBitmap()
                 if (bitmap != null) {

@@ -160,11 +160,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                         song.toAlbumYosMediaItem(index + 1)
                     }
                     songsContinuation.value = firstContinuation
-                    android.util.Log.d(
-                        "AlbumLazy",
-                        "album=${page.album.title}: firstBatch=${firstBatch?.size}, " +
-                            "continuation=${firstContinuation != null}, fallbackVl=${page.songs.isEmpty() && firstContinuation == null}",
-                    )
                 } else {
                     loadFailed.value = true
                 }

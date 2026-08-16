@@ -78,14 +78,11 @@ fun OnlinePlaylistScreen(navController: NavController) {
     val isLoading = remember { mutableStateOf(true) }
 
     LaunchedEffect(id) {
-        android.util.Log.d("PlaylistDebug", "OnlinePlaylistScreen: loading playlistId=$id")
         scope.launch(Dispatchers.IO) {
             val result = YouTubeApi.playlist(id)
             result.onSuccess { p ->
-                android.util.Log.d("PlaylistDebug", "OnlinePlaylistScreen: loaded ${p.songs.size} songs")
                 pageResult.value = p
             }.onFailure { e ->
-                android.util.Log.e("PlaylistDebug", "OnlinePlaylistScreen: failed", e)
             }
             isLoading.value = false
         }

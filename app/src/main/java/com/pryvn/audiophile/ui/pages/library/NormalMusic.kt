@@ -389,7 +389,6 @@ fun FloatingMenu(
                             ) {
                                 SongSort =
                                     SettingsLibrary.SongSortEnum.MUSIC_TITLE.ordinal
-                                println("SongSort: $SongSort")
                             }
                             FloatingMenuItemDivider()
                             FloatingMenuItem(
@@ -398,7 +397,6 @@ fun FloatingMenu(
                             ) {
                                 SongSort =
                                     SettingsLibrary.SongSortEnum.ARTIST_NAME.ordinal
-                                println("SongSort: $SongSort")
                             }
                             FloatingMenuDivider()
                             FloatingMenuItem(
@@ -407,7 +405,6 @@ fun FloatingMenu(
                             ) {
                                 SongSort =
                                     SettingsLibrary.SongSortEnum.MODIFIED_DATE.ordinal
-                                println("SongSort: $SongSort")
                             }
                             FloatingMenuDivider()
                             FloatingMenuItem(
@@ -415,7 +412,6 @@ fun FloatingMenu(
                                 icon = Icons.Rounded.ArrowUpward
                             ) {
                                 EnableDescending = false
-                                println("SongSort: $EnableDescending")
                             }
                             FloatingMenuItemDivider()
                             FloatingMenuItem(
@@ -423,7 +419,6 @@ fun FloatingMenu(
                                 icon = Icons.Rounded.ArrowDownward
                             ) {
                                 EnableDescending = true
-                                println("SongSort: $EnableDescending")
                             }
                         }
                     }

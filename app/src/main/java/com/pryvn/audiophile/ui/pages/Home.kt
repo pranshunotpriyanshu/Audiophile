@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +34,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import android.content.Context
+import java.io.File
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.HomeSection
@@ -70,6 +76,7 @@ fun Home(
     imageViewModel: ImageViewModel
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // ── Original Home state (working albums backend) ──
     var sections by remember { mutableStateOf<List<HomeSection>>(emptyList()) }
@@ -95,6 +102,10 @@ fun Home(
     var relatedSongs by remember { mutableStateOf<List<YTSongItem>>(emptyList()) }
     var relatedLoading by remember { mutableStateOf(false) }
 
+    // Seed (song) the current "Because you recently listened" row was built from,
+    // so background history updates only refetch when the seed actually changes.
+    val lastRelatedSeed = remember { mutableStateOf<String?>(null) }
+
     // ── Curated Songs (derived from sections, no API call) ──
     val curatedSongs = remember(sections) {
         sections.flatMap { it.items }
@@ -104,58 +115,94 @@ fun Home(
             .take(48)
     }
 
-    // ── Original loadHome (unchanged, working albums backend) ──
-    fun loadHome() {
+    // ── Original loadHome (working albums backend) ──
+    // Network call is timeout-guarded so the pull-to-refresh spinner can never
+    // spin forever on a hung connection, and a successful response is written to
+    // the on-disk home feed cache for instant cold starts.
+    fun loadHome(showSpinner: Boolean = true) {
         if (isLoading) return
-        isLoading = true
+        isLoading = showSpinner
         loadError = false
         scope.launch(Dispatchers.IO) {
-            try {
-                val result = YouTubeApi.home()
-                result.onSuccess { json ->
-                    val parsed = YouTubeApi.parseHomeSections(json)
-                    withContext(Dispatchers.Main) {
-                        sections = parsed
+            val fallbackToCache: suspend () -> Unit = {
+                val cached = readHomeCache(context)
+                withContext(Dispatchers.Main) {
+                    if (cached != null) {
+                        sections = cached
                         loadError = false
-                        isLoading = false
+                    } else {
+                        loadError = true
                     }
-                }.onFailure {
-                    withContext(Dispatchers.Main) { loadError = true; isLoading = false }
+                    isLoading = false
+                }
+            }
+            try {
+                val result = withTimeoutOrNull(20_000L) { YouTubeApi.home() }
+                if (result != null) {
+                    result.onSuccess { json ->
+                        val parsed = YouTubeApi.parseHomeSections(json)
+                        writeHomeCache(context, json.toString())
+                        withContext(Dispatchers.Main) {
+                            sections = parsed
+                            loadError = false
+                            isLoading = false
+                        }
+                    }.onFailure {
+                        fallbackToCache()
+                    }
+                } else {
+                    // timed out
+                    fallbackToCache()
                 }
             } catch (_: Exception) {
-                withContext(Dispatchers.Main) { loadError = true; isLoading = false }
+                fallbackToCache()
             }
         }
     }
 
     // ── Recently Played loader (reads from local listening history) ──
-    fun loadRecentlyPlayed() {
-        if (recentLoading) return
-        recentLoading = true
-        val entries = ListeningHistory.history.value
-        recentlyPlayed = entries
-        recentLoading = false
+    // Applies history updates SILENTLY: sections update in place without
+    // triggering the pull-to-refresh spinner, and related songs are only
+    // refetched when the seed song actually changes.
+    fun applyHistory(entries: List<HistoryEntry>) {
+        if (entries != recentlyPlayed) {
+            recentlyPlayed = entries
+        }
 
-        val seed = recentlyPlayed.firstOrNull()
-        if (seed != null) {
-            relatedLoading = true
+        val seed = entries.firstOrNull()
+        if (seed == null) {
+            if (relatedSongs.isNotEmpty()) relatedSongs = emptyList()
+            if (lastRelatedSeed.value != null) lastRelatedSeed.value = null
+            return
+        }
+        val seedKey = seed.videoId
+        if (seedKey != lastRelatedSeed.value) {
+            lastRelatedSeed.value = seedKey
             scope.launch {
                 val results = withContext(Dispatchers.IO) {
                     val query = seed.artists?.split(", ")?.firstOrNull() ?: seed.title
                     runCatching {
-                        YouTubeApi.search(query).getOrThrow()
-                            .items
-                            .filter { it.videoId != seed.videoId }
-                            .distinctBy { it.videoId }
-                            .take(10)
+                        withTimeoutOrNull(15_000L) { YouTubeApi.search(query) }?.getOrThrow()
+                            ?.items
+                            ?.filter { it.videoId != seed.videoId }
+                            ?.distinctBy { it.videoId }
+                            ?.take(10)
+                            ?: emptyList()
                     }.getOrDefault(emptyList())
                 }
-                relatedSongs = results
-                relatedLoading = false
+                if (lastRelatedSeed.value == seedKey) {
+                    relatedSongs = results
+                }
             }
-        } else {
-            relatedSongs = emptyList()
         }
+    }
+
+    // Manual pull-to-refresh: shows the refresh indicator while reloading.
+    fun loadRecentlyPlayed() {
+        if (recentLoading) return
+        recentLoading = true
+        applyHistory(ListeningHistory.history.value)
+        recentLoading = false
     }
 
     fun refreshHome() {
@@ -163,10 +210,16 @@ fun Home(
         loadRecentlyPlayed()
     }
 
-    // ── Initial load: only if cache is empty (first visit) ──
+
+    // ── Initial load: render the last cached feed instantly, then refresh in
+    //     the background without showing the pull-to-refresh spinner. ──
     LaunchedEffect(Unit) {
         if (sections.isEmpty()) {
-            loadHome()
+            val cached = withContext(Dispatchers.IO) { readHomeCache(context) }
+            if (cached != null && sections.isEmpty()) {
+                sections = cached
+            }
+            loadHome(showSpinner = false)
         }
     }
 
@@ -181,11 +234,11 @@ fun Home(
     }
 
     // ── Observe listening history: fires immediately with current value,
-    //     then on every song recording. Populates recentlyPlayed + relatedSongs
-    //     without requiring the remote YouTube Music history API. ──
+    //     then on every song recording. Applies updates silently so the
+    //     screen never shows a refresh spinner or whole-screen churn. ──
     LaunchedEffect(Unit) {
         ListeningHistory.history.collect {
-            loadRecentlyPlayed()
+            applyHistory(it)
         }
     }
 
@@ -469,6 +522,33 @@ fun Home(
     }
 }
 
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Home feed disk cache
+// ═══════════════════════════════════════════════════════════════════════════
+// The home feed JSON is cached on disk so a cold start or a failed/timed-out
+// request still renders the last-known feed instantly instead of a spinner.
+
+private const val HOME_FEED_CACHE_FILE = "home_feed.json"
+
+private fun writeHomeCache(context: Context, jsonText: String) {
+    try {
+        File(context.cacheDir, HOME_FEED_CACHE_FILE).writeText(jsonText)
+    } catch (_: Exception) {
+        // cache write failures are non-fatal
+    }
+}
+
+private fun readHomeCache(context: Context): List<HomeSection>? {
+    return try {
+        val file = File(context.cacheDir, HOME_FEED_CACHE_FILE)
+        if (!file.exists()) return null
+        val root = Json.parseToJsonElement(file.readText()).jsonObject
+        YouTubeApi.parseHomeSections(root).takeIf { it.isNotEmpty() }
+    } catch (_: Exception) {
+        null
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
