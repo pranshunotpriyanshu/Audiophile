@@ -108,8 +108,6 @@ LaunchedEffect(Unit) {
             .padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        println("Recompose: music list ${music.title}")
-
         ShadowImageWithCache(
             dataLambda = { music.thumb },
             contentDescription = null,

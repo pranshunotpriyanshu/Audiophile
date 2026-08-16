@@ -39,6 +39,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pryvn.audiophile.code.utils.lrc.YosMediaEvent
 import com.pryvn.audiophile.code.utils.lrc.YosUIConfig
 import com.pryvn.audiophile.code.utils.others.Vibrator
@@ -417,14 +419,31 @@ fun YosLyricView(
     }
 
     // ---- Live time updater for current index ----
+    val lyricLifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(Unit) {
         var stableIdx = currentLyricIndex.intValue
         var stableCount = 0
         while (isActive) {
+            if (!lyricLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                delay(500)
+                continue
+            }
             val liveTime = liveTimeLambda()
             liveTimeState.intValue = liveTime
             val targetPos = liveTime + LRC_LEAD_MS + LYRIC_VISUAL_TUNING_OFFSET_MS
-            val nextIdx = lrcEntries.indexOfFirst { line -> line.first().first > targetPos }
+            val nextIdx = if (lrcEntries.isEmpty()) -1 else {
+                var lo = 0
+                var hi = lrcEntries.lastIndex
+                while (lo <= hi) {
+                    val mid = (lo + hi) ushr 1
+                    if (lrcEntries[mid].first().first <= targetPos) {
+                        lo = mid + 1
+                    } else {
+                        hi = mid - 1
+                    }
+                }
+                if (lo > lrcEntries.lastIndex) -1 else lo
+            }
             val newIdx = when {
                 nextIdx == -1 -> lrcEntries.size - 1
                 nextIdx == 0 -> 0

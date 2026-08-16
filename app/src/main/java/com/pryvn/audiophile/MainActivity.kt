@@ -254,16 +254,12 @@ class MainActivity : ComponentActivity() {
                             parentHeight.intValue.toDp()
                         }
                     }*/
-
-                    println("Recompose: bottom container")
-
                     /*Surface(
                         modifier = Modifier
                             .fillMaxSize(),
                         color = Color.Transparent,
                         contentColor = Color.Black withNight Color.White
                     ) {*/
-                        println("Recompose: main container")
                         val miniPlayerHeight = 62.dp
                         val height = remember("MainActivity_height") { mutableIntStateOf(0) }
 
@@ -381,8 +377,6 @@ class MainActivity : ComponentActivity() {
 
 // Main interface
                         YosWrapper {
-                            println("Recompose: main interface")
-
                             Surface(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -885,9 +879,6 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     val color = Color.White withNight Color(0xFF1C1C1E)
-
-                                    println("Recompose: playback bar & NowPlaying outer")
-
                                     val dragState = rememberDraggableState { delta ->
                                         scope.launch {
                                             offsetY.snapTo(offsetY.value + delta)
@@ -964,8 +955,6 @@ class MainActivity : ComponentActivity() {
                                             },
                                         color = Color.Transparent
                                     ) {
-                                        println("Recompose: playback bar & NowPlaying")
-
                                         // Read directly from MediaViewModelObject.isPlaying
                                         // (no rememberSaveable — it creates a stale copy)
                                         val isPlaying = MediaViewModelObject.isPlaying

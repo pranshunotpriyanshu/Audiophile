@@ -75,7 +75,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -296,11 +295,7 @@ fun ArchiveLyrics(
                 delay(250L)
                 continue
             }
-            if (isTtmlLyrics) {
-                withFrameNanos { }
-            } else {
-                delay(50L)
-            }
+            delay(if (isTtmlLyrics) 33L else 50L)
             val sliderPosition = sliderPositionProvider()
             val seekingNow = sliderPosition != null
             if (isSeeking != seekingNow) {

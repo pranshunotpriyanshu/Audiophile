@@ -14,9 +14,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 enum class ShadowType(val blur: Dp, val offsetY: Float, val offsetX: Float, val areaWeight: Float) {
-    Large(24.dp, 0.08f, 0f, 0.94f),
-    Medium(28.dp, 0.08f, 0f, 0.94f),
-    Small(24.dp, 0.11f, 0f, 0.94f)
+    Large(16.dp, 0.08f, 0f, 0.94f),
+    Medium(18.dp, 0.08f, 0f, 0.94f),
+    Small(16.dp, 0.11f, 0f, 0.94f)
 }
 
 @Composable

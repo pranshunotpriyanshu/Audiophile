@@ -93,6 +93,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pryvn.audiophile.code.player.PlayerAdapter
 import com.pryvn.audiophile.code.utils.lrc.TTMLParser
 import com.pryvn.audiophile.code.utils.lyrics.LyricsEntryBridge
@@ -257,27 +259,54 @@ fun LyricsV2(
 
     // ── Playback position tracking ──
     val leadMs = if (isTtmlFormat) TTML_LEAD_MS else LRC_LEAD_MS
+    val lifecycleOwner = LocalLifecycleOwner.current
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var playbackPositionMs by remember { mutableLongStateOf(0L) }
     var currentLineIndex by remember { mutableIntStateOf(0) }
 
+    val timeSortedLines = remember(entriesWithWords) {
+        entriesWithWords.mapIndexedNotNull { index, entry ->
+            if (entry !== LyricsEntry.HEAD_LYRICS_ENTRY && entry.time >= 0) {
+                index to entry.time
+            } else {
+                null
+            }
+        }.sortedBy { it.second }
+    }
+
     LaunchedEffect(entriesWithWords, isSynced, leadMs, lyricsSyncOffset) {
         if (!isSynced || entriesWithWords.isEmpty()) return@LaunchedEffect
-        val pollIntervalMs = if (isTtmlFormat) 16L else 50L
+        val pollIntervalMs = if (isTtmlFormat) 33L else 50L
         while (isActive) {
+            if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                delay(500)
+                continue
+            }
             val sliderPos = sliderPositionProvider()
             val pos = sliderPos ?: player.currentPosition
 
-            playbackPositionMs = (pos + lyricsSyncOffset.toLong()).coerceAtLeast(0L)
-            currentPositionMs = (playbackPositionMs + leadMs + LYRIC_VISUAL_TUNING_OFFSET_MS).coerceAtLeast(0L)
+            val newPlaybackPos = (pos + lyricsSyncOffset.toLong()).coerceAtLeast(0L)
+            val newCurrentPos =
+                (newPlaybackPos + leadMs + LYRIC_VISUAL_TUNING_OFFSET_MS).coerceAtLeast(0L)
+            if (newPlaybackPos != playbackPositionMs) playbackPositionMs = newPlaybackPos
+            if (newCurrentPos != currentPositionMs) currentPositionMs = newCurrentPos
 
-            val nextIndex = entriesWithWords.indexOfLast {
-                it !== LyricsEntry.HEAD_LYRICS_ENTRY && it.time >= 0 && it.time <= currentPositionMs
-            }
-            val firstLineIndex = if (entriesWithWords.firstOrNull() === LyricsEntry.HEAD_LYRICS_ENTRY) 1 else 0
-            currentLineIndex = when {
-                nextIndex < 0 -> firstLineIndex
-                else -> nextIndex
+            if (timeSortedLines.isNotEmpty()) {
+                var lo = 0
+                var hi = timeSortedLines.lastIndex
+                while (lo <= hi) {
+                    val mid = (lo + hi) ushr 1
+                    if (timeSortedLines[mid].second <= newCurrentPos) {
+                        lo = mid + 1
+                    } else {
+                        hi = mid - 1
+                    }
+                }
+                val nextIndex = if (hi < 0) -1 else timeSortedLines[hi].first
+                val firstLineIndex =
+                    if (entriesWithWords.firstOrNull() === LyricsEntry.HEAD_LYRICS_ENTRY) 1 else 0
+                val newLineIndex = if (nextIndex < 0) firstLineIndex else nextIndex
+                if (newLineIndex != currentLineIndex) currentLineIndex = newLineIndex
             }
             delay(pollIntervalMs)
         }

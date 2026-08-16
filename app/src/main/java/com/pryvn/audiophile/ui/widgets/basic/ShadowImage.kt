@@ -9,7 +9,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
@@ -29,7 +28,7 @@ enum class ImageQuality {
 
 private fun getSizeFromQuality(quality: ImageQuality): Int {
     return when (quality) {
-        ImageQuality.RAW -> 0
+        ImageQuality.RAW -> 1440
         ImageQuality.LOW -> 96
         ImageQuality.HIGH -> 300
     }
@@ -58,12 +57,10 @@ fun ShadowImage(
             .allowHardware(true)
             .crossfade(true)
             .apply {
-                if (imageQuality != ImageQuality.RAW) {
-                    val size = getSizeFromQuality(imageQuality)
-                    this.size(size)
-                    if (imageQuality == ImageQuality.LOW) {
-                        this.precision(Precision.INEXACT)
-                    }
+                val size = getSizeFromQuality(imageQuality)
+                this.size(size)
+                if (imageQuality == ImageQuality.LOW) {
+                    this.precision(Precision.INEXACT)
                 }
             }
             .build(),
@@ -74,11 +71,6 @@ fun ShadowImage(
             .aspectRatio(1f)
             .clip(shape)
             .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
-            .drawWithCache {
-                onDrawWithContent {
-                    drawContent()
-                }
-            }
 
     )
 }
@@ -110,15 +102,10 @@ fun ShadowImageWithCache(
                 .allowHardware(true)
                 .crossfade(true)
                 .apply {
-                    if (imageQuality != ImageQuality.RAW) {
-                        val size = getSizeFromQuality(imageQuality)
-                        this.size(size)
-                        if (imageQuality == ImageQuality.LOW) {
-                            this.precision(Precision.INEXACT)
-                        }
-                    } else {
-                        this.precision(Precision.EXACT)
-                        this.size(coil.size.Size.ORIGINAL)
+                    val size = getSizeFromQuality(imageQuality)
+                    this.size(size)
+                    if (imageQuality == ImageQuality.LOW) {
+                        this.precision(Precision.INEXACT)
                     }
                 }
                 .build(),
@@ -126,11 +113,6 @@ fun ShadowImageWithCache(
             contentScale = ContentScale.Crop,
             modifier = clippedModifier
                 .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
-                .drawWithCache {
-                    onDrawWithContent {
-                        drawContent()
-                    }
-                }
         )
         Box(modifier = clippedModifier) {
             overlayContent()

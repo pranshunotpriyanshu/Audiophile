@@ -24,7 +24,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +36,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.size.Size as CoilSize
 import com.flaviofaria.kenburnsview.KenBurnsView
 import com.flaviofaria.kenburnsview.RandomTransitionGenerator
 import com.google.android.renderscript.Toolkit
@@ -68,24 +68,28 @@ fun YosFloatingLight(
     }
 
     val context = LocalContext.current
-    val imageLoader = ImageLoader(context)
     YosWrapper {
         LaunchedEffect(album()) {
             if (album() == null) return@LaunchedEffect
             withContext(Dispatchers.IO) {
-                val request = ImageRequest.Builder(context)
-                    .data(album())
-                    .build()
-                val thisBitmap = imageLoader.execute(request).drawable?.toBitmap()?.run {
-                    BitmapResolver.bitmapCompress(this)
+                val imageLoader = ImageLoader(context)
+                try {
+                    val request = ImageRequest.Builder(context)
+                        .data(album())
+                        .size(CoilSize(256, 256))
+                        .build()
+                    val thisBitmap = imageLoader.execute(request).drawable?.toBitmap()?.run {
+                        BitmapResolver.bitmapCompress(this)
+                    }
+                    if (thisBitmap != null) {
+                        drawable.value = imageResolve(
+                            thisBitmap
+                        ).toDrawable(context.resources)
+                        thisBitmap.recycle()
+                    }
+                } finally {
+                    imageLoader.shutdown()
                 }
-                if (thisBitmap != null) {
-                    drawable.value = imageResolve(
-                        thisBitmap
-                    ).toDrawable(context.resources)
-                    thisBitmap.recycle()
-                }
-                imageLoader.shutdown()
             }
         }
     }
@@ -158,9 +162,6 @@ fun YosFloatingLight(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = modifier
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.Offscreen
-                        }
                         .drawWithCache {
                             onDrawBehind {
                                 if (useBackground.value) {
@@ -187,7 +188,6 @@ fun YosFloatingLight(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
                         this.alpha = alpha.value
                     },
                 colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
@@ -220,6 +220,6 @@ fun imageResolve(image: Bitmap, moreLight: Boolean = false): Bitmap {
             drawColor((0x40000000).toInt())
         }
     }
-    resizedBitmap = Toolkit.blur(resizedBitmap, 25)
+    resizedBitmap = Toolkit.blur(resizedBitmap, 12)
     return resizedBitmap
 }

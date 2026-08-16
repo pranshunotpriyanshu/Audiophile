@@ -611,9 +611,6 @@ fun NowPlaying(
         /*val nowPage = rememberSaveable(key = "NowPlaying_nowPage") {
             MainViewModelObject.nowPage
         }*/
-
-        println("重组：NowPlaying")
-
         // 触摸超时
         YosWrapper {
             LaunchedEffect(showControl.value, nowPageLambda(), lastClickTime.longValue) {
@@ -770,9 +767,6 @@ fun NowPlaying(
             val translationButtonEnabled = remember("NowPlaying_translationButtonEnabled") {
                 derivedStateOf { showControl.value && alphaAnim.value != 0f }
             }
-
-            println("重组：主功能区")
-
             if (!isLandscape) {
 
             // 歌词：仅当活动或过渡中才组合，避免拦截主屏手势
@@ -1037,8 +1031,6 @@ PlayingList ->
                             .fillMaxHeight(0.437f)
                             .fillMaxWidth()
                     ) {
-                        println("重组：控制区域外部")
-
                         YosWrapper {
                             if (showControl.value) {
                                 Box(
@@ -1648,6 +1640,7 @@ fun HeroArtworkLayer(
         val request = ImageRequest.Builder(LocalContext.current)
             .data(url)
             .crossfade(true)
+            .size(CoilSize(720, 720))
             .memoryCacheKey(urlString)
             .diskCacheKey(urlString)
             .build()
@@ -2730,6 +2723,7 @@ fun NowPlayingOverflowHeader(
             model = ImageRequest.Builder(context)
                 .data(song.thumb)
                 .crossfade(true)
+                .size(CoilSize(128, 128))
                 .memoryCacheKey(thumbUrl)
                 .diskCacheKey(thumbUrl)
                 .build(),
@@ -3153,8 +3147,6 @@ fun PlayerControl(
                 .padding(bottom = 15.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            println("重组：控制区域内部")
-
             YosWrapper {
                 // 启动作用
                 YosWrapper {
@@ -3163,23 +3155,35 @@ fun PlayerControl(
 
                     LaunchedEffect(Unit) {
                         var lastPosition = 0L
+                        var lastDuration = 0L
+                        var lastPositionState = 0L
+                        var lastBuffering: Boolean? = null
                         while (true) {
-                            //isPlaying.value = /*mediaControl?.isPlaying ?: false*/ FadeExo.targetStatus != 0
                             if (lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)) {
-                                playingDuration.longValue = mediaControl?.duration ?: 0
-                                playingPosition.longValue = mediaControl?.currentPosition ?: 0
+                                val duration = mediaControl?.duration ?: 0
+                                val position = mediaControl?.currentPosition ?: 0
 
-                                if (!isSliding.value && playingDuration.longValue > 0L) {
-                                    val totalSeconds =
-                                        playingPosition.longValue.coerceAtLeast(0) / 1000
+                                if (duration != lastDuration) {
+                                    playingDuration.longValue = duration
+                                    lastDuration = duration
+                                }
+                                if (position != lastPositionState) {
+                                    playingPosition.longValue = position
+                                    lastPositionState = position
+                                }
+
+                                if (!isSliding.value && duration > 0L) {
+                                    val totalSeconds = position.coerceAtLeast(0) / 1000
                                     if (totalSeconds != lastPosition) {
                                         playedTime.value = formatTime(totalSeconds)
 
-                                        sliderPosition.floatValue =
-                                            playingPosition.longValue.coerceAtLeast(0).toFloat()
+                                        if (position != sliderPosition.floatValue.toLong()) {
+                                            sliderPosition.floatValue =
+                                                position.coerceAtLeast(0).toFloat()
+                                        }
 
                                         val remainingSeconds =
-                                            playingDuration.longValue.coerceAtLeast(0) / 1000 - totalSeconds
+                                            duration.coerceAtLeast(0) / 1000 - totalSeconds
                                         remainingTime.value = "-${formatTime(remainingSeconds)}"
                                         lastPosition = totalSeconds
                                     }
@@ -3188,8 +3192,12 @@ fun PlayerControl(
                                 onWhile()
                             }
 
-                            MediaViewModelObject.isBuffering.value =
+                            val buffering =
                                 mediaControl?.playbackState == Player.STATE_BUFFERING
+                            if (buffering != lastBuffering) {
+                                lastBuffering = buffering
+                                MediaViewModelObject.isBuffering.value = buffering
+                            }
 
                             delay(700)
                         }
