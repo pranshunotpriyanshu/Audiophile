@@ -875,7 +875,8 @@ Album ->
                                             Row(
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .padding(horizontal = 32.dp)
+                                                    .padding(horizontal = 28.5.dp)
+                                                    .height(70.dp)
                                                     .onGloballyPositioned { coords ->
                                                         titleRowYPx = coords.localToRoot(Offset.Zero).y
                                                     },
