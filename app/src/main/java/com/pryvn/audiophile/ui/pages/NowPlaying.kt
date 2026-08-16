@@ -228,6 +228,7 @@ import com.pryvn.audiophile.ui.pages.NowPlayingPage.Album
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.Lyric
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.PlayingList
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
+import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.YosLyricView
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
 import com.pryvn.audiophile.ui.widgets.audio.MusicQualityIndicator
@@ -912,7 +913,7 @@ Album ->
                                                         navController = navController,
                                                         albumUrlLambda = { thisMusicPlaying.value?.thumb },
                                                         onMinimizeNowPlaying = onMinimizeNowPlaying,
-                                                        isMenuOpen = overflowSheetOpen.value,
+isMenuOpen = overflowSheetOpen.value,
                                                         onShowMenu = {
                                                             snapshotSong.value = thisMusicPlaying.value
                                                             overflowSheetOpen.value = true
@@ -2453,13 +2454,15 @@ fun ActionButtonsRow(
 
         Spacer(modifier = Modifier.width(14.dp))
 
+        val dotsTouchTarget = 44.dp
+
         Box(
             modifier = Modifier
+                .size(dotsTouchTarget)
                 .clickable(
                     onClick = onShowMenu,
                     indication = null,
-                    interactionSource = remember { MutableInteractionSource() })
-                .size(dp),
+                    interactionSource = remember { MutableInteractionSource() }),
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
@@ -2505,10 +2508,17 @@ fun NowPlayingOverflowSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val openedAt = remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        openedAt.longValue = TimeUtils.getNowMills()
+    }
+
     val onDismiss: () -> Unit = {
-        isOpen.value = false
-        screen = OverflowScreen.Menu
-        navigationDirection.intValue = SheetNavigationForward
+        if (TimeUtils.getNowMills() - openedAt.longValue >= 800L) {
+            isOpen.value = false
+            screen = OverflowScreen.Menu
+            navigationDirection.intValue = SheetNavigationForward
+        }
     }
 
     YosBottomSheetDialog(

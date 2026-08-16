@@ -197,7 +197,7 @@ object PaxsenixLyricsFetcher {
             val lines = text.lines().filter { it.isNotBlank() }
             if (lines.isNotEmpty()) {
                 val dummyLrc = lines.mapIndexed { idx, line ->
-                    val time = String.format("[%02d:%05.2f]", idx * 30, (idx * 30) % 60)
+                    val time = String.format("[%02d:%05.2f]", idx * 30, ((idx * 30) % 60).toFloat())
                     "$time$line"
                 }.joinToString("\n")
                 lrcEntriesSetter(lrcFactory.formatLrcEntries(dummyLrc))

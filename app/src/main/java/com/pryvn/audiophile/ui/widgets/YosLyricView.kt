@@ -59,6 +59,12 @@ import kotlin.math.roundToInt
 
 val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
 
+// Strong ease-out for the automatic lyric scroll: the list accelerates briefly
+// then decelerates sharply as the anchored line arrives (Apple Music feel).
+// Only the container's scroll movement uses this curve — the anchored/active
+// lines keep their exact anchor positions.
+val lyricScrollEaseOut = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+
 private const val LRC_LEAD_MS = 300L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
@@ -165,6 +171,11 @@ fun YosLyricView(
     // ---- Main content ----
     val scrollState = rememberLazyListState()
     val currentLyricIndex = remember { MainViewModelObject.syncLyricIndex }
+
+    // Direction of the last driven lyric advance (+1 forward / -1 backward), so
+    // the per-line settle animation lags the surrounding lines in the correct
+    // direction without ever moving the anchored/active lines.
+    val lyricScrollDirection = remember { mutableIntStateOf(1) }
     val enableLyricScroll = remember { mutableStateOf(true) }
 
     // Shared snapshot position so snapshotFlow collectors re-emit (liveTimeLambda is not snapshot state).
@@ -277,8 +288,33 @@ fun YosLyricView(
                     } else emptyList()
                 }
 
-                LyricItem(
-                    isCurrentLambda = { isCurrent.value },
+                // ---- Per-line inertial settle ----
+                // The auto-scroll moves the whole list with a strong ease-out
+                // (line anchored at the golden point, active line untouched).
+                // These surrounding lines briefly resist the movement, then
+                // settle back with a restrained spring, so the list reads as
+                // having inertia and weight. The active line (index == current)
+                // and the line pinned at the anchor (index == current + 1) are
+                // never displaced. Retargets smoothly on successive changes.
+                val settleOffset = remember { Animatable(0f) }
+                val settleDensity = LocalDensity.current.density
+                LaunchedEffect(currentLyricIndex.intValue) {
+                    if (!enableLyricScroll.value) return@LaunchedEffect
+                    val current = currentLyricIndex.intValue
+                    if (index == current || index == current + 1) return@LaunchedEffect
+                    if (abs(index - current) > 3) return@LaunchedEffect
+                    val amp = lyricScrollDirection.intValue * 7f * settleDensity
+                    settleOffset.animateTo(amp, tween(durationMillis = 110, easing = yosEasing))
+                    settleOffset.animateTo(0f, spring(dampingRatio = 0.78f, stiffness = 520f))
+                }
+
+                Box(
+                    Modifier.graphicsLayer {
+                        translationY = settleOffset.value
+                    }
+                ) {
+                    LyricItem(
+                        isCurrentLambda = { isCurrent.value },
                     isTopLambda = { isTop.value },
                     mainLyric = lines.dropLast(1),
                     translation = translation,
@@ -294,13 +330,22 @@ fun YosLyricView(
                     nextTime = {
                         if (index + 1 > lrcEntries.size - 1) 0f else lrcEntries[index + 1].first().first
                     },
+                    prevLineEndMs = {
+                        if (index == 0) 0f
+                        else {
+                            val prev = lrcEntries[index - 1]
+                            prev.drop(1).dropLast(1).lastOrNull()?.first ?: prev.first().first
+                        }
+                    },
                     wordSyncedWords = thisWordSyncedWords.value,
                     onClick = {
                         Vibrator.doubleClick(context)
+                        lyricScrollDirection.intValue = if (index > currentLyricIndex.intValue) 1 else -1
                         currentLyricIndex.intValue = index
                         mediaEvent.onSeek(lines.first().first.toInt())
                     }
                 )
+                    }
             }
 
             // ---- Spacer animation for each item ----
@@ -359,7 +404,7 @@ fun YosLyricView(
                     targetItem.offset - targetOffset,
                     animationSpec = tween(
                         durationMillis = 550,
-                        easing = yosEasing
+                        easing = lyricScrollEaseOut
                     )
                 )
             } else {
@@ -388,6 +433,7 @@ fun YosLyricView(
             if (newIdx == stableIdx) {
                 stableCount++
                 if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
+                    lyricScrollDirection.intValue = if (newIdx > currentLyricIndex.intValue) 1 else -1
                     currentLyricIndex.intValue = newIdx
                 }
             } else {
@@ -476,6 +522,7 @@ fun LazyItemScope.LyricItem(
     measurer: TextMeasurer,
     isLyricEmpty: () -> Boolean,
     nextTime: () -> Float,
+    prevLineEndMs: () -> Float = { 0f },
     otherSide: Boolean,
     liveTimeLambda: () -> Int,
     wordSyncedWords: List<Triple<Float, Float, Boolean>> = emptyList(),
@@ -505,7 +552,6 @@ fun LazyItemScope.LyricItem(
         Modifier.padding(horizontal = 9.dp),
         horizontalAlignment = viewAlign
     ) {
-        val otherSideAnimate = if (otherSide) TransformOrigin(1f, 0.25f) else TransformOrigin(0f, 0.25f)
         val otherSideTransformOrigin = if (otherSide) TransformOrigin(1f, 0.5f) else TransformOrigin(0f, 0.5f)
 
         val tweenSpecWithDelay = TweenSpec<Float>(durationMillis = 270, easing = yosEasing, delay = 110)
@@ -518,17 +564,34 @@ fun LazyItemScope.LyricItem(
 
         val cardPadding = if (otherSide) Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
 
+        val otherSideAnimate = if (otherSide) TransformOrigin(1f, 0.25f) else TransformOrigin(0f, 0.25f)
+
         if (isLyricEmpty()) {
-            // ---- Countdown animation ----
+            // ---- Countdown gap dots ----
+            // The dots live in the empty line's own slot: the countdown anchors
+            // on the LATER of the slot start and the END of the line above (its
+            // last sung word), so the dots can never start while the line above
+            // is still finishing. And when the gap to the next line is too
+            // small, the dots never appear at all.
             Column(Modifier.animateContentSize()) {
                 val percent = remember(mainLyric) {
                     derivedStateOf {
                         val m = mainLyric.first().first
-                        ((liveTime.intValue - m).coerceAtLeast(0f) / (nextTime() - m)).coerceAtMost(1f)
+                        val start = maxOf(m, prevLineEndMs())
+                        ((liveTime.intValue - start).coerceAtLeast(0f) / (nextTime() - start)).coerceAtMost(1f)
+                    }
+                }
+                val gapMs = remember(mainLyric) {
+                    derivedStateOf {
+                        val m = mainLyric.first().first
+                        val start = maxOf(m, prevLineEndMs())
+                        (nextTime() - start).coerceAtLeast(0f)
                     }
                 }
                 val show = remember {
-                    derivedStateOf { isLyricEmpty() && isCurrentLambda() && percent.value != 0f }
+                    derivedStateOf {
+                        isLyricEmpty() && isCurrentLambda() && percent.value != 0f && gapMs.value >= 5000f
+                    }
                 }
 
                 AnimatedVisibility(
@@ -772,13 +835,13 @@ fun LazyItemScope.LyricItem(
                                 letterSpacing = 0.3.sp,
                                 textAlign = textAlign
                             )
-                        }
+}
+                    }
                     }
                 }
             }
         }
-    }
-}
+        }
 
 // ---- LyricCard wrapper ----
 @Composable

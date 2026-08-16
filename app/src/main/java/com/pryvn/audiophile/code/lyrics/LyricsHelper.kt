@@ -142,6 +142,7 @@ object LyricsHelper {
         return when {
             lyrics.isWordSynced -> 100
             TTMLParser.isTtml(lyrics.text) -> 100
+            TTMLParser.isKaraokeSyncedLrc(lyrics.text) -> 100
             TTMLParser.isLineSyncedLrc(lyrics.text) -> 50
             else -> 10
         }
@@ -169,7 +170,7 @@ object LyricsHelper {
                             AudiophileLyrics(
                                 provider = provider.name,
                                 text = it,
-                                isWordSynced = TTMLParser.isTtml(it),
+                                isWordSynced = TTMLParser.isTtml(it) || TTMLParser.isKaraokeSyncedLrc(it),
                             )
                         }
                     },

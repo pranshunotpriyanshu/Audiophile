@@ -75,6 +75,17 @@ object LyricsProcessor {
         val isWordSynced = onlineLyrics.isWordSynced || TTMLParser.isTtml(text)
 
         when {
+            TTMLParser.isKaraokeSyncedLrc(text) -> {
+                val parsed = lrcToWordLines(text)
+                if (parsed.isNotEmpty()) {
+                    MediaViewModelObject.hasWordSyncedLyrics.value = parsed.any { it.words.isNotEmpty() }
+                    MediaViewModelObject.wordSyncedLines.value = parsed
+                    lrcEntriesSetter(wordSyncedToEntries(parsed))
+                } else {
+                    clearWordSync()
+                    lrcEntriesSetter(lrcFactory.formatLrcEntries(text))
+                }
+            }
             isWordSynced && TTMLParser.isTtml(text) -> {
                 val parsed = TTMLParser.parseTTML(text)
                 if (parsed.isNotEmpty()) {
@@ -113,7 +124,7 @@ object LyricsProcessor {
                 val lines = text.lines().filter { it.isNotBlank() }
                 if (lines.isNotEmpty()) {
                     val dummyLrc = lines.mapIndexed { idx, line ->
-                        val time = String.format("[%02d:%05.2f]", idx * 30, (idx * 30) % 60)
+                        val time = String.format("[%02d:%05.2f]", idx * 30, ((idx * 30) % 60).toFloat())
                         "$time$line"
                     }.joinToString("\n")
                     lrcEntriesSetter(lrcFactory.formatLrcEntries(dummyLrc))
@@ -121,6 +132,26 @@ object LyricsProcessor {
             }
         }
     }
+
+    private fun lrcToWordLines(text: String): List<WordSyncedLine> =
+        TTMLParser.parseSyncedLrc(text).map { line ->
+            WordSyncedLine(
+                text = line.text,
+                startTimeMs = (line.startTime * 1000).toLong(),
+                endTimeMs = (line.endTime * 1000).toLong(),
+                words = line.words.map { word ->
+                    WordSyncedWord(
+                        text = word.text,
+                        startTimeMs = (word.startTime * 1000).toLong(),
+                        endTimeMs = (word.endTime * 1000).toLong(),
+                        isBackground = word.isBackground,
+                    )
+                },
+                agent = line.agent,
+                transliteration = null,
+                subtitle = null,
+            )
+        }
 
     fun clearWordSync() {
         MediaViewModelObject.hasWordSyncedLyrics.value = false

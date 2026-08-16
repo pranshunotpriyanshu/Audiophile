@@ -35,6 +35,26 @@ object TTMLParser {
         return timeRegex.containsMatchIn(lyrics)
     }
 
+    /**
+     * Detects word-synced LRC variants that carry word timing outside of TTML:
+     * enhanced LRC with inline `<mm:ss.xx>` markers (Apple Music / QQ Music /
+     * paxsenix "v1:<time>word" lines) or NetEase klyric, where every word is
+     * prefixed by its own `[mm:ss.xx]` bracket inside the line.
+     */
+    fun isKaraokeSyncedLrc(lyrics: String): Boolean {
+        val inlineWordRegex = Regex("""<\d{2}:\d{2}(?:\.\d{2,3})?>""")
+        if (inlineWordRegex.containsMatchIn(lyrics)) return true
+        if (!isLineSyncedLrc(lyrics)) return false
+        val timeRegex = Regex("""\[\d{2}:\d{2}(?:\.\d{2,3})?\]""")
+        return lyrics.lines().any { line ->
+            val matches = timeRegex.findAll(line).toList()
+            if (matches.size < 2) return@any false
+            matches.zipWithNext().any { (a, b) ->
+                line.substring(a.range.last + 1, b.range.first).isNotBlank()
+            }
+        }
+    }
+
     fun parseTTML(ttml: String): List<ParsedLine> {
         if (!isTtml(ttml)) return emptyList()
         try {
@@ -359,7 +379,30 @@ object TTMLParser {
                     lines.add(ParsedLine(lyricText, lineStart, lineEnd, words, isBackground, agent))
                 }
             } else {
-                lines.add(ParsedLine(lyricText, lineStart, lineEnd, emptyList(), isBackground, agent))
+                val klyricWords = mutableListOf<ParsedWord>()
+                if (times.size >= 2) {
+                    val bracketMatches = lrcTimeRegex.findAll(rawLine).toList()
+                    var cursor = 0
+                    var lastEnd = lineStart
+                    for (bracket in bracketMatches) {
+                        val fragment = rawLine.substring(cursor, bracket.range.first).trim()
+                        cursor = bracket.range.last + 1
+                        if (fragment.isNotBlank()) {
+                            val wordEnd = parseLrcTimeToSec(bracket.groupValues[1])
+                            klyricWords.add(ParsedWord(fragment, lastEnd, wordEnd))
+                            lastEnd = wordEnd
+                        }
+                    }
+                    val tail = rawLine.substring(cursor).trim()
+                    if (tail.isNotBlank()) {
+                        klyricWords.add(ParsedWord(tail, lastEnd, lineEnd))
+                    }
+                }
+                if (klyricWords.isNotEmpty()) {
+                    lines.add(ParsedLine(lyricText, lineStart, lineEnd, klyricWords, isBackground, agent))
+                } else {
+                    lines.add(ParsedLine(lyricText, lineStart, lineEnd, emptyList(), isBackground, agent))
+                }
             }
         }
         return lines
