@@ -15,15 +15,81 @@ import android.os.Looper
 import android.view.PixelCopy
 import android.view.View
 import android.view.Window
+import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
+
+/**
+ * Haze-style backdrop blur for bottom sheets / dialogs that live in their own
+ * window (Material3 [androidx.compose.material3.ModalBottomSheet] and friends).
+ *
+ * [dev.chrisbanes.haze.hazeChild] can only sample content drawn in the same
+ * window, so this uses Android 12+'s native window background blur
+ * (WindowManager.LayoutParams.blurBehindRadius) to blur the app content behind
+ * the sheet window — the same visual result as the login sheet's Haze scrim.
+ *
+ * Falls back to no blur below API 31, or when the Bar Blur effect is disabled.
+ */
+@Composable
+internal fun HazeStyleSheetBlur(
+    blurRadius: Dp = 24.dp,
+) {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val enabled = SettingsLibrary.BarBlurEffect
+
+    DisposableEffect(view, density, enabled) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            enabled && view.isAttachedToWindow
+        ) {
+            val layoutParams = view.layoutParams as? WindowManager.LayoutParams
+            val windowManager =
+                view.context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            if (layoutParams != null && windowManager != null) {
+                val radiusPx = with(density) { blurRadius.toPx() }.toInt().coerceAtLeast(0)
+                layoutParams.blurBehindRadius = radiusPx
+                if (radiusPx > 0) {
+                    layoutParams.flags = layoutParams.flags or
+                        WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+                } else {
+                    layoutParams.flags = layoutParams.flags and
+                        WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+                }
+                windowManager.updateViewLayout(view, layoutParams)
+            }
+        }
+        onDispose {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val layoutParams = view.layoutParams as? WindowManager.LayoutParams
+                if (layoutParams != null &&
+                    (layoutParams.blurBehindRadius != 0 ||
+                        layoutParams.flags and WindowManager.LayoutParams.FLAG_BLUR_BEHIND != 0)
+                ) {
+                    layoutParams.blurBehindRadius = 0
+                    layoutParams.flags = layoutParams.flags and
+                        WindowManager.LayoutParams.FLAG_BLUR_BEHIND.inv()
+                    if (view.isAttachedToWindow) {
+                        (view.context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager)
+                            ?.updateViewLayout(view, layoutParams)
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 internal fun MenuBlurBackground(

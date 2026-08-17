@@ -52,6 +52,7 @@ import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.widgets.basic.HazeStyleSheetBlur
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -70,6 +71,7 @@ fun FloatingMenu(
         containerColor = MaterialTheme.colorScheme.background,
         shape = YosRoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
     ) {
+        HazeStyleSheetBlur()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

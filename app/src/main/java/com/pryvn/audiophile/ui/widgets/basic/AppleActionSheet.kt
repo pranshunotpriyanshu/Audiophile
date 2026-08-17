@@ -62,6 +62,7 @@ fun AppleActionSheet(
         },
         scrimColor = Color.Black.copy(alpha = 0.5f),
     ) {
+        HazeStyleSheetBlur()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import com.pryvn.audiophile.ui.widgets.basic.HazeStyleSheetBlur
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -245,6 +246,7 @@ fun PlayListEditModal(
         scrimColor = MaterialTheme.colorScheme.onBackground.copy(0.13f),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            HazeStyleSheetBlur()
             EditPlaylistContent(
                 name = name,
                 onNameChange = { name = it.take(NameMaxChars) },

@@ -237,6 +237,7 @@ internal fun YosBottomSheetDialog(
                 contentColor = Color.Black withNight Color.White,
                 content = {
                     Box {
+                        HazeStyleSheetBlur()
                         if (blurred) {
                             MenuBlurBackground(backgroundColor, Modifier.matchParentSize())
                         }

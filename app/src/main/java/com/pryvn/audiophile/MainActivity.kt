@@ -25,6 +25,7 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -728,7 +729,7 @@ class MainActivity : ComponentActivity() {
                                                                     color
                                                                 )
                                                                 .copy(
-                                                                    blurRadius = 24.dp
+                                                                    blurRadius = 40.dp
                                                                 )
                                                         )
                                                         .drawWithCache {
@@ -1073,7 +1074,7 @@ class MainActivity : ComponentActivity() {
                                                                                        color
                                                                                     )
                                                                                     .copy(
-                                                                                        blurRadius = 24.dp
+                                                                                        blurRadius = 40.dp
                                                                                     )
                                                                             )
                                                                     )
@@ -1258,7 +1259,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // YT Music login bottom sheet (Apple-style: covers 80% of the
+                        // YT Music login bottom sheet (Apple-style: covers 83% of the
                         // screen from the bottom, dims and scales the background).
                         YosWrapper {
                             if (YtMusicLoginSheet.isOpen || loginSheetProgress.value > 0f) {
@@ -1281,13 +1282,44 @@ class MainActivity : ComponentActivity() {
                                         },
                                         label = "loginSheetDrag",
                                     )
+                                    // Drag progress in 0..1 (drag capped at 83% of the screen,
+                                    // matching the header's drag constraint in YTMusicLoginScreen).
+                                    val maxDragPx = with(density) {
+                                        (maxHeight * 0.83f).toPx()
+                                    }
+                                    val dragFraction = if (YtMusicLoginSheet.isDragging) {
+                                        (YtMusicLoginSheet.dragOffsetPx / maxDragPx).coerceIn(0f, 1f)
+                                    } else {
+                                        0f
+                                    }
+                                    // Scrim blur radius follows the drag: while the sheet is
+                                    // dragged down the blur shrinks (and the dim fades), then
+                                    // springs back on release.
+                                    val scrimBlurRadius by animateDpAsState(
+                                        targetValue = 24.dp * (1f - dragFraction),
+                                        animationSpec = if (YtMusicLoginSheet.isDragging) {
+                                            snap()
+                                        } else {
+                                            spring(stiffness = 500f, dampingRatio = 0.85f)
+                                        },
+                                        label = "loginSheetScrimBlurRadius",
+                                    )
+                                    val scrimAlpha by animateFloatAsState(
+                                        targetValue = loginSheetConfig.progress * 0.5f * (1f - dragFraction),
+                                        animationSpec = if (YtMusicLoginSheet.isDragging) {
+                                            snap()
+                                        } else {
+                                            spring(stiffness = 500f, dampingRatio = 0.85f)
+                                        },
+                                        label = "loginSheetScrimAlpha",
+                                    )
                                     // Scrim: dims and blurs everything behind the sheet,
                                     // using the same Haze blur style as the toolbar.
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .graphicsLayer {
-                                                alpha = loginSheetConfig.progress * 0.5f
+                                                alpha = scrimAlpha
                                             }
                                             .then(
                                                 if (SettingsLibrary.BarBlurEffect && !showNowPlaying.value) {
@@ -1296,7 +1328,7 @@ class MainActivity : ComponentActivity() {
                                                         HazeMaterials
                                                             .regular(Color.Black)
                                                             .copy(
-                                                                blurRadius = 24.dp
+                                                                blurRadius = scrimBlurRadius
                                                             )
                                                     )
                                                 } else {
@@ -1308,7 +1340,7 @@ class MainActivity : ComponentActivity() {
                                                     MutableInteractionSource()
                                                 },
                                                 indication = null,
-                                                onClick = { YtMusicLoginSheet.isOpen = false },
+                                                onClick = { YtMusicLoginSheet.confirmCloseRequest = true },
                                             )
                                     )
                                     // The sheet itself, sliding up from the bottom.
@@ -1323,7 +1355,7 @@ class MainActivity : ComponentActivity() {
                                         Surface(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .fillMaxHeight(0.8f),
+                                                .fillMaxHeight(0.83f),
                                             shape = RoundedCornerShape(
                                                 topStart = 20.dp,
                                                 topEnd = 20.dp,

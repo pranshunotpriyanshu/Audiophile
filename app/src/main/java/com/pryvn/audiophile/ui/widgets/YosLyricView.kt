@@ -195,6 +195,12 @@ fun YosLyricView(
     val scrollState = rememberLazyListState()
     val currentLyricIndex = remember { MainViewModelObject.syncLyricIndex }
 
+    // When the next line has already started but the previous line's words are
+    // still being sung (overlapping timestamps in the lyric data), the previous
+    // line is "held": both lines render as active and the auto-scroll waits
+    // until the held line finishes before moving on.
+    val overlapHeldIndex = remember { mutableIntStateOf(-1) }
+
     // Direction of the last driven lyric advance (+1 forward / -1 backward), so
     // the per-line settle animation lags the surrounding lines in the correct
     // direction without ever moving the anchored/active lines.
@@ -271,7 +277,11 @@ fun YosLyricView(
             items = lrcEntries,
             key = { _, lines -> lines }
         ) { index, lines ->
-            val isCurrent = derivedStateOf { index == currentLyricIndex.intValue }
+            // A line is "current" when it is the active line or the previous
+            // line is still finishing (overlap hold): both stay fully lit.
+            val isCurrent = derivedStateOf {
+                index == currentLyricIndex.intValue || index == overlapHeldIndex.intValue
+            }
             val isTop = derivedStateOf { index == currentLyricIndex.intValue - 1 }
 
             val showStateAnimation = derivedStateOf {
@@ -289,7 +299,7 @@ fun YosLyricView(
                 }
 
                 val blur = derivedStateOf {
-                    if (!showStateAnimation.value || index == currentLyricIndex.intValue || !blurLambda() || !supportBlur) {
+                    if (!showStateAnimation.value || index == currentLyricIndex.intValue || index == overlapHeldIndex.intValue || !blurLambda() || !supportBlur) {
                         0f
                     } else {
                         (abs(index - currentLyricIndex.intValue) * 2.5f).coerceAtMost(8f)
@@ -324,7 +334,7 @@ fun YosLyricView(
                 LaunchedEffect(currentLyricIndex.intValue) {
                     if (!enableLyricScroll.value) return@LaunchedEffect
                     val current = currentLyricIndex.intValue
-                    if (index == current || index == current + 1) return@LaunchedEffect
+                    if (index == current || index == current + 1 || index == overlapHeldIndex.intValue) return@LaunchedEffect
                     if (abs(index - current) > 3) return@LaunchedEffect
                     val amp = lyricScrollDirection.intValue * 7f * settleDensity
                     settleOffset.animateTo(amp, tween(durationMillis = 110, easing = yosEasing))
@@ -363,6 +373,7 @@ fun YosLyricView(
                     wordSyncedWords = thisWordSyncedWords.value,
                     onClick = {
                         Vibrator.doubleClick(context)
+                        overlapHeldIndex.intValue = -1
                         lyricScrollDirection.intValue = if (index > currentLyricIndex.intValue) 1 else -1
                         currentLyricIndex.intValue = index
                         mediaEvent.onSeek(lines.first().first.toInt())
@@ -405,9 +416,14 @@ fun YosLyricView(
     }
 
     // ---- Auto‑scroll to current line ----
-    LaunchedEffect(currentLyricIndex.intValue, translationLambda()) {
+    LaunchedEffect(currentLyricIndex.intValue, translationLambda(), overlapHeldIndex.intValue) {
         try {
             if (!enableLyricScroll.value) return@LaunchedEffect
+
+            // While a held (overlapping) line is still finishing, defer the
+            // scroll — the effect re-fires when the hold clears.
+            if (overlapHeldIndex.intValue != -1) return@LaunchedEffect
+
             val targetIdx = currentLyricIndex.intValue + 1
 
             val skip = try {
@@ -466,6 +482,26 @@ fun YosLyricView(
                         easing = lyricScrollEaseOut
                     )
                 )
+                // The gap-dots slot keeps collapsing (animateContentSize spring)
+                // even after the exit tween and the settle poll, so the target
+                // line can still drift during the scroll above and land off the
+                // anchor. Re-measure after the scroll and nudge the residual so
+                // the line sits EXACTLY at the anchor level.
+                if (leavingGapDots) {
+                    var guard = 0
+                    while (guard < 3 && currentLyricIndex.intValue + 1 == targetIdx) {
+                        guard++
+                        withFrameNanos { }
+                        val after = visibleItems.value.find { it.index == targetIdx }
+                        if (after == null) break
+                        val residual = after.offset - targetOffset
+                        if (abs(residual) < 0.5f) break
+                        scrollState.animateScrollBy(
+                            residual,
+                            animationSpec = tween(durationMillis = 160, easing = yosEasing)
+                        )
+                    }
+                }
             } else {
                 scrollState.animateScrollToItem(
                     index = targetIdx.coerceAtLeast(0),
@@ -506,6 +542,16 @@ fun YosLyricView(
                 nextIdx == 0 -> 0
                 else -> nextIdx - 1
             }
+            // Overlap hold: when the previous line is still finishing while the
+            // next one has already started, keep the previous line active too
+            // and defer the auto-scroll until its last word is done. Re-evaluated
+            // every poll so the hold also expires mid-line.
+            val heldIndex = if (newIdx - 1 >= 0) newIdx - 1 else -1
+            if (heldIndex != -1 && lyricLineEndMs(lrcEntries, heldIndex) > targetPos) {
+                overlapHeldIndex.intValue = heldIndex
+            } else if (overlapHeldIndex.intValue != -1) {
+                overlapHeldIndex.intValue = -1
+            }
             if (newIdx == stableIdx) {
                 stableCount++
                 if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
@@ -523,6 +569,22 @@ fun YosLyricView(
 
 private fun LazyListScope.blankSpacer(height: Dp) {
     item { Box(Modifier.height(height)) }
+}
+
+/**
+ * End time of a lyric line: the real end of its last word when word-synced data
+ * is available, otherwise the last word's own timestamp (where its fill
+ * completes). For plain line-synced lyrics this equals the line start, so no
+ * overlap can ever be detected — the previous line always holds.
+ */
+private fun lyricLineEndMs(lrcEntries: List<List<Pair<Float, String>>>, index: Int): Float {
+    val syncedLines = MediaViewModelObject.wordSyncedLines.value
+    if (index < syncedLines.size && syncedLines[index].words.isNotEmpty()) {
+        return syncedLines[index].words.maxOf { it.endTimeMs }.toFloat()
+    }
+    val line = lrcEntries.getOrNull(index) ?: return Float.MAX_VALUE
+    val lastWord = line.drop(1).dropLast(1).lastOrNull()
+    return lastWord?.first ?: line.first().first
 }
 
 // ---- Helper function to convert Float to Dp ----

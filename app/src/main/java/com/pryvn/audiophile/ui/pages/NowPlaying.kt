@@ -238,6 +238,8 @@ import com.pryvn.audiophile.ui.pages.library.FloatingMenuDivider
 import com.pryvn.audiophile.ui.pages.library.FloatingMenuItem
 import androidx.compose.foundation.combinedClickable
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
+import com.pryvn.audiophile.ui.widgets.song.goToAlbum
+import com.pryvn.audiophile.ui.widgets.song.goToArtist
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.AnimatedAlbumCoverOverlay
@@ -1487,6 +1489,16 @@ PlayingList ->
             },
             onPickLyricShare = { },
             onPickDownloadStatus = { },
+            onGoToAlbum = { song, nav ->
+                // Minimize the player sheet before routing to the album.
+                scope.launch { onMinimizeNowPlaying() }
+                goToAlbum(song, nav)
+            },
+            onGoToArtist = { song, nav ->
+                // Minimize the player sheet before routing to the artist.
+                scope.launch { onMinimizeNowPlaying() }
+                goToArtist(song, nav)
+            },
         )
         }
     }

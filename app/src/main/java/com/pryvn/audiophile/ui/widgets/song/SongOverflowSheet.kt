@@ -82,6 +82,11 @@ fun SongOverflowSheet(
     onRefetchLyrics: (() -> Unit)? = null,
     onPickLyricShare: (() -> Unit)? = null,
     onPickDownloadStatus: (() -> Unit)? = null,
+    /** Now Playing-only: replaces the default album/artist navigation so the
+     *  hosting screen can minimize the player sheet before routing. When null
+     *  the standard navigation is used. */
+    onGoToAlbum: ((YosMediaItem, NavController) -> Unit)? = null,
+    onGoToArtist: ((YosMediaItem, NavController) -> Unit)? = null,
 ) {
     if (!isOpen.value || song == null) return
 
@@ -113,6 +118,8 @@ fun SongOverflowSheet(
                 onRefetchLyrics = onRefetchLyrics,
                 onPickLyricShare = onPickLyricShare?.let { { screen = SongOverflowScreen.LyricShare } },
                 onPickDownloadStatus = onPickDownloadStatus?.let { { screen = SongOverflowScreen.DownloadStatus } },
+                onGoToAlbum = onGoToAlbum,
+                onGoToArtist = onGoToArtist,
             )
 
             SongOverflowScreen.AddToPlaylist -> Column(
@@ -157,6 +164,8 @@ private fun SongOverflowMenuBody(
     onRefetchLyrics: (() -> Unit)?,
     onPickLyricShare: (() -> Unit)?,
     onPickDownloadStatus: (() -> Unit)?,
+    onGoToAlbum: ((YosMediaItem, NavController) -> Unit)?,
+    onGoToArtist: ((YosMediaItem, NavController) -> Unit)?,
 ) {
     val context = LocalContext.current
     val isFav = FavPlayListLibrary.isFavorite(song)
@@ -291,7 +300,11 @@ private fun SongOverflowMenuBody(
                     iconRes = R.drawable.ic_library_link_icon_album,
                     onClick = {
                         onDismiss()
-                        goToAlbum(song, navController)
+                        if (onGoToAlbum != null) {
+                            onGoToAlbum(song, navController)
+                        } else {
+                            goToAlbum(song, navController)
+                        }
                     },
                 )
             }
@@ -302,9 +315,11 @@ private fun SongOverflowMenuBody(
                     iconRes = R.drawable.ic_library_link_icon_artists,
                     onClick = {
                         onDismiss()
-                        LibraryObject.setTargetArtistName(song.artistsName!!)
-                        LibraryObject.setArtistSongsSearchOnOpen(false)
-                        navController.toUI(UI.ArtistInfo)
+                        if (onGoToArtist != null) {
+                            onGoToArtist(song, navController)
+                        } else {
+                            goToArtist(song, navController)
+                        }
                     },
                 )
             }
@@ -381,7 +396,7 @@ private fun SongOverflowMenuBody(
  * songs resolve the album's browse id (via an album-scoped search) and open the
  * online album page.
  */
-private fun goToAlbum(song: YosMediaItem, navController: NavController) {
+internal fun goToAlbum(song: YosMediaItem, navController: NavController) {
     val albumName = song.album ?: return
     if (song.isLocalMediaItem()) {
         LibraryObject.setTargetAlbumName(albumName)
@@ -399,6 +414,15 @@ private fun goToAlbum(song: YosMediaItem, navController: NavController) {
             }
         }
     }
+}
+
+/**
+ * Routes to the song's artist page (local artists library).
+ */
+internal fun goToArtist(song: YosMediaItem, navController: NavController) {
+    LibraryObject.setTargetArtistName(song.artistsName ?: return)
+    LibraryObject.setArtistSongsSearchOnOpen(false)
+    navController.toUI(UI.ArtistInfo)
 }
 
 @Composable

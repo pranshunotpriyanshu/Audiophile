@@ -8,9 +8,11 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,8 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -74,6 +77,10 @@ object YtMusicLoginSheet {
     /** Drag-to-dismiss state, driven by the sheet header's drag gesture. */
     var isDragging by mutableStateOf(false)
     var dragOffsetPx by mutableStateOf(0f)
+
+    /** Set by MainActivity when the backdrop scrim is tapped; YTMusicLoginScreen
+     *  consumes it and shows the cancel-confirmation instead of closing directly. */
+    var confirmCloseRequest by mutableStateOf(false)
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -89,9 +96,18 @@ fun YTMusicLoginScreen(
 
     val density = LocalDensity.current
     val maxDragPx = with(density) {
-        (LocalConfiguration.current.screenHeightDp * 0.9f).dp.toPx()
+        (LocalConfiguration.current.screenHeightDp * 0.83f).dp.toPx()
     }
     val dismissThresholdPx = with(density) { 150.dp.toPx() }
+
+    // Backdrop taps (signalled by MainActivity's scrim) also require
+    // confirmation before the login sheet actually closes.
+    LaunchedEffect(YtMusicLoginSheet.confirmCloseRequest) {
+        if (YtMusicLoginSheet.confirmCloseRequest) {
+            YtMusicLoginSheet.confirmCloseRequest = false
+            showCancelConfirm = true
+        }
+    }
 
     fun onLoginSuccess() {
         if (hasLoggedIn) return
@@ -119,6 +135,12 @@ fun YTMusicLoginScreen(
             }
 
             withContext(Dispatchers.Main) {
+                // Auto-close after a successful login: the sheet is closing on
+                // its own, never as a user dismissal, so any pending cancel
+                // confirmation (scrim tap / header drag / back press) must be
+                // cancelled — it can never appear once login has succeeded.
+                showCancelConfirm = false
+                YtMusicLoginSheet.confirmCloseRequest = false
                 val name = SettingsLibrary.YtMusicAccountName
                 val msg = if (name.isNotBlank()) {
                     context.getString(R.string.ytmusic_login_success) + " $name"
@@ -172,7 +194,19 @@ fun YTMusicLoginScreen(
                     .padding(bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Spacer(Modifier.width(64.dp))
+                Text(
+                    text = stringResource(R.string.cancel),
+                    fontSize = 16.sp,
+                    color = Color(0xFFFF453A),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { showCancelConfirm = true },
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                )
                 Text(
                     text = stringResource(R.string.ytmusic_login),
                     fontSize = 17.sp,
@@ -183,13 +217,7 @@ fun YTMusicLoginScreen(
                     maxLines = 1,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { showCancelConfirm = true }) {
-                    Text(
-                        text = stringResource(R.string.cancel),
-                        fontSize = 16.sp,
-                        color = sheetTextColor().copy(alpha = 0.8f),
-                    )
-                }
+                Spacer(Modifier.width(64.dp))
             }
         }
 
