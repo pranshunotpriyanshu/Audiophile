@@ -103,7 +103,6 @@ fun ExoPlayerSettings(navController: NavController) =
                         RoundColumn {
                             SwitchItem(
                                 title = stringResource(id = R.string.settings_audio_exoplayer_full_screen_static_artwork),
-                                desc = stringResource(id = R.string.settings_audio_exoplayer_full_screen_static_artwork_desc),
                                 onClick = {
                                     SettingsLibrary.NowplayingFullScreenStaticArtwork =
                                         !SettingsLibrary.NowplayingFullScreenStaticArtwork
@@ -113,9 +112,19 @@ fun ExoPlayerSettings(navController: NavController) =
 
                             Divider()
 
+                            SwitchItem(
+                                title = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect),
+                                onClick = {
+                                    SettingsLibrary.NowplayingBackgroundEffect =
+                                        !SettingsLibrary.NowplayingBackgroundEffect
+                                },
+                                checkedLambda = { SettingsLibrary.NowplayingBackgroundEffect }
+                            )
+
+                            Divider()
+
                             LabelItem(
                                 title = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork),
-                                desc = stringResource(id = R.string.settings_audio_exoplayer_animated_album_artwork_desc),
                             ) {
                                 navController.toUI(UI.Settings.AnimatedAlbumCovers)
                             }
@@ -124,7 +133,6 @@ fun ExoPlayerSettings(navController: NavController) =
 
                             SelectItem(
                                 title = stringResource(id = R.string.settings_audio_exoplayer_background),
-                                desc = stringResource(id = R.string.settings_audio_exoplayer_background_desc),
                                 items = listOf("Solid", "Blurred"),
                                 value = SettingsLibrary.NowPlayingBackground,
                                 onValueChange = {

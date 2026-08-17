@@ -177,6 +177,8 @@
     <string name="shazam_error">Recognition error</string>
     <string name="shazam_mic_permission">Microphone permission required</string>
     <string name="page_home_press_back_again">Press back again to exit</string>
+    <string name="settings_import_spotify">Import from Spotify</string>
+    <string name="settings_import_spotify_soon">Import from Spotify is coming soon</string>
     <string name="profile_picture">Profile Picture</string>
     <string name="profile_picture_set">Set a profile picture</string>
     <string name="profile_picture_change">Tap to change</string>

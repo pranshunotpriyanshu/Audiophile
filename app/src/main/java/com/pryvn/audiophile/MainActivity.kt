@@ -115,6 +115,7 @@ import dev.chrisbanes.haze.hazeChild
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import uk.akane.libphonograph.hasScopedStorageWithMediaTypes
 import com.pryvn.audiophile.code.MediaController
@@ -909,8 +910,16 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     val color = Color.White withNight Color(0xFF1C1C1E)
+                                    // One coroutine per drag delta would queue up on a
+                                    // fast swipe and race the settle animation, making
+                                    // the sheet jump — so every new delta cancels the
+                                    // previous one before applying itself.
+                                    val dragJob = remember("MainActivity_dragJob") {
+                                        mutableStateOf<Job?>(null)
+                                    }
                                     val dragState = rememberDraggableState { delta ->
-                                        scope.launch {
+                                        dragJob.value?.cancel()
+                                        dragJob.value = scope.launch {
                                             offsetY.snapTo(offsetY.value + delta)
                                         }
                                     }
@@ -959,12 +968,33 @@ class MainActivity : ComponentActivity() {
                                                 orientation = Orientation.Vertical,
                                                 state = dragState,
                                                 onDragStopped = { velocity ->
+                                                    dragJob.value?.cancel()
+                                                    dragJob.value = null
                                                     offsetY.updateBounds(0f, parentHeight.intValue.toFloat())
+                                                    // A violent flick (e.g. a hard swipe on the
+                                                    // 3-dot menu) can carry an enormous fling
+                                                    // velocity that would spring the page past
+                                                    // its bounds — clamp it and snap back into
+                                                    // range first.
+                                                    val clampedVelocity =
+                                                        velocity.coerceIn(-6000f, 6000f)
                                                     scope.launch {
-                                                        if (velocity < 0f) {
-                                                            offsetY.animateTo(0f, initialVelocity = velocity)
+                                                        offsetY.snapTo(
+                                                            offsetY.value.coerceIn(
+                                                                0f,
+                                                                parentHeight.intValue.toFloat()
+                                                            )
+                                                        )
+                                                        if (clampedVelocity < 0f) {
+                                                            offsetY.animateTo(
+                                                                0f,
+                                                                initialVelocity = clampedVelocity
+                                                            )
                                                         } else {
-                                                            offsetY.animateTo(parentHeight.intValue.toFloat(), initialVelocity = velocity)
+                                                            offsetY.animateTo(
+                                                                parentHeight.intValue.toFloat(),
+                                                                initialVelocity = clampedVelocity
+                                                            )
                                                         }
                                                     }
                                                 }

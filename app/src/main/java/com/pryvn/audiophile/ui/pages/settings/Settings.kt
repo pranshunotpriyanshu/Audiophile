@@ -183,6 +183,16 @@ fun Settings(navController: NavController) =
                         }
 
                         Divider()
+                        LabelItem(
+                            title = stringResource(id = R.string.settings_import_spotify),
+                        ) {
+                            Toast.makeText(
+                                context,
+                                R.string.settings_import_spotify_soon,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        Divider()
                         ProfilePictureRow()
                     }
 
@@ -248,16 +258,6 @@ fun Settings(navController: NavController) =
                                 }
                             }
 
-                            Divider()
-                            SwitchItem(
-                                title = stringResource(id = R.string.settings_playback_auto_queue),
-                                desc = stringResource(id = R.string.settings_playback_auto_queue_desc),
-                                onClick = {
-                                    SettingsLibrary.AutoQueueEnabled =
-                                        !SettingsLibrary.AutoQueueEnabled
-                                },
-                                checkedLambda = { SettingsLibrary.AutoQueueEnabled }
-                            )
                         }
 
                         GroupSpacer()

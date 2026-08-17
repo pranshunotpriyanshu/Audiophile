@@ -146,22 +146,6 @@ fun UserInterfaceSetting(navController: NavController) =
                         GroupSpacerMedium()
 
                         RoundColumn {
-                            SwitchItem(
-                                title = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect),
-                                // desc = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect_desc),
-                                onClick = {
-                                    SettingsLibrary.NowplayingBackgroundEffect =
-                                        !SettingsLibrary.NowplayingBackgroundEffect
-                                },
-                                checkedLambda = { SettingsLibrary.NowplayingBackgroundEffect }
-                            )
-                        }
-
-                        ListHeader(content = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect_desc))
-
-                        GroupSpacerMedium()
-
-                        RoundColumn {
                             LabelItem(
                                 title = stringResource(id = R.string.settings_library_animated_album_covers),
                                 superLink = true

@@ -629,6 +629,11 @@ fun NowPlaying(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
+        // Full screen static artwork keeps its own album-artwork backdrop:
+        // while it is on the base background stays the static dominant color
+        // extracted from the album artwork (Solid), so the artwork blends into
+        // it seamlessly. The Now Playing Background setting applies everywhere
+        // else.
         val bgMode = if (fsEnabled) "Solid" else SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
@@ -806,7 +811,7 @@ fun NowPlaying(
                             Modifier
                                 .overlayEffect()
                                 .size(
-                                    width = 32.dp,
+                                    width = 64.dp,
                                     height = 4.5.dp
                                 )
                                 .background(Color(0x4DFFFFFF), RoundedCornerShape(2.25.dp))
@@ -1524,7 +1529,9 @@ fun ColumnScope.Album(
                     .padding(horizontal = 15.dp)
                     .padding(bottom = 33.dp)
             ),
-        contentAlignment = if (fsEnabled) Alignment.TopCenter else Alignment.BottomCenter
+        // The artwork is centered in the area between the top pill and the
+        // artists metadata row below it (Apple Music lays it out the same way).
+        contentAlignment = if (fsEnabled) Alignment.TopCenter else Alignment.Center
     ) {
         val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
             SpringSpec(

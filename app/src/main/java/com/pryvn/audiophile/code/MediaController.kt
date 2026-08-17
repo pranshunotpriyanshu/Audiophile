@@ -498,7 +498,7 @@ object MediaController {
      * Called when near the end of the queue or when a song ends with no next item.
      */
     fun maybeAutoQueue(currentVideoId: String? = null) {
-        if (!SettingsLibrary.AutoQueueEnabled) return
+        // Auto Queue is always on (the toggle was removed from Settings).
         if (currentVideoId == null) return
         if (currentVideoId == lastAutoQueuedVideoId) return
 
@@ -1122,7 +1122,7 @@ object MediaController {
      * and auto-queue generation happen promptly.
      */
     fun onSongEnded() {
-        if (!SettingsLibrary.AutoQueueEnabled) return
+        // Auto Queue is always on (the toggle was removed from Settings).
         // All Player timeline reads below must run on the main thread.
         mainScope.launch {
             runCatching {
