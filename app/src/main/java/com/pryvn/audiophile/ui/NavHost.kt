@@ -25,7 +25,6 @@ interface UI {
         
 
         // YT Music screens
-        const val YTMusicLogin = "YTMusicLogin"
         const val YTMusicExplore = "YTMusicExplore"
         const val YTMusicSearch = "YTMusicSearch"
         const val YTMusicPlaylists = "YTMusicPlaylists"

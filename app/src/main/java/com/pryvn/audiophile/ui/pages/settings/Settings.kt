@@ -42,6 +42,7 @@ import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.UI
+import com.pryvn.audiophile.ui.pages.ytmusic.YtMusicLoginSheet
 import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.widgets.basic.AppleConfirmSheet
 import com.pryvn.audiophile.ui.widgets.basic.RoundColumn
@@ -164,7 +165,7 @@ fun Settings(navController: NavController) =
                             )
                             Button(
                                 onClick = {
-                                    navController.toUI(UI.YTMusicLogin)
+                                    YtMusicLoginSheet.isOpen = true
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()

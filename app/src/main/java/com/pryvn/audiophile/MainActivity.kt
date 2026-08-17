@@ -25,6 +25,8 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -35,12 +37,14 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -151,6 +156,7 @@ import com.pryvn.audiophile.ui.pages.settings.others.About
 import com.pryvn.audiophile.ui.pages.settings.performance.LyricSetting
 import com.pryvn.audiophile.ui.pages.settings.performance.NotificationSetting
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicLoginScreen
+import com.pryvn.audiophile.ui.pages.ytmusic.YtMusicLoginSheet
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicExploreScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicSearchScreen
 import com.pryvn.audiophile.ui.pages.ytmusic.YTMusicCategoryScreen
@@ -179,6 +185,8 @@ import com.pryvn.audiophile.ui.widgets.basic.NavItem
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.widgets.basic.sheetSurface
+import com.pryvn.audiophile.ui.widgets.basic.sheetTextColor
 import java.io.File
 import kotlin.math.abs
 
@@ -327,6 +335,26 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // YT Music login bottom sheet — Apple-style depth effect:
+                        // the background scales down while the sheet covers 80%.
+                        val loginSheetProgress = remember("MainActivity_loginSheetProgress") {
+                            Animatable(0f)
+                        }
+                        LaunchedEffect(YtMusicLoginSheet.isOpen) {
+                            loginSheetProgress.animateTo(
+                                targetValue = if (YtMusicLoginSheet.isOpen) 1f else 0f,
+                                animationSpec = navSpec
+                            )
+                        }
+                        val loginSheetConfig = object {
+                            val progress
+                                get() = loginSheetProgress.value
+                            val scale
+                                get() = 0.9f + (0.1f * (1f - progress))
+                            val thisShowCorner
+                                get() = progress > 0f
+                        }
+
                         val nowPageNowPlaying =
                             rememberSaveable(key = "MainActivity_nowPageNowPlaying") {
                                 mutableStateOf(Album)
@@ -385,14 +413,15 @@ class MainActivity : ComponentActivity() {
                                     .graphicsLayer {
                                         val thisMainContainerCardScale =
                                             yosBottomSheetConfig.mainContainerCardScale
-                                        scaleX = thisMainContainerCardScale
-                                        scaleY = thisMainContainerCardScale
+                                        val loginScale = loginSheetConfig.scale
+                                        scaleX = thisMainContainerCardScale * loginScale
+                                        scaleY = thisMainContainerCardScale * loginScale
                                     }
                                     .graphicsLayer {
                                         //compositingStrategy = CompositingStrategy.Offscreen
                                         //transformOrigin = TransformOrigin(0.5f, 1f)
 
-                                        if (yosBottomSheetConfig.thisShowCorner && !yosBottomSheetConfig.RTCorner) {
+                                        if ((yosBottomSheetConfig.thisShowCorner || loginSheetConfig.thisShowCorner) && !yosBottomSheetConfig.RTCorner) {
                                             compositingStrategy = CompositingStrategy.Offscreen
                                             clip = true
                                             shape = YosRoundedCornerShape(screenCorner.dp)
@@ -606,9 +635,6 @@ class MainActivity : ComponentActivity() {
                                                 AnimatedAlbumCoverBlacklistSetting(navController)
                                             }
 
-                                            composable(UI.YTMusicLogin) {
-                                                YTMusicLoginScreen(navController)
-                                            }
                                             composable(UI.YTMusicExplore) {
                                                 YTMusicExploreScreen(navController)
                                             }
@@ -859,8 +885,9 @@ class MainActivity : ComponentActivity() {
                                             //compositingStrategy = CompositingStrategy.Offscreen
                                             val plus =
                                                 0.07f * yosBottomSheetConfig.progress
-                                            this.scaleX = 0.93f + plus
-                                            this.scaleY = 0.93f + plus
+                                            val loginScale = loginSheetConfig.scale
+                                            this.scaleX = (0.93f + plus) * loginScale
+                                            this.scaleY = (0.93f + plus) * loginScale
                                             this.translationY =
                                                 -dockOffsetPx.value * (yosBottomSheetConfig.menuAlpha)
                                             this.transformOrigin = TransformOrigin(0.5f, 1f)
@@ -1225,6 +1252,76 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // YT Music login bottom sheet (Apple-style: covers 80% of the
+                        // screen from the bottom, dims and scales the background).
+                        YosWrapper {
+                            if (YtMusicLoginSheet.isOpen || loginSheetProgress.value > 0f) {
+                                BoxWithConstraints(Modifier.fillMaxSize()) {
+                                    val sheetOffsetPx = with(density) {
+                                        (maxHeight * (1f - loginSheetConfig.progress)).toPx()
+                                    }
+                                    // Follows the header's drag gesture while dragging and
+                                    // springs back to 0 on release (unless dismissed).
+                                    val animatedSheetDrag by animateFloatAsState(
+                                        targetValue = if (YtMusicLoginSheet.isDragging) {
+                                            YtMusicLoginSheet.dragOffsetPx
+                                        } else {
+                                            0f
+                                        },
+                                        animationSpec = if (YtMusicLoginSheet.isDragging) {
+                                            snap()
+                                        } else {
+                                            spring(stiffness = 500f, dampingRatio = 0.85f)
+                                        },
+                                        label = "loginSheetDrag",
+                                    )
+                                    // Scrim: dims everything behind the sheet.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer {
+                                                alpha = loginSheetConfig.progress * 0.5f
+                                            }
+                                            .background(Color.Black)
+                                            .clickable(
+                                                interactionSource = remember {
+                                                    MutableInteractionSource()
+                                                },
+                                                indication = null,
+                                                onClick = { YtMusicLoginSheet.isOpen = false },
+                                            )
+                                    )
+                                    // The sheet itself, sliding up from the bottom.
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .graphicsLayer {
+                                                translationY = sheetOffsetPx + animatedSheetDrag
+                                            },
+                                        contentAlignment = Alignment.BottomCenter,
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(0.8f),
+                                            shape = RoundedCornerShape(
+                                                topStart = 20.dp,
+                                                topEnd = 20.dp,
+                                            ),
+                                            color = sheetSurface(),
+                                            contentColor = sheetTextColor(),
+                                            tonalElevation = 0.dp,
+                                            shadowElevation = 12.dp,
+                                        ) {
+                                            YTMusicLoginScreen(
+                                                onClose = { YtMusicLoginSheet.isOpen = false },
+                                            )
                                         }
                                     }
                                 }
