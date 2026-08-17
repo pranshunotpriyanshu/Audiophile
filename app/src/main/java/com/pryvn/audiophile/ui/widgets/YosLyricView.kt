@@ -56,25 +56,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.roundToInt
 
 
 val yosEasing = CubicBezierEasing(0.75f, 0.0f, 0.25f, 1.0f)
 
-// Strong ease-out for the automatic lyric scroll: the list accelerates briefly
-// then decelerates sharply as the anchored line arrives (Apple Music feel).
-// Only the container's scroll movement uses this curve — the anchored/active
-// lines keep their exact anchor positions.
-val lyricScrollEaseOut = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
-
 private const val LRC_LEAD_MS = 300L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
-// Gap-dots AnimatedVisibility exit tween is 340ms; wait past it (plus the
-// 30ms settle delay and a small margin) before measuring the scroll target
-// so the collapsed dots row doesn't skew the target line's offset.
-private const val GAP_DOTS_COLLAPSE_WAIT_MS = 420L
+// Bubble-bounce: how far the wobble reaches around the current line and how
+// the kick amplitude decays with distance from it (dp at distance 1). Shared
+// by the line-synced (YosLyricView) and word-synced (LyricsV2) renderers.
+const val BUBBLE_RADIUS = 5
+fun bubbleAmplitudeDp(distance: Int): Float =
+    (8f * exp(-0.7f * (distance - 1).toFloat())).toFloat()
 
 /**
  * YosLyricView main widget
@@ -201,10 +198,6 @@ fun YosLyricView(
     // until the held line finishes before moving on.
     val overlapHeldIndex = remember { mutableIntStateOf(-1) }
 
-    // Direction of the last driven lyric advance (+1 forward / -1 backward), so
-    // the per-line settle animation lags the surrounding lines in the correct
-    // direction without ever moving the anchored/active lines.
-    val lyricScrollDirection = remember { mutableIntStateOf(1) }
     val enableLyricScroll = remember { mutableStateOf(true) }
 
     // Shared snapshot position so snapshotFlow collectors re-emit (liveTimeLambda is not snapshot state).
@@ -217,6 +210,25 @@ fun YosLyricView(
 
     val visibleItems = derivedStateOf { scrollState.layoutInfo.visibleItemsInfo }
     val nowFirst = derivedStateOf { scrollState.firstVisibleItemIndex }
+
+    // ---- Auto-scroll target ----
+    // The anchor line (current + 1) sits at the golden point (6.18%) of the
+    // viewport; the scroll distance is the live difference between that line's
+    // current top and the anchor, animated with a critically damped spring so
+    // the list glides with inertia and lands exactly on the anchor level — it
+    // never overshoots past the set position.
+    val targetOffset = rememberSaveable(height.intValue) {
+        height.intValue * 0.0618f
+    }
+    val targetItem = derivedStateOf {
+        visibleItems.value.find { it.index == currentLyricIndex.intValue + 1 }
+    }
+    val currentOffset = derivedStateOf {
+        targetItem.value?.offset ?: targetOffset.toInt()
+    }
+    val scrollDistance = derivedStateOf {
+        currentOffset.value - targetOffset
+    }
 
     val supportBlur = rememberSaveable {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -321,80 +333,99 @@ fun YosLyricView(
                     } else emptyList()
                 }
 
-                // ---- Per-line inertial settle ----
-                // The auto-scroll moves the whole list with a strong ease-out
-                // (line anchored at the golden point, active line untouched).
-                // These surrounding lines briefly resist the movement, then
-                // settle back with a restrained spring, so the list reads as
-                // having inertia and weight. The active line (index == current)
-                // and the line pinned at the anchor (index == current + 1) are
-                // never displaced. Retargets smoothly on successive changes.
-                val settleOffset = remember { Animatable(0f) }
-                val settleDensity = LocalDensity.current.density
-                LaunchedEffect(currentLyricIndex.intValue) {
+                // ---- Bubble bounce ----
+                // When a line settles at the anchor, the surrounding lines wobble
+                // like bubbles: each is kicked a small distance that falls off
+                // with distance from the current line, then springs back with a
+                // soft overshoot so the motion reads as a smooth bounce. The
+                // anchored line and the current line themselves stay put.
+                val bubbleOffset = remember(index) { Animatable(0f) }
+                var bubbleKicked by remember(index) { mutableStateOf(false) }
+                val bubbleDensity = LocalDensity.current.density
+
+                LaunchedEffect(currentLyricIndex.intValue, overlapHeldIndex.intValue) {
                     if (!enableLyricScroll.value) return@LaunchedEffect
+                    if (!bubbleKicked) {
+                        bubbleKicked = true
+                        return@LaunchedEffect
+                    }
+                    // While an overlapping line is held the scroll is deferred —
+                    // bounce together with the actual scroll that follows.
+                    if (overlapHeldIndex.intValue != -1) return@LaunchedEffect
                     val current = currentLyricIndex.intValue
-                    if (index == current || index == current + 1 || index == overlapHeldIndex.intValue) return@LaunchedEffect
-                    if (abs(index - current) > 3) return@LaunchedEffect
-                    val amp = lyricScrollDirection.intValue * 7f * settleDensity
-                    settleOffset.animateTo(amp, tween(durationMillis = 110, easing = yosEasing))
-                    settleOffset.animateTo(0f, spring(dampingRatio = 0.78f, stiffness = 520f))
+                    if (index == current || index == current + 1) return@LaunchedEffect
+                    val distance = abs(index - current)
+                    if (distance > BUBBLE_RADIUS) return@LaunchedEffect
+                    val direction = if (index < current) -1f else 1f
+                    val amplitude = bubbleAmplitudeDp(distance) * bubbleDensity
+                    bubbleOffset.animateTo(
+                        targetValue = direction * amplitude,
+                        animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
+                    )
+                    bubbleOffset.animateTo(
+                        targetValue = 0f,
+                        animationSpec = spring(
+                            dampingRatio = 0.6f,
+                            stiffness = 260f,
+                            visibilityThreshold = 0.05f
+                        )
+                    )
                 }
 
                 Box(
-                    Modifier.graphicsLayer {
-                        translationY = settleOffset.value
-                    }
+                    Modifier.graphicsLayer { translationY = bubbleOffset.value }
                 ) {
                     LyricItem(
                         isCurrentLambda = { isCurrent.value },
-                    isTopLambda = { isTop.value },
-                    mainLyric = lines.dropLast(1),
-                    translation = translation,
-                    showTranslation = translationLambda(),
-                    subTextSize = uiConfig.subTextSize,
-                    blur = { blur.value },
-                    mainTextBasicColor = mainTextBasicColor,
-                    subTextBasicColor = subTextBasicColor,
-                    otherSide = otherSide,
-                    liveTimeLambda = { liveTimeState.intValue },
-                    measurer = measurer,
-                    isLyricEmpty = { isLyricEmpty.value },
-                    nextTime = {
-                        if (index + 1 > lrcEntries.size - 1) 0f else lrcEntries[index + 1].first().first
-                    },
-                    prevLineEndMs = {
-                        if (index == 0) 0f
-                        else {
-                            val prev = lrcEntries[index - 1]
-                            prev.drop(1).dropLast(1).lastOrNull()?.first ?: prev.first().first
+                        isTopLambda = { isTop.value },
+                        mainLyric = lines.dropLast(1),
+                        translation = translation,
+                        showTranslation = translationLambda(),
+                        subTextSize = uiConfig.subTextSize,
+                        blur = { blur.value },
+                        mainTextBasicColor = mainTextBasicColor,
+                        subTextBasicColor = subTextBasicColor,
+                        otherSide = otherSide,
+                        liveTimeLambda = { liveTimeState.intValue },
+                        measurer = measurer,
+                        isLyricEmpty = { isLyricEmpty.value },
+                        nextTime = {
+                            if (index + 1 > lrcEntries.size - 1) 0f else lrcEntries[index + 1].first().first
+                        },
+                        prevLineEndMs = {
+                            if (index == 0) 0f
+                            else {
+                                val prev = lrcEntries[index - 1]
+                                prev.drop(1).dropLast(1).lastOrNull()?.first ?: prev.first().first
+                            }
+                        },
+                        wordSyncedWords = thisWordSyncedWords.value,
+                        onClick = {
+                            Vibrator.doubleClick(context)
+                            overlapHeldIndex.intValue = -1
+                            currentLyricIndex.intValue = index
+                            mediaEvent.onSeek(lines.first().first.toInt())
                         }
-                    },
-                    wordSyncedWords = thisWordSyncedWords.value,
-                    onClick = {
-                        Vibrator.doubleClick(context)
-                        overlapHeldIndex.intValue = -1
-                        lyricScrollDirection.intValue = if (index > currentLyricIndex.intValue) 1 else -1
-                        currentLyricIndex.intValue = index
-                        mediaEvent.onSeek(lines.first().first.toInt())
-                    }
-                )
-                    }
+                    )
+                }
             }
 
             // ---- Spacer animation for each item ----
             key(index) {
                 val show = derivedStateOf { !isLyricEmpty.value || isCurrent.value }
+                val thisScrollDistance = if (targetItem.value != null) {
+                    (scrollDistance.value / visibleItems.value.size.coerceAtLeast(1)).toDp()
+                } else 0.dp
 
                 val thisTargetHeight = remember { mutableStateOf(space) }
 
                 LaunchedEffect(currentLyricIndex.intValue) {
                     if (visibleItems.value.isEmpty()) return@LaunchedEffect
                     if (index >= currentLyricIndex.intValue - 1 && showStateAnimation.value && show.value) {
-                        val segment = 1f - ((index - nowFirst.value).toFloat() / visibleItems.value.size.toFloat())
-                        delay((350 * (1f - segment)).toLong())
-                        thisTargetHeight.value = (3.dp * segment) + space
-                        delay(100)
+                        val weight = 1f - ((index - nowFirst.value).toFloat() / visibleItems.value.size.toFloat())
+                        delay((550 * (1f - weight)).toLong())
+                        thisTargetHeight.value = (thisScrollDistance * weight) + space
+                        delay((550 / 1.95f * weight).toLong())
                         thisTargetHeight.value = space
                     } else if (show.value) {
                         thisTargetHeight.value = space
@@ -405,7 +436,11 @@ fun YosLyricView(
 
                 val offset = animateDpAsState(
                     targetValue = thisTargetHeight.value,
-                    animationSpec = tween(durationMillis = 250, easing = yosEasing)
+                    animationSpec = if (thisTargetHeight.value == 0.dp || thisTargetHeight.value == space) {
+                        spring(stiffness = 180f, dampingRatio = 1f, visibilityThreshold = 0.01.dp)
+                    } else {
+                        spring(stiffness = 150f, dampingRatio = 1f, visibilityThreshold = 0.01.dp)
+                    }
                 )
                 Spacer(modifier = Modifier.height(offset.value))
             }
@@ -424,88 +459,28 @@ fun YosLyricView(
             // scroll — the effect re-fires when the hold clears.
             if (overlapHeldIndex.intValue != -1) return@LaunchedEffect
 
-            val targetIdx = currentLyricIndex.intValue + 1
-
+            // Skip if the previous line is blank (gap-dots special case): the
+            // list was already scrolled to the next line while the dots row was
+            // active, so leaving it must not scroll again.
             val skip = try {
-                targetIdx - 1 >= 0 &&
-                        lrcEntries[targetIdx - 1][1].second.isBlank()
+                currentLyricIndex.intValue - 1 >= 0 &&
+                        lrcEntries[currentLyricIndex.intValue - 1][1].second.isBlank()
             } catch (_: Exception) { false }
             if (skip) return@LaunchedEffect
 
-            // When the line we are scrolling away from is a blank gap-dots line,
-            // its AnimatedVisibility exit (~340ms fade/scale collapse) is still
-            // running while this effect fires. Measuring targetItem.offset
-            // mid-collapse yields a stale value and the target line lands
-            // off-anchor (the reported "line jumps after the gap dots" bug).
-            // Wait for the collapse to finish before measuring, then re-verify
-            // the index hasn't advanced again.
-            val leavingGapDots = try {
-                targetIdx - 2 >= 0 &&
-                        lrcEntries[targetIdx - 2][1].second.isBlank()
-            } catch (_: Exception) { false }
-
-            delay(if (leavingGapDots) GAP_DOTS_COLLAPSE_WAIT_MS else 30)
-
-            if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
-
-            // The gap-dots slot also collapses via animateContentSize (a spring)
-            // that outlives the 340ms exit tween, so a fixed delay can still
-            // measure the target mid-collapse — the reported "next line
-            // overshoots the anchor after the gap dots" bug. Poll the target's
-            // offset until it settles across frames; only then is the layout
-            // final and the scroll exact, so the line can never overshoot.
-            if (leavingGapDots) {
-                var lastOffset = Float.NaN
-                repeat(30) {
-                    if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
-                    val currentOffset = (visibleItems.value.find { it.index == targetIdx }?.offset ?: return@LaunchedEffect).toFloat()
-                    if (lastOffset.isNaN()) {
-                        lastOffset = currentOffset
-                    } else if (abs(currentOffset - lastOffset) < 0.5f) {
-                        return@LaunchedEffect
-                    } else {
-                        lastOffset = currentOffset
-                    }
-                    withFrameNanos { }
-                }
-            }
-
-            if (currentLyricIndex.intValue + 1 != targetIdx) return@LaunchedEffect
-
-            val targetOffset = height.intValue * 0.0618f
-            val targetItem = visibleItems.value.find { it.index == targetIdx }
-            if (targetItem != null) {
+            if (targetItem.value != null) {
                 scrollState.animateScrollBy(
-                    targetItem.offset - targetOffset,
-                    animationSpec = tween(
-                        durationMillis = 550,
-                        easing = lyricScrollEaseOut
+                    scrollDistance.value,
+                    animationSpec = spring(
+                        dampingRatio = 1f,
+                        stiffness = 150f,
+                        visibilityThreshold = 0.01f
                     )
                 )
-                // The gap-dots slot keeps collapsing (animateContentSize spring)
-                // even after the exit tween and the settle poll, so the target
-                // line can still drift during the scroll above and land off the
-                // anchor. Re-measure after the scroll and nudge the residual so
-                // the line sits EXACTLY at the anchor level.
-                if (leavingGapDots) {
-                    var guard = 0
-                    while (guard < 3 && currentLyricIndex.intValue + 1 == targetIdx) {
-                        guard++
-                        withFrameNanos { }
-                        val after = visibleItems.value.find { it.index == targetIdx }
-                        if (after == null) break
-                        val residual = after.offset - targetOffset
-                        if (abs(residual) < 0.5f) break
-                        scrollState.animateScrollBy(
-                            residual,
-                            animationSpec = tween(durationMillis = 160, easing = yosEasing)
-                        )
-                    }
-                }
             } else {
                 scrollState.animateScrollToItem(
-                    index = targetIdx.coerceAtLeast(0),
-                    scrollOffset = -targetOffset.toInt(),
+                    index = (currentLyricIndex.intValue + 1).coerceAtLeast(0),
+                    scrollOffset = -targetOffset.toInt()
                 )
             }
         } catch (_: Exception) { }
@@ -555,7 +530,6 @@ fun YosLyricView(
             if (newIdx == stableIdx) {
                 stableCount++
                 if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
-                    lyricScrollDirection.intValue = if (newIdx > currentLyricIndex.intValue) 1 else -1
                     currentLyricIndex.intValue = newIdx
                 }
             } else {
@@ -709,51 +683,64 @@ fun LazyItemScope.LyricItem(
             // The dots live in the empty line's own slot: the countdown anchors
             // on the LATER of the slot start and the END of the line above (its
             // last sung word), so the dots can never start while the line above
-            // is still finishing. And when the gap to the next line is too
-            // small, the dots never appear at all.
-            Column(Modifier.animateContentSize()) {
-                val percent = remember(mainLyric) {
-                    derivedStateOf {
-                        val m = mainLyric.first().first
-                        val start = maxOf(m, prevLineEndMs())
-                        ((liveTime.intValue - start).coerceAtLeast(0f) / (nextTime() - start)).coerceAtMost(1f)
-                    }
+            // is still finishing. When the gap is long enough the dots row keeps
+            // its full height even while the dots fade, so the layout never
+            // shifts and the anchored line stays exactly on its set level.
+            val percent = remember(mainLyric) {
+                derivedStateOf {
+                    val m = mainLyric.first().first
+                    val start = maxOf(m, prevLineEndMs())
+                    ((liveTime.intValue - start).coerceAtLeast(0f) / (nextTime() - start)).coerceAtMost(1f)
                 }
-                val gapMs = remember(mainLyric) {
-                    derivedStateOf {
-                        val m = mainLyric.first().first
-                        val start = maxOf(m, prevLineEndMs())
-                        (nextTime() - start).coerceAtLeast(0f)
-                    }
+            }
+            val gapMs = remember(mainLyric) {
+                derivedStateOf {
+                    val m = mainLyric.first().first
+                    val start = maxOf(m, prevLineEndMs())
+                    (nextTime() - start).coerceAtLeast(0f)
                 }
-                val show = remember {
-                    derivedStateOf {
-                        isLyricEmpty() && isCurrentLambda() && percent.value != 0f && gapMs.value >= 5000f
-                    }
+            }
+            val show = remember {
+                derivedStateOf {
+                    isLyricEmpty() && isCurrentLambda() && percent.value != 0f && gapMs.value >= 5000f
                 }
-
-                AnimatedVisibility(
-                    visible = show.value,
-                    enter = fadeIn(animationSpec = tween(550, easing = yosEasing, delayMillis = 300)) +
-                            scaleIn(initialScale = 0.85f, transformOrigin = otherSideAnimate,
-                                animationSpec = tween(550, easing = yosEasing, delayMillis = 300)),
-                    exit = fadeOut() + scaleOut(targetScale = 0.85f, transformOrigin = otherSideAnimate,
-                        animationSpec = tween(340, easing = yosEasing))
+            }
+            if (gapMs.value >= 5000f) {
+                // Dots-worthy gap: reserve the row's height permanently and fade
+                // the dots in place so the transition to the next line causes no
+                // layout shift — the anchored line never leaves its set level.
+                val dotsAlpha = animateFloatAsState(
+                    targetValue = if (show.value) 1f else 0f,
+                    animationSpec = tween(340, easing = yosEasing, delayMillis = if (show.value) 300 else 0)
+                )
+                val dotsScale = animateFloatAsState(
+                    targetValue = if (show.value) 1f else 0.85f,
+                    animationSpec = tween(340, easing = yosEasing, delayMillis = if (show.value) 300 else 0)
+                )
+                LyricCard(
+                    scale = { scale.value },
+                    cardPadding = cardPadding,
+                    otherSideTransformOrigin = otherSideTransformOrigin,
+                    viewAlign = viewAlign
                 ) {
-                    LyricCard(
-                        scale = { scale.value },
-                        cardPadding = cardPadding,
-                        otherSideTransformOrigin = otherSideTransformOrigin,
-                        viewAlign = viewAlign
+                    Column(
+                        Modifier
+                            .graphicsLayer {
+                                alpha = dotsAlpha.value
+                                scaleX = dotsScale.value
+                                scaleY = dotsScale.value
+                                transformOrigin = otherSideAnimate
+                            }
+                            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 10.dp),
+                        horizontalAlignment = viewAlign
                     ) {
-                        Column(
-                            Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 10.dp),
-                            horizontalAlignment = viewAlign
-                        ) {
-                            GapDotsAnim(progress = { percent.value }, colorLambda = { mainTextBasicColor })
-                        }
+                        GapDotsAnim(progress = { percent.value }, colorLambda = { mainTextBasicColor })
                     }
                 }
+            } else {
+                // Small gap: no dots and no reserved height, so the empty line
+                // stays collapsed and cannot disturb the anchor.
+                Box(Modifier.height(0.dp))
             }
         } else {
             // ---- Regular lyric line ----

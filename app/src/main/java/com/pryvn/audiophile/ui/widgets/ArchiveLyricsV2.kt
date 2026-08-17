@@ -10,13 +10,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -53,7 +48,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -273,6 +267,11 @@ fun LyricsV2(
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var playbackPositionMs by remember { mutableLongStateOf(0L) }
     var currentLineIndex by remember { mutableIntStateOf(0) }
+    // When the next line has started but the previous line's words are still
+    // being sung (overlapping timestamps), the previous line is "held": both
+    // lines render as active and the auto-scroll waits until the held line
+    // finishes before moving on.
+    var heldLineIndex by remember { mutableIntStateOf(-1) }
 
     val timeSortedLines = remember(entriesWithWords) {
         entriesWithWords.mapIndexedNotNull { index, entry ->
@@ -316,6 +315,14 @@ fun LyricsV2(
                 val firstLineIndex =
                     if (entriesWithWords.firstOrNull() === LyricsEntry.HEAD_LYRICS_ENTRY) 1 else 0
                 val newLineIndex = if (nextIndex < 0) firstLineIndex else nextIndex
+                // Overlap hold: while the previous line's last word is still
+                // being sung (the next line has already started), keep the
+                // previous line active too and defer the scroll until it ends.
+                if (newLineIndex - 1 >= 0 && lineEndTimesMs.getOrElse(newLineIndex - 1) { Long.MAX_VALUE } > newCurrentPos) {
+                    heldLineIndex = newLineIndex - 1
+                } else if (heldLineIndex != -1) {
+                    heldLineIndex = -1
+                }
                 if (newLineIndex != currentLineIndex) currentLineIndex = newLineIndex
             }
             delay(pollIntervalMs)
@@ -350,45 +357,27 @@ fun LyricsV2(
         }
     }
 
-    LaunchedEffect(currentLineIndex, isManualScrolling, lyricsScroll) {
+    LaunchedEffect(currentLineIndex, heldLineIndex, isManualScrolling, lyricsScroll) {
         if (!lyricsScroll || isManualScrolling || !isSynced) return@LaunchedEffect
         if (currentLineIndex < 0 || currentLineIndex >= entriesWithWords.size) return@LaunchedEffect
+        // While a held (overlapping) line is still finishing, defer the scroll —
+        // this effect re-fires when the hold clears.
+        if (heldLineIndex != -1) return@LaunchedEffect
 
-        // When the line we just left was a gap-dots instrumental row, its
-        // shrinkVertically exit (340ms) is still animating while this effect
-        // fires. Measuring the target offset mid-shrink yields a stale value
-        // and the next line overshoots the anchor. Wait for the shrink, then
-        // poll the target's offset until it settles across frames.
-        val prevIndex = currentLineIndex - 1
-        val prevWasGap = prevIndex >= 0 &&
-            entriesWithWords.getOrNull(prevIndex)
-                ?.let { it !== HEAD_LYRICS_ENTRY && it.isInstrumental } == true
-        if (prevWasGap) {
-            delay(360)
-            var lastOffset = Float.NaN
-            repeat(20) {
-                val currentOffset = (listState.layoutInfo.visibleItemsInfo
-                    .find { it.index == currentLineIndex }?.offset ?: return@repeat).toFloat()
-                if (lastOffset.isNaN()) {
-                    lastOffset = currentOffset
-                } else if (abs(currentOffset - lastOffset) < 0.5f) {
-                    return@repeat
-                } else {
-                    lastOffset = currentOffset
-                }
-                withFrameNanos { }
-            }
-        }
-
+        // Gap-dots rows (instrumental rows and between-lines dots) keep their
+        // full height while the dots fade, so the layout is already stable when
+        // this effect fires and the target offset can be measured exactly — the
+        // anchored line can never overshoot its set level.
         val targetOffset = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
 
         val targetItem = listState.layoutInfo.visibleItemsInfo.find { it.index == currentLineIndex }
         if (targetItem != null) {
             listState.animateScrollBy(
                 targetItem.offset - targetOffset.toFloat(),
-                animationSpec = tween(
-                    durationMillis = 550,
-                    easing = yosEasing,
+                animationSpec = spring(
+                    dampingRatio = 1f,
+                    stiffness = 150f,
+                    visibilityThreshold = 0.01f,
                 ),
             )
         } else {
@@ -524,77 +513,61 @@ fun LyricsV2(
                     val endTimeMs = item.time + item.durationMs
                     val isGapActive = playbackPositionMs in startTimeMs until endTimeMs
 
-                    // The gap dots stay collapse-hidden until the pause actually
-                    // arrives; they then expand down out of the line above, and
-                    // after the gap ends they shrink up into the line below,
-                    // releasing the space they created.
-                    AnimatedVisibility(
-                        visible = isGapActive,
-                        enter =
-                            expandVertically(
-                                expandFrom = Alignment.Top,
-                                animationSpec =
-                                    androidx.compose.animation.core.tween(
-                                        durationMillis = 340,
-                                        easing = androidx.compose.animation.core.FastOutSlowInEasing,
-                                    ),
-                            ) + fadeIn(tween(durationMillis = 200)),
-                        exit =
-                            shrinkVertically(
-                                shrinkTowards = Alignment.Bottom,
-                                animationSpec =
-                                    androidx.compose.animation.core.tween(
-                                        durationMillis = 340,
-                                        easing = androidx.compose.animation.core.FastOutSlowInEasing,
-                                    ),
-                            ) + fadeOut(tween(durationMillis = 200)),
+                    // The instrumental row always keeps its full height and the
+                    // dots just fade in/out, so the layout never shifts when the
+                    // gap starts or ends — the anchored line stays exactly on
+                    // its set level instead of overshooting.
+                    val instrAlpha = animateFloatAsState(
+                        targetValue = if (isGapActive) 1f else 0f,
+                        animationSpec = tween(340, easing = FastOutSlowInEasing),
+                        label = "v2InstrumentalAlpha",
+                    )
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer { alpha = instrAlpha.value }
+                                .padding(
+                                    start = 12.dp,
+                                    end = 12.dp,
+                                    top =
+                                        if (index == 0 || (index == 1 && entriesWithWords[0] == HEAD_LYRICS_ENTRY)) {
+                                            0.dp
+                                        } else {
+                                            (lyricsLineSpacing * 8).dp
+                                        },
+                                    bottom = (lyricsLineSpacing * 8).dp,
+                                ).height(48.dp).then(
+                                    if (isInteractive && lyricsClick && item.time > 0) {
+                                        Modifier.clickable { player.seekTo(item.time) }
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
                     ) {
-                        Box(
+                        val instrAlign =
+                            when (item.agent?.lowercase()) {
+                                "v2" -> TextAlign.End
+                                else -> TextAlign.Start
+                            }
+                        val instrFill =
+                            when {
+                                item.durationMs <= 0L -> 0f
+                                playbackPositionMs <= startTimeMs -> 0f
+                                playbackPositionMs >= endTimeMs -> 1f
+                                else ->
+                                    ((playbackPositionMs - startTimeMs).toFloat() / item.durationMs.toFloat())
+                                        .coerceIn(0f, 1f)
+                            }
+                        GapDots(
+                            fillFraction = instrFill,
+                            textColor = textColor,
+                            textAlign = instrAlign,
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(
-                                        start = 12.dp,
-                                        end = 12.dp,
-                                        top =
-                                            if (index == 0 || (index == 1 && entriesWithWords[0] == HEAD_LYRICS_ENTRY)) {
-                                                0.dp
-                                            } else {
-                                                (lyricsLineSpacing * 8).dp
-                                            },
-                                        bottom = (lyricsLineSpacing * 8).dp,
-                                    ).height(48.dp).then(
-                                        if (isInteractive && lyricsClick && item.time > 0) {
-                                            Modifier.clickable { player.seekTo(item.time) }
-                                        } else {
-                                            Modifier
-                                        },
-                                    ),
-                        ) {
-                            val instrAlign =
-                                when (item.agent?.lowercase()) {
-                                    "v2" -> TextAlign.End
-                                    else -> TextAlign.Start
-                                }
-                            val instrFill =
-                                when {
-                                    item.durationMs <= 0L -> 0f
-                                    playbackPositionMs <= startTimeMs -> 0f
-                                    playbackPositionMs >= endTimeMs -> 1f
-                                    else ->
-                                        ((playbackPositionMs - startTimeMs).toFloat() / item.durationMs.toFloat())
-                                            .coerceIn(0f, 1f)
-                                }
-                            GapDots(
-                                fillFraction = instrFill,
-                                textColor = textColor,
-                                textAlign = instrAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(start = 12.dp, end = 12.dp),
-                            )
-                        }
+                                    .padding(start = 12.dp, end = 12.dp),
+                        )
                     }
                     return@itemsIndexed
                 }
@@ -612,8 +585,12 @@ fun LyricsV2(
                         else -> Alignment.CenterHorizontally
                     }
 
-                val isActive = isSynced && index == currentLineIndex
-                val isPast = isSynced && index < currentLineIndex
+                // A line is "active" when it is the current line or the previous
+                // line is still finishing (overlap hold): both stay fully lit.
+                // The held line is not treated as "past" so its words keep
+                // filling progressively until its last word is done.
+                val isActive = isSynced && (index == currentLineIndex || index == heldLineIndex)
+                val isPast = isSynced && index < currentLineIndex && index != heldLineIndex
                 val isFuture = isSynced && index > currentLineIndex
 
                 val distanceFromActive = if (isSynced) abs(index - currentLineIndex) else 0
@@ -684,6 +661,43 @@ fun LyricsV2(
                 val cardPadding = if (isRightSide)
                     Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
 
+                // ---- Bubble bounce ----
+                // When a line settles at the anchor, the surrounding lines wobble
+                // like bubbles — the kick falls off with distance from the current
+                // line and each line springs back smoothly.
+                val bubbleOffset = remember(index) { Animatable(0f) }
+                var bubbleKicked by remember(index) { mutableStateOf(false) }
+                val bubbleDensity = LocalDensity.current.density
+
+                LaunchedEffect(currentLineIndex, heldLineIndex, isManualScrolling) {
+                    if (isManualScrolling || !lyricsScroll) return@LaunchedEffect
+                    if (!bubbleKicked) {
+                        bubbleKicked = true
+                        return@LaunchedEffect
+                    }
+                    // While a held (overlapping) line is still finishing the scroll
+                    // is deferred — bounce together with the actual scroll.
+                    if (heldLineIndex != -1) return@LaunchedEffect
+                    val current = currentLineIndex
+                    if (index == current) return@LaunchedEffect
+                    val distance = abs(index - current)
+                    if (distance > BUBBLE_RADIUS) return@LaunchedEffect
+                    val direction = if (index < current) -1f else 1f
+                    val amplitude = bubbleAmplitudeDp(distance) * bubbleDensity
+                    bubbleOffset.animateTo(
+                        targetValue = direction * amplitude,
+                        animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
+                    )
+                    bubbleOffset.animateTo(
+                        targetValue = 0f,
+                        animationSpec = spring(
+                            dampingRatio = 0.6f,
+                            stiffness = 260f,
+                            visibilityThreshold = 0.05f
+                        )
+                    )
+                }
+
                 CompositionLocalProvider(LocalLayoutDirection provides lineLayoutDirection) {
                     Column(
                         modifier =
@@ -719,6 +733,7 @@ fun LyricsV2(
                                     scaleX = animatedLineScale
                                     scaleY = animatedLineScale
                                     alpha = lineAlpha
+                                    translationY = bubbleOffset.value
                                     transformOrigin = lineTransformOrigin
                                 }.combinedClickable(
                                     enabled = isInteractive && lyricsClick && isSynced && item.time > 0,
@@ -795,7 +810,9 @@ fun LyricsV2(
                                 // ── Between-lines gap dots ──
                                 // While the current line has finished singing and the next
                                 // line hasn't started yet, show a row of dots that fill
-                                // left-to-right across the duration of the gap.
+                                // left-to-right across the duration of the gap. The row
+                                // keeps its height while the dots fade, so the next line's
+                                // position never shifts — no overshoot on the transition.
                                 val lineEnd = lineEndTimesMs.getOrElse(index) { item.time }
                                 val nextEntry = entriesWithWords.getOrNull(index + 1)
                                 val gapStart = lineEnd
@@ -807,10 +824,15 @@ fun LyricsV2(
                                         gapEnd > gapStart &&
                                         (gapEnd - gapStart) >= 5000L &&
                                         currentPositionMs in gapStart until gapEnd
-                                AnimatedVisibility(
-                                    visible = showGap,
-                                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                                    exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+                                val betweenDotsAlpha = animateFloatAsState(
+                                    targetValue = if (showGap) 1f else 0f,
+                                    animationSpec = tween(340, easing = FastOutSlowInEasing),
+                                    label = "v2BetweenDotsAlpha",
+                                )
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .graphicsLayer { alpha = betweenDotsAlpha.value }
                                 ) {
                                     val fill =
                                         ((currentPositionMs - gapStart).toFloat() / (gapEnd - gapStart).toFloat())
