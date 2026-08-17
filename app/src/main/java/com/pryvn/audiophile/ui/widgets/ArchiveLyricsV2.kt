@@ -225,8 +225,9 @@ fun LyricsV2(
     val lyricsTextSize = lyricFontSize
     val lyricsLineSpacing = 1.3f
     val lyricsLineBlurPreference = true
-    val bounceFactor = 0.22f
-    // Word glow amount comes from the Lyric Display setting (0x..0.9x).
+    // Word bounce and glow amounts come from the Lyric Display settings
+    // (bounce 0x..0.5x, glow 0x..0.9x).
+    val bounceFactor = SettingsLibrary.LyricBounceAmount
     val glowFactor = SettingsLibrary.LyricGlowAmount
     val lrcBounceEnabled = true
     val lyricsFontFamily: FontFamily? = SfProFontFamily
@@ -988,6 +989,7 @@ fun LyricsV2(
                                         lyricsFontFamily = lyricsFontFamily,
                                         textAlign = textAlign,
                                         bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
+                                        glowFactor = glowFactor,
                                     )
                                 } else {
                                         Text(
@@ -1242,16 +1244,21 @@ private fun LyricsLineV2(
         }
     }
 
-    val expandedMain = remember(mainWords, isCjk) { mainWords.flatMap { expandWord(it) } }
-    val expandedBg = remember(bgWords, isCjk) { bgWords.flatMap { expandWord(it) } }
+    // One entry per ORIGINAL word (CJK words expand to their syllable chars).
+    // Each word renders as a single Row — one flow item — so its syllables can
+    // never wrap apart and a word is never broken across lines.
+    val expandedMain = remember(mainWords, isCjk) { mainWords.map { expandWord(it) } }
+    val expandedBg = remember(bgWords, isCjk) { bgWords.map { expandWord(it) } }
 
     if (expandedMain.isNotEmpty()) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = arrangement,
         ) {
-            expandedMain.forEachIndexed { wordIndex, word ->
-                if (word.text == " ") {
+            expandedMain.forEachIndexed { unitIndex, unit ->
+                if (unit.isEmpty()) return@forEachIndexed
+                val first = unit[0]
+                if (first.text == " ") {
                     Text(
                         text = " ",
                         style =
@@ -1263,30 +1270,33 @@ private fun LyricsLineV2(
                     )
                     return@forEachIndexed
                 }
-                if (word.text == "\n") {
+                if (first.text == "\n") {
                     Spacer(modifier = Modifier.fillMaxWidth())
                     return@forEachIndexed
                 }
 
-                // No space is inserted between words here: word-boundary whitespace
-                // is baked into each word's text at parse time (TTML whitespace text
-                // nodes / enhanced-LRC trailing spaces), so syllables of one word stay
-                // glued together while real words keep their natural gap.
-                AnimatedWordV2(
-                    word = word,
-                    wordIndex = wordIndex,
-                    isLineActive = isActive,
-                    isLinePast = isPast,
-                    currentPositionMs = currentPositionMs,
-                    textColor = textColor,
-                    inactiveAlpha = inactiveAlpha,
-                    fontSize = if (isLineAllBackground) baseFontSize * 0.82f else baseFontSize,
-                    isBackground = isLineAllBackground,
-                    isRtl = isRtl,
-                    bounceFactor = bounceFactor,
-                    glowFactor = glowFactor,
-                    lyricsFontFamily = lyricsFontFamily,
-                )
+                // The whole word is one unbreakable flow item: its syllable
+                // chars stay glued together while real words keep their gap
+                // (word-boundary whitespace is baked into each word's text).
+                Row {
+                    unit.forEach { word ->
+                        AnimatedWordV2(
+                            word = word,
+                            wordIndex = unitIndex,
+                            isLineActive = isActive,
+                            isLinePast = isPast,
+                            currentPositionMs = currentPositionMs,
+                            textColor = textColor,
+                            inactiveAlpha = inactiveAlpha,
+                            fontSize = if (isLineAllBackground) baseFontSize * 0.82f else baseFontSize,
+                            isBackground = isLineAllBackground,
+                            isRtl = isRtl,
+                            bounceFactor = bounceFactor,
+                            glowFactor = glowFactor,
+                            lyricsFontFamily = lyricsFontFamily,
+                        )
+                    }
+                }
             }
         }
     }
@@ -1299,8 +1309,10 @@ private fun LyricsLineV2(
             modifier = Modifier.fillMaxWidth().alpha(0.85f),
             horizontalArrangement = arrangement,
         ) {
-            expandedBg.forEachIndexed { wordIndex, word ->
-                if (word.text == " ") {
+            expandedBg.forEachIndexed { unitIndex, unit ->
+                if (unit.isEmpty()) return@forEachIndexed
+                val first = unit[0]
+                if (first.text == " ") {
                     Text(
                         text = " ",
                         style =
@@ -1313,21 +1325,25 @@ private fun LyricsLineV2(
                     return@forEachIndexed
                 }
 
-                AnimatedWordV2(
-                    word = word,
-                    wordIndex = wordIndex + expandedMain.size,
-                    isLineActive = isActive,
-                    isLinePast = isPast,
-                    currentPositionMs = currentPositionMs,
-                    textColor = textColor,
-                    inactiveAlpha = inactiveAlpha,
-                    fontSize = baseFontSize * 0.65f,
-                    isBackground = true,
-                    isRtl = isRtl,
-                    bounceFactor = bounceFactor,
-                    glowFactor = glowFactor,
-                    lyricsFontFamily = lyricsFontFamily,
-                )
+                Row {
+                    unit.forEach { word ->
+                        AnimatedWordV2(
+                            word = word,
+                            wordIndex = unitIndex + expandedMain.size,
+                            isLineActive = isActive,
+                            isLinePast = isPast,
+                            currentPositionMs = currentPositionMs,
+                            textColor = textColor,
+                            inactiveAlpha = inactiveAlpha,
+                            fontSize = baseFontSize * 0.65f,
+                            isBackground = true,
+                            isRtl = isRtl,
+                            bounceFactor = bounceFactor,
+                            glowFactor = glowFactor,
+                            lyricsFontFamily = lyricsFontFamily,
+                        )
+                    }
+                }
             }
         }
     }
@@ -1563,6 +1579,7 @@ private fun LyricsLineLrcBounce(
     lyricsFontFamily: FontFamily?,
     textAlign: TextAlign,
     bounceFactor: Float,
+    glowFactor: Float,
 ) {
     val words = remember(text) { text.toLyricsWrappingUnits() }
     val effectiveFontSize = if (isAllBackground) fontSize * 0.82f else fontSize
@@ -1600,6 +1617,7 @@ private fun LyricsLineLrcBounce(
                 fontStyle = fontStyle,
                 lyricsFontFamily = lyricsFontFamily,
                 bounceFactor = bounceFactor,
+                glowFactor = glowFactor,
                 isActive = isActive,
             )
         }
@@ -1618,6 +1636,7 @@ private fun LrcBouncingWord(
     fontStyle: FontStyle,
     lyricsFontFamily: FontFamily?,
     bounceFactor: Float,
+    glowFactor: Float,
     isActive: Boolean,
 ) {
     // Staggered animation using progress with word-index delay
@@ -1626,6 +1645,12 @@ private fun LrcBouncingWord(
     
     val scale = 1f + 0.045f * bounceFactor * easedProgress
     val transY = -5f * bounceFactor * easedProgress
+
+    // Glow ramps up twice as fast as the bounce, then stays lit while the
+    // line is active — same curve the word-synced karaoke words use.
+    val glowProgress = (staggeredProgress * 2f).coerceAtMost(1f)
+    val glowAlpha = if (isActive) 0.45f * glowFactor * glowProgress else 0f
+    val glowRadius = if (isActive) (12f * glowFactor * glowProgress).coerceAtLeast(1f) else 0f
 
     Text(
         text = text,
@@ -1636,6 +1661,16 @@ private fun LrcBouncingWord(
                 fontStyle = fontStyle,
                 lineHeight = (fontSize * lineSpacing).sp,
                 fontFamily = lyricsFontFamily ?: MaterialTheme.typography.headlineMedium.fontFamily,
+                shadow =
+                    if (glowAlpha > 0f) {
+                        Shadow(
+                            color = color.copy(alpha = glowAlpha),
+                            offset = Offset.Zero,
+                            blurRadius = glowRadius,
+                        )
+                    } else {
+                        null
+                    },
             ),
         color = color,
         modifier =

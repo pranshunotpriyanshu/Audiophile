@@ -1,7 +1,14 @@
 package com.pryvn.audiophile.ui.pages.settings.performance
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.res.painterResource
@@ -91,14 +101,15 @@ fun LyricSetting(navController: NavController) =
 
                         GroupSpacerMedium()
 
-                        // Word Glow slider: a plain, smooth slider (no steps, no
-                        // markings) from 0x (no glow) to 0.9x (maximum).
+                        // Word Effects: one live preview showing BOTH the glow and
+                        // the bounce, with a plain smooth slider for each — glow
+                        // 0x..0.9x, bounce 0x..0.5x.
                         RoundColumn {
-                            GlowSliderItem(
-                                title = stringResource(id = R.string.settings_performance_lyric_style_glow),
+                            WordEffectsSliderItem(
+                                title = stringResource(id = R.string.settings_performance_lyric_style_effects),
                             )
                         }
-                        ListHeader(content = stringResource(id = R.string.settings_performance_lyric_style_glow_desc))
+                        ListHeader(content = stringResource(id = R.string.settings_performance_lyric_style_effects_desc))
 
                         GroupSpacerMedium()
 
@@ -243,11 +254,12 @@ private fun FontSizeSliderItem(
 }
 
 @Composable
-private fun GlowSliderItem(
+private fun WordEffectsSliderItem(
     title: String,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val glow = remember { mutableStateOf(SettingsLibrary.LyricGlowAmount) }
+    val bounce = remember { mutableStateOf(SettingsLibrary.LyricBounceAmount) }
 
     Column(Modifier.fillMaxWidth()) {
         DefaultItem(enabled = true, title = title, desc = null, onClick = {
@@ -260,7 +272,11 @@ private fun GlowSliderItem(
                     .fillMaxWidth()
                     .padding(vertical = 10.dp)
             ) {
-                // Plain smooth slider: no steps, no tick marks.
+                // One live preview showing both effects at the current values:
+                // the word pulses — bouncing up and glowing — as the sliders move.
+                WordEffectsPreview(glow = glow.value, bounce = bounce.value)
+
+                // Plain smooth sliders: no steps, no tick marks, no value labels.
                 Slider(
                     value = glow.value,
                     onValueChange = { newValue ->
@@ -273,8 +289,77 @@ private fun GlowSliderItem(
                         .fillMaxWidth()
                         .padding(horizontal = 18.5.dp),
                 )
+                Slider(
+                    value = bounce.value,
+                    onValueChange = { newValue ->
+                        bounce.value = newValue
+                        SettingsLibrary.LyricBounceAmount = newValue
+                    },
+                    valueRange = 0f..0.5f,
+                    steps = 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.5.dp),
+                )
             }
         }
+    }
+}
+
+// A single sample word rendered the same way word-synced lyrics are: a soft
+// glow behind the active fill and a subtle upward bounce, driven by a looping
+// sine so the preview keeps pulsing while the sliders are adjusted.
+@Composable
+private fun WordEffectsPreview(
+    glow: Float,
+    bounce: Float,
+) {
+    val transition = rememberInfiniteTransition(label = "wordEffectsPreview")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "wordEffectsProgress",
+    )
+    val sinProgress = kotlin.math.sin(progress * kotlin.math.PI.toFloat()).toFloat()
+    val wordScale = 1f + 0.015f * bounce * sinProgress
+    val floatOffset = -4f * bounce * sinProgress
+    val glowAlpha = sinProgress * 0.45f * glow
+    val glowRadius = sinProgress * 12f * glow
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Glow",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = SfProFontFamily,
+                shadow =
+                    if (glowAlpha > 0f) {
+                        Shadow(
+                            color = Color.White.copy(alpha = glowAlpha),
+                            offset = Offset.Zero,
+                            blurRadius = glowRadius.coerceAtLeast(1f),
+                        )
+                    } else {
+                        null
+                    },
+            ),
+            color = Color.White,
+            modifier = Modifier
+                .padding(vertical = 10.dp)
+                .graphicsLayer {
+                    scaleX = wordScale
+                    scaleY = wordScale
+                    translationY = floatOffset * density
+                },
+        )
     }
 }
 

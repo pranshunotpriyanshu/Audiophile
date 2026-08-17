@@ -429,11 +429,26 @@ fun Home(
                                             scope.launch(Dispatchers.IO) {
                                                 when (entry.source) {
                                                     PlaybackSource.LOCAL -> {
-                                                        // Find local song by mediaId and play via prepare
+                                                        // Find the local song by mediaId and play it with a queue
+                                                        // built from the rest of the recently-played history
+                                                        // (mirroring how the online path generates a queue around
+                                                        // the tapped song), so playing from Recently Played always
+                                                        // has an up-next list.
                                                         val localSong = MediaController.mainMusicList
                                                             .find { it.mediaId == entry.videoId }
                                                         localSong?.let {
-                                                            MediaController.prepare(it, listOf(it))
+                                                            val queue = buildList {
+                                                                add(it)
+                                                                recentlyPlayed.asSequence()
+                                                                    .filter { hist -> hist.videoId != entry.videoId }
+                                                                    .mapNotNull { hist ->
+                                                                        MediaController.mainMusicList
+                                                                            .find { local -> local.mediaId == hist.videoId }
+                                                                    }
+                                                                    .distinctBy { it.mediaId }
+                                                                    .forEach { queued -> add(queued) }
+                                                            }
+                                                            MediaController.prepare(it, queue)
                                                         }
                                                     }
                                                     PlaybackSource.ONLINE -> {

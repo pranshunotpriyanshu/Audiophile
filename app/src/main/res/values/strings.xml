@@ -103,8 +103,8 @@
     <string name="settings_performance_lyric_style_font_size">Font Size</string>
     <string name="settings_performance_lyric_style_font_size_desc">Adjust the lyrics text size. Changes apply instantly.</string>
     <string name="settings_performance_lyric_style_font_size_sample">The quick brown fox jumps</string>
-    <string name="settings_performance_lyric_style_glow">Word Glow</string>
-    <string name="settings_performance_lyric_style_glow_desc">Amount of glow on words in word-synced lyrics, from 0x (no glow) to 0.9x (maximum).</string>
+    <string name="settings_performance_lyric_style_effects">Word Effects</string>
+    <string name="settings_performance_lyric_style_effects_desc">Glow (0x–0.9x) and bounce (0x–0.5x) applied to words in word-synced lyrics. Changes apply instantly.</string>
     <string name="settings_performance_ui_title">User Interface</string>
     <string name="settings_performance_ui_basic">Basic</string>
     <string name="settings_performance_ui_blur_effect_desc">Blur effect of the toolbar, which may cause performance issues.</string>

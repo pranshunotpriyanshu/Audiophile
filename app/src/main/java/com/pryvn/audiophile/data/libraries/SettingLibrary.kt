@@ -186,6 +186,16 @@ object SettingsLibrary {
     )
 
     /**
+     * Word bounce amount (0x..0.5x) for word-synced lyrics
+     */
+    @Stable
+    var LyricBounceAmount by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_performance_lyric_bounce_amount",
+        initialValue = 0.22f
+    )
+
+    /**
      * Smart word-by-word lyrics: animate a linear gradient over non word-synced lines
      */
     @Stable
