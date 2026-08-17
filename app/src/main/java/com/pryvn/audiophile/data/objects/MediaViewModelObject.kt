@@ -62,6 +62,12 @@ object MediaViewModelObject {
     val nextPaletteDarkVibrantColor: MutableState<Color> = mutableStateOf(Color.Black)
     val nextPaletteDarkMutedColor: MutableState<Color> = mutableStateOf(Color.Black)
 
+    // True when the displayed lyrics are plain text with no timestamps (the
+    // parser fabricates dummy 30s marks so it can flow through the normal
+    // pipeline). The lyric view renders these all-white with no blur and lets
+    // the user scroll freely — nothing is restored or auto-scrolled.
+    val isUnsyncedLyrics: MutableState<Boolean> = mutableStateOf(false)
+
     val onlineLyrics: MutableState<String?> = mutableStateOf(null)
     val translatedLyrics: MutableState<String?> = mutableStateOf(null)
     val lyricsSource: MutableState<String?> = mutableStateOf(null)

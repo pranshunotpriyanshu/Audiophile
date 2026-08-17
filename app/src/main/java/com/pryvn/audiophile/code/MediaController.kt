@@ -1351,11 +1351,15 @@ object MediaController {
     }
 
     fun manualNext() {
-        val list = playingMusicList.value ?: return
-        val currentIdx = mediaControl?.currentMediaItemIndex ?: return
-        val nextIdx = currentIdx + 1
-        if (nextIdx >= list.size) return
-        val nextItem = list[nextIdx]
+        // The next song must come from the player's own timeline (the same one
+        // seekToNextMediaItem advances through). Indexing the mirrored
+        // remaining-queue list with the absolute timeline index picks a song far
+        // ahead in the queue, so the UI flashed several wrong song names before
+        // settling on the real next item.
+        val controller = mediaControl ?: return
+        val nextIdx = controller.currentMediaItemIndex + 1
+        if (nextIdx >= controller.mediaItemCount) return
+        val nextItem = controller.getMediaItemAt(nextIdx).toYosMediaItem().withPersistentIdentity()
 
         cancelLyricsFetch()
         clearLyricsState()
@@ -1363,17 +1367,16 @@ object MediaController {
         MediaViewModelObject.bitmap.value = nextItem.thumb
 
         CoroutineScope(Dispatchers.Main).launch {
-            mediaControl?.seekToNextMediaItem()
-            mediaControl?.fadePlay()
+            controller.seekToNextMediaItem()
+            controller.fadePlay()
         }
     }
 
     fun manualPrevious() {
-        val list = playingMusicList.value ?: return
-        val currentIdx = mediaControl?.currentMediaItemIndex ?: return
-        val prevIdx = currentIdx - 1
+        val controller = mediaControl ?: return
+        val prevIdx = controller.currentMediaItemIndex - 1
         if (prevIdx < 0) return
-        val prevItem = list[prevIdx]
+        val prevItem = controller.getMediaItemAt(prevIdx).toYosMediaItem().withPersistentIdentity()
 
         cancelLyricsFetch()
         clearLyricsState()
@@ -1381,8 +1384,8 @@ object MediaController {
         MediaViewModelObject.bitmap.value = prevItem.thumb
 
         CoroutineScope(Dispatchers.Main).launch {
-            mediaControl?.seekToPrevious()
-            mediaControl?.fadePlay()
+            controller.seekToPrevious()
+            controller.fadePlay()
         }
     }
 

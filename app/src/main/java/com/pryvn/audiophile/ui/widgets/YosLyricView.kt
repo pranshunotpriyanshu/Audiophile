@@ -52,8 +52,10 @@ import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.exp
@@ -79,6 +81,14 @@ fun bubbleAmplitudeDp(distance: Int): Float =
 // long (+ a small margin) before measuring, so the layout is final and the
 // anchored line can never overshoot its set level.
 const val GAP_ROW_ANIM_MS = 220L
+
+// Between-lines gap dots reveal/hide: when the gap begins the dots slide out of
+// the line above fast and ease into place (FastOutSlowIn), and when the next
+// line starts they linger at the anchor then accelerate into it (LinearOutSlowIn)
+// while fading — Apple Music style. Shared by both lyric renderers.
+const val GAP_DOTS_REVEAL_MS = 520L
+const val GAP_DOTS_HIDE_MS = 380L
+const val GAP_DOTS_SLIDE_DP = 28f
 
 // The "pull" (spacing animation) that fires when the current line advances:
 // the spacers below the current line stretch like a rubber band — the pull
@@ -214,13 +224,20 @@ fun YosLyricView(
     val scrollState = rememberLazyListState()
     val currentLyricIndex = remember { MainViewModelObject.syncLyricIndex }
 
-    // When the next line has already started but the previous line's words are
-    // still being sung (overlapping timestamps in the lyric data), the previous
-    // line is "held": both lines render as active and the auto-scroll waits
-    // until the held line finishes before moving on.
-    val overlapHeldIndex = remember { mutableIntStateOf(-1) }
+    // When the next line has already started but earlier lines' words are still
+    // being sung (overlapping timestamps in the lyric data), those lines are
+    // "held": every held line renders as active — 2, 3 or 4 lines can run
+    // simultaneously — and the auto-scroll waits until the last held line
+    // finishes before moving on.
+    val overlapHeldIndices = remember { mutableStateOf<Set<Int>>(emptySet()) }
 
-    val enableLyricScroll = remember { mutableStateOf(true) }
+    // Unsynced (plain text) lyrics: every line renders white with no blur and
+    // the list never auto-scrolls or restores a position — the user scrolls
+    // freely. The dummy timestamps the parser fabricates must not drive any
+    // highlight/scroll state.
+    val enableLyricScroll = remember(MediaViewModelObject.isUnsyncedLyrics.value) {
+        mutableStateOf(!MediaViewModelObject.isUnsyncedLyrics.value)
+    }
 
     // Shared snapshot position so snapshotFlow collectors re-emit (liveTimeLambda is not snapshot state).
     val liveTimeState = remember { mutableIntStateOf(liveTimeLambda()) }
@@ -312,18 +329,126 @@ fun YosLyricView(
         ) { index, lines ->
             // A line is "current" when it is the active line or the previous
             // line is still finishing (overlap hold): both stay fully lit.
+            // Unsynced lyrics treat every line as current so they are all white.
             val isCurrent = derivedStateOf {
-                index == currentLyricIndex.intValue || index == overlapHeldIndex.intValue
+                MediaViewModelObject.isUnsyncedLyrics.value ||
+                    index == currentLyricIndex.intValue ||
+                    index in overlapHeldIndices.value
             }
             val isTop = derivedStateOf { index == currentLyricIndex.intValue - 1 }
 
             val showStateAnimation = derivedStateOf {
-                (currentLyricIndex.intValue in scrollState.layoutInfo.visibleItemsInfo.map { it.index - 1 }
+                !MediaViewModelObject.isUnsyncedLyrics.value &&
+                    (currentLyricIndex.intValue in scrollState.layoutInfo.visibleItemsInfo.map { it.index - 1 }
                         && currentLyricIndex.intValue >= 0 && enableLyricScroll.value)
             }
 
             val isLyricEmpty = rememberSaveable(lines) {
                 mutableStateOf(lines.all { it.second.isBlank() })
+            }
+
+            // ---- Intro gap dots ----
+            // The song starts with silence before the first line: the dots fill
+            // across that intro gap, centered above the first line with the same
+            // reveal/hide motion as the between-lines dots.
+            if (index == 0 && !MediaViewModelObject.isUnsyncedLyrics.value) {
+                val firstStart = try {
+                    lines.first().first
+                } catch (_: Exception) {
+                    0f
+                }
+                if (firstStart >= 3000f) {
+                    val introActive = liveTimeState.intValue < firstStart
+                    val introOffset = remember(lines) { Animatable(0f) }
+                    val introAlpha = remember(lines) { Animatable(0f) }
+                    var introShown by remember(lines) { mutableStateOf(false) }
+                    var introHiding by remember(lines) { mutableStateOf(false) }
+                    val introDensity = LocalDensity.current.density
+
+                    LaunchedEffect(introActive) {
+                        if (introActive) {
+                            introShown = true
+                            introHiding = false
+                            introOffset.snapTo(-GAP_DOTS_SLIDE_DP)
+                            introAlpha.snapTo(0f)
+                            launch {
+                                introOffset.animateTo(
+                                    0f,
+                                    animationSpec = tween(
+                                        GAP_DOTS_REVEAL_MS.toInt(),
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                            }
+                            launch {
+                                introAlpha.animateTo(
+                                    1f,
+                                    animationSpec = tween(
+                                        (GAP_DOTS_REVEAL_MS * 0.8f).toInt(),
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                            }
+                        } else if (introShown) {
+                            introShown = false
+                            introHiding = true
+                            coroutineScope {
+                                launch {
+                                    introOffset.animateTo(
+                                        GAP_DOTS_SLIDE_DP,
+                                        animationSpec = tween(
+                                            GAP_DOTS_HIDE_MS.toInt(),
+                                            easing = LinearOutSlowInEasing
+                                        )
+                                    )
+                                }
+                                launch {
+                                    introAlpha.animateTo(
+                                        0f,
+                                        animationSpec = tween(
+                                            GAP_DOTS_HIDE_MS.toInt(),
+                                            easing = LinearOutSlowInEasing
+                                        )
+                                    )
+                                }
+                            }
+                            introHiding = false
+                        }
+                    }
+                    val introVisible = introActive || introHiding
+
+                    Box(
+                        Modifier.animateContentSize(
+                            animationSpec =
+                                tween(durationMillis = GAP_ROW_ANIM_MS.toInt(), easing = yosEasing)
+                        )
+                    ) {
+                        if (introVisible) {
+                            val fill = (liveTimeState.intValue / firstStart).coerceIn(0f, 1f)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer {
+                                        alpha = introAlpha.value
+                                        translationY = introOffset.value * introDensity
+                                    }
+                                    // Same left inset as a lyric line: the text
+                                    // sits 9 (item) + 20 (inner) = 29.dp in, so
+                                    // 24.dp + the dots' own 5.dp = 29.dp.
+                                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                                horizontalArrangement =
+                                    if (otherSideForLines.getOrElse(0) { false }) {
+                                        Arrangement.End
+                                    } else {
+                                        Arrangement.Start
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                GapDotsAnim(progress = { fill }, colorLambda = { mainTextBasicColor })
+                            }
+                        }
+                    }
+                }
             }
 
             key(lines) {
@@ -332,7 +457,12 @@ fun YosLyricView(
                 }
 
                 val blur = derivedStateOf {
-                    if (!showStateAnimation.value || index == currentLyricIndex.intValue || index == overlapHeldIndex.intValue || !blurLambda() || !supportBlur) {
+                    if (MediaViewModelObject.isUnsyncedLyrics.value ||
+                        !showStateAnimation.value ||
+                        index == currentLyricIndex.intValue ||
+                        index in overlapHeldIndices.value ||
+                        !blurLambda() || !supportBlur
+                    ) {
                         0f
                     } else {
                         (abs(index - currentLyricIndex.intValue) * 2.5f).coerceAtMost(8f)
@@ -364,15 +494,15 @@ fun YosLyricView(
                 var bubbleKicked by remember(index) { mutableStateOf(false) }
                 val bubbleDensity = LocalDensity.current.density
 
-                LaunchedEffect(currentLyricIndex.intValue, overlapHeldIndex.intValue) {
-                    if (!enableLyricScroll.value) return@LaunchedEffect
+                LaunchedEffect(currentLyricIndex.intValue, overlapHeldIndices.value) {
+                    if (!enableLyricScroll.value || MediaViewModelObject.isUnsyncedLyrics.value) return@LaunchedEffect
                     if (!bubbleKicked) {
                         bubbleKicked = true
                         return@LaunchedEffect
                     }
-                    // While an overlapping line is held the scroll is deferred —
+                    // While overlapping lines are held the scroll is deferred —
                     // bounce together with the actual scroll that follows.
-                    if (overlapHeldIndex.intValue != -1) return@LaunchedEffect
+                    if (overlapHeldIndices.value.isNotEmpty()) return@LaunchedEffect
                     val current = currentLyricIndex.intValue
                     if (index == current || index == current + 1) return@LaunchedEffect
                     val distance = abs(index - current)
@@ -423,7 +553,7 @@ fun YosLyricView(
                         wordSyncedWords = thisWordSyncedWords.value,
                         onClick = {
                             Vibrator.doubleClick(context)
-                            overlapHeldIndex.intValue = -1
+                            overlapHeldIndices.value = emptySet()
                             currentLyricIndex.intValue = index
                             mediaEvent.onSeek(lines.first().first.toInt())
                         }
@@ -486,13 +616,15 @@ fun YosLyricView(
     }
 
     // ---- Auto‑scroll to current line ----
-    LaunchedEffect(currentLyricIndex.intValue, translationLambda(), overlapHeldIndex.intValue) {
+    LaunchedEffect(currentLyricIndex.intValue, translationLambda(), overlapHeldIndices.value) {
         try {
             if (!enableLyricScroll.value) return@LaunchedEffect
+            // Unsynced lyrics never auto-scroll or restore a position.
+            if (MediaViewModelObject.isUnsyncedLyrics.value) return@LaunchedEffect
 
-            // While a held (overlapping) line is still finishing, defer the
-            // scroll — the effect re-fires when the hold clears.
-            if (overlapHeldIndex.intValue != -1) return@LaunchedEffect
+            // While held (overlapping) lines are still finishing, defer the
+            // scroll — the effect re-fires when the last hold clears.
+            if (overlapHeldIndices.value.isNotEmpty()) return@LaunchedEffect
 
             val cur = currentLyricIndex.intValue
             val curBlank = try {
@@ -511,11 +643,16 @@ fun YosLyricView(
 
             // Gap-dots rows only occupy height while their line is current: the
             // row expands when the gap begins and collapses with a short fixed
-            // tween as soon as the line is passed. Wait for that animation to
-            // finish so the measured offset is final — the anchored line lands
-            // exactly on its set level instead of overshooting.
+            // tween as soon as the line is passed. Between-lines dots also slide
+            // out into the next line (GAP_DOTS_HIDE_MS) before collapsing, so
+            // the layout is final only after that + the tween. Wait for the
+            // animation to finish so the measured offset is final — the anchored
+            // line lands exactly on its set level instead of overshooting.
             if (curBlank || prevBlank || prevHadGapDots) {
-                delay(GAP_ROW_ANIM_MS + 30)
+                delay(
+                    if (prevHadGapDots) GAP_DOTS_HIDE_MS + GAP_ROW_ANIM_MS + 30
+                    else GAP_ROW_ANIM_MS + 30
+                )
                 if (currentLyricIndex.intValue != cur) return@LaunchedEffect
             }
 
@@ -614,16 +751,18 @@ fun YosLyricView(
                 nextIdx == 0 -> 0
                 else -> nextIdx - 1
             }
-            // Overlap hold: when the previous line is still finishing while the
-            // next one has already started, keep the previous line active too
-            // and defer the auto-scroll until its last word is done. Re-evaluated
-            // every poll so the hold also expires mid-line.
-            val heldIndex = if (newIdx - 1 >= 0) newIdx - 1 else -1
-            if (heldIndex != -1 && lyricLineEndMs(lrcEntries, heldIndex) > targetPos) {
-                overlapHeldIndex.intValue = heldIndex
-            } else if (overlapHeldIndex.intValue != -1) {
-                overlapHeldIndex.intValue = -1
+            // Overlap hold: any line before the current one whose last word is
+            // still being sung stays active (2, 3 or 4 lines can run simultaneously);
+            // the auto-scroll defers until the last one ends. Re-evaluated every
+            // poll so the holds also expire mid-line.
+            val newHeld = mutableSetOf<Int>()
+            val overlapWindowStart = (newIdx - 4).coerceAtLeast(0)
+            for (i in overlapWindowStart until newIdx) {
+                if (lyricLineEndMs(lrcEntries, i) > targetPos) {
+                    newHeld.add(i)
+                }
             }
+            overlapHeldIndices.value = newHeld
             // No stability delay: switch to the next line as soon as its target
             // is reached, so line-synced lyrics switch with no lag (the overlap
             // hold above still keeps the previous line lit while it finishes).
@@ -1077,9 +1216,13 @@ fun LazyItemScope.LyricItem(
             // ---- Between-lines gap dots (Apple Music style) ----
             // When the current line has finished singing and the next line is
             // still far away (a long instrumental pause), a row of dots fills
-            // across the gap. The row only occupies height while the gap is
-            // active and collapses with the shared gap-row tween, so the
-            // anchored line can never be pushed off its level.
+            // across the gap, vertically centered in the space between the two
+            // lines. The dots slide out of the line above fast and ease into
+            // place when the gap begins, and when the next line starts they
+            // linger at the anchor then accelerate into the line below while
+            // fading. The row only occupies height while visible and collapses
+            // with the shared gap-row tween, so the anchored line can never be
+            // pushed off its level.
             // The dots begin once this line has finished singing — its last
             // word's timestamp (the whole line for line-synced lyrics) — and
             // fill until the next line starts.
@@ -1092,25 +1235,88 @@ fun LazyItemScope.LyricItem(
                     isCurrentLambda() &&
                         liveTime.intValue >= gapStartMs &&
                         liveTime.intValue < nextStartMs
-                val gapAlpha = animateFloatAsState(
-                    targetValue = if (gapActive) 1f else 0f,
-                    animationSpec = tween(340, easing = yosEasing, delayMillis = if (gapActive) 120 else 0)
-                )
+
+                val gapOffset = remember(mainLyric) { Animatable(0f) }
+                val gapAlpha = remember(mainLyric) { Animatable(0f) }
+                var gapShown by remember(mainLyric) { mutableStateOf(false) }
+                var gapHiding by remember(mainLyric) { mutableStateOf(false) }
+                val gapDensity = LocalDensity.current.density
+
+                LaunchedEffect(gapActive) {
+                    if (gapActive) {
+                        gapShown = true
+                        gapHiding = false
+                        // Reveal: come out of the line above fast, then ease
+                        // into the centered position.
+                        gapOffset.snapTo(-GAP_DOTS_SLIDE_DP)
+                        gapAlpha.snapTo(0f)
+                        launch {
+                            gapOffset.animateTo(
+                                0f,
+                                animationSpec = tween(
+                                    GAP_DOTS_REVEAL_MS.toInt(),
+                                    easing = FastOutSlowInEasing
+                                )
+                            )
+                        }
+                        launch {
+                            gapAlpha.animateTo(
+                                1f,
+                                animationSpec = tween(
+                                    (GAP_DOTS_REVEAL_MS * 0.8f).toInt(),
+                                    easing = FastOutSlowInEasing
+                                )
+                            )
+                        }
+                    } else if (gapShown) {
+                        gapShown = false
+                        gapHiding = true
+                        // Hide: slow near the anchor, then accelerate into the
+                        // next line.
+                        coroutineScope {
+                            launch {
+                                gapOffset.animateTo(
+                                    GAP_DOTS_SLIDE_DP,
+                                    animationSpec = tween(
+                                        GAP_DOTS_HIDE_MS.toInt(),
+                                        easing = LinearOutSlowInEasing
+                                    )
+                                )
+                            }
+                            launch {
+                                gapAlpha.animateTo(
+                                    0f,
+                                    animationSpec = tween(
+                                        GAP_DOTS_HIDE_MS.toInt(),
+                                        easing = LinearOutSlowInEasing
+                                    )
+                                )
+                            }
+                        }
+                        gapHiding = false
+                    }
+                }
+                val gapVisible = gapActive || gapHiding
+
                 Box(
                     Modifier.animateContentSize(
                         animationSpec = tween(durationMillis = GAP_ROW_ANIM_MS.toInt(), easing = yosEasing)
                     )
                 ) {
-                    if (gapActive) {
+                    if (gapVisible) {
                         val gapFill = ((liveTime.intValue - gapStartMs) / gapLenMs).coerceIn(0f, 1f)
                         // 15.dp horizontal padding lines the dots up with the
                         // lyric text above them (the text sits 20.dp inside the
                         // 28.dp one-sided card inset, minus the dots' own 5.dp
                         // internal padding), on both start- and end-aligned rows.
+                        // The 12/12 vertical padding centers them between lines.
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .graphicsLayer { alpha = gapAlpha.value }
+                                .graphicsLayer {
+                                    alpha = gapAlpha.value
+                                    translationY = gapOffset.value * gapDensity
+                                }
                                 .padding(horizontal = 15.dp, vertical = 12.dp),
                             horizontalArrangement = if (otherSide) Arrangement.End else Arrangement.Start,
                             verticalAlignment = Alignment.CenterVertically,

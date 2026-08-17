@@ -126,7 +126,12 @@ object LyricsProcessor {
                 lrcEntriesSetter(lrcFactory.formatLrcEntries(text))
             }
             else -> {
+                // Plain text lyrics with no timestamps: fabricate dummy 30s
+                // marks so they flow through the normal pipeline, and flag them
+                // so the lyric view renders them all-white / blur-free and never
+                // auto-scrolls or restores a position.
                 clearWordSync()
+                MediaViewModelObject.isUnsyncedLyrics.value = true
                 val lines = text.lines().filter { it.isNotBlank() }
                 if (lines.isNotEmpty()) {
                     val dummyLrc = lines.mapIndexed { idx, line ->
@@ -226,6 +231,7 @@ object LyricsProcessor {
     fun clearWordSync() {
         MediaViewModelObject.hasWordSyncedLyrics.value = false
         MediaViewModelObject.wordSyncedLines.value = emptyList()
+        MediaViewModelObject.isUnsyncedLyrics.value = false
     }
 
     fun resetLyricsState() {

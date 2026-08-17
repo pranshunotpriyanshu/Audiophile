@@ -149,6 +149,13 @@ class YosLrcFactory(private val formatText: Boolean = true) {
         var lastSinger: String? = null
         var otherSideFirstTime = false
 
+        // Vocal-agent marker right after the line timestamp, mirroring word-synced
+        // lyrics: "v1:"/"v1000:" = first vocalist (left side), "v2:"/"v2000:" =
+        // second vocalist (right side), "bg:" = background vocal. The marker is
+        // stripped from the rendered text.
+        val voicePrefixRegex = Regex("""^(v\d+|bg):\s*""")
+        val singerOnlyRegex = Regex(".+\\s*:\\s*")
+
         val filteredLrcEntries = lrcEntries.map { lines ->
             val lyric = lines.fastJoinToString(separator = "", transform = {
                 it.second
@@ -156,13 +163,21 @@ class YosLrcFactory(private val formatText: Boolean = true) {
 
             var deleteType = -1
 
-            if (lyric.endsWith(":") || lyric.endsWith("：")) {
+            val voiceMatch = voicePrefixRegex.find(lyric)
+            if (voiceMatch != null) {
+                // Deterministic side from the vocal agent.
+                val agent = voiceMatch.groupValues[1]
+                when (agent) {
+                    "v2", "v2000" -> otherSide = true
+                    "v1", "v1000" -> otherSide = false
+                    else -> { /* bg etc.: keep the current side */ }
+                }
+                deleteType = 1
+            } else if (lyric.endsWith(":") || lyric.endsWith("：")) {
                 otherSide = !otherSide
             } else if (lines.size > 1) {
                 val currentSinger = lines[1].second
-                println("checking: $currentSinger")
-                if (currentSinger.matches(Regex(".+\\s*:\\s*"))) {
-                    println("matches: $lyric")
+                if (currentSinger.matches(singerOnlyRegex)) {
                     deleteType = 0
                     if (lastSinger != null && lastSinger == currentSinger) {
                         // Keep otherSide unchanged
@@ -177,17 +192,22 @@ class YosLrcFactory(private val formatText: Boolean = true) {
                 }
             }
 
-            /*if (runCatching { lyric.ifNeedMirror() }.getOrDefault(false)) {
-                otherSideResult.add(!otherSide)
-            } else {
-                otherSideResult.add(otherSide)
-            }*/
-
             otherSideResult.add(otherSide)
 
-
-            lines.filterIndexed { index, char ->
-                !((index == 1 && char.second.matches(Regex(".+\\s*:\\s*"))) && deleteType == 0)
+            if (deleteType == 1 && voiceMatch != null) {
+                // Strip the vocal-agent marker from the first text pair.
+                lines.mapIndexedNotNull { index, char ->
+                    if (index == 1) {
+                        val stripped = char.second.removePrefix(voiceMatch.value)
+                        if (stripped.isBlank()) null else char.first to stripped
+                    } else {
+                        char
+                    }
+                }
+            } else {
+                lines.filterIndexed { index, char ->
+                    !((index == 1 && char.second.matches(singerOnlyRegex)) && deleteType == 0)
+                }
             }
         }
 

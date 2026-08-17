@@ -176,6 +176,16 @@ object SettingsLibrary {
     )
 
     /**
+     * Word glow amount (0x..0.9x) for word-synced lyrics
+     */
+    @Stable
+    var LyricGlowAmount by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_performance_lyric_glow_amount",
+        initialValue = 0.2f
+    )
+
+    /**
      * Smart word-by-word lyrics: animate a linear gradient over non word-synced lines
      */
     @Stable

@@ -91,6 +91,17 @@ fun LyricSetting(navController: NavController) =
 
                         GroupSpacerMedium()
 
+                        // Word Glow slider: a plain, smooth slider (no steps, no
+                        // markings) from 0x (no glow) to 0.9x (maximum).
+                        RoundColumn {
+                            GlowSliderItem(
+                                title = stringResource(id = R.string.settings_performance_lyric_style_glow),
+                            )
+                        }
+                        ListHeader(content = stringResource(id = R.string.settings_performance_lyric_style_glow_desc))
+
+                        GroupSpacerMedium()
+
                         RoundColumn {
                             SwitchItem(
                                 title = stringResource(id = R.string.settings_performance_lyric_line_balance),
@@ -225,6 +236,42 @@ private fun FontSizeSliderItem(
                         .padding(horizontal = 18.5.dp)
                         .padding(top = 4.dp, bottom = 8.dp)
                         .graphicsLayer { alpha = 0.5f },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GlowSliderItem(
+    title: String,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val glow = remember { mutableStateOf(SettingsLibrary.LyricGlowAmount) }
+
+    Column(Modifier.fillMaxWidth()) {
+        DefaultItem(enabled = true, title = title, desc = null, onClick = {
+            expanded = !expanded
+        })
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp)
+            ) {
+                // Plain smooth slider: no steps, no tick marks.
+                Slider(
+                    value = glow.value,
+                    onValueChange = { newValue ->
+                        glow.value = newValue
+                        SettingsLibrary.LyricGlowAmount = newValue
+                    },
+                    valueRange = 0f..0.9f,
+                    steps = 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.5.dp),
                 )
             }
         }
