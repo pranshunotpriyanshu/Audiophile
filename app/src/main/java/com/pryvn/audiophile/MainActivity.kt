@@ -1281,14 +1281,28 @@ class MainActivity : ComponentActivity() {
                                         },
                                         label = "loginSheetDrag",
                                     )
-                                    // Scrim: dims everything behind the sheet.
+                                    // Scrim: dims and blurs everything behind the sheet,
+                                    // using the same Haze blur style as the toolbar.
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .graphicsLayer {
                                                 alpha = loginSheetConfig.progress * 0.5f
                                             }
-                                            .background(Color.Black)
+                                            .then(
+                                                if (SettingsLibrary.BarBlurEffect && !showNowPlaying.value) {
+                                                    Modifier.hazeChild(
+                                                        hazeState,
+                                                        HazeMaterials
+                                                            .regular(Color.Black)
+                                                            .copy(
+                                                                blurRadius = 24.dp
+                                                            )
+                                                    )
+                                                } else {
+                                                    Modifier.background(Color.Black)
+                                                }
+                                            )
                                             .clickable(
                                                 interactionSource = remember {
                                                     MutableInteractionSource()
