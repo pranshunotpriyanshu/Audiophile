@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
@@ -922,6 +923,48 @@ fun LyricsV2(
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
+
+                // ---- Pull spacer (the "specanim" inertia effect) ----
+                // Mirrors the line-synced renderer: when the current line
+                // advances, every spacer below it stretches like a rubber band —
+                // the pull grows with distance, so the lower lyrics feel dragged
+                // by inertia — then releases in a wave from the top down and the
+                // block springs onto the anchor.
+                val pullTargetHeight = remember(index) { mutableStateOf(0.dp) }
+                val pullDensity = LocalDensity.current.density
+                LaunchedEffect(currentLineIndex, isManualScrolling) {
+                    if (listState.layoutInfo.visibleItemsInfo.isEmpty()) return@LaunchedEffect
+                    val cur = currentLineIndex
+                    val belowCurrent = index > cur
+                    if (belowCurrent && !isManualScrolling && lyricsScroll && isSynced) {
+                        val distance = index - cur
+                        val weight = (distance.toFloat() / PULL_LINE_RANGE.toFloat()).coerceIn(0f, 1f)
+                        val targetOffsetPx = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
+                        val currentItem = listState.layoutInfo.visibleItemsInfo.find { it.index == cur }
+                        val pullPx = if (currentItem != null) {
+                            ((currentItem.offset - targetOffsetPx) * PULL_STRENGTH).coerceAtLeast(0f)
+                        } else {
+                            0f
+                        }
+                        delay((distance * PULL_STAGGER_MS).toLong())
+                        pullTargetHeight.value = ((pullPx * weight) / pullDensity).dp
+                        delay(PULL_HOLD_MS + (distance * PULL_RELEASE_MS))
+                        pullTargetHeight.value = 0.dp
+                    } else {
+                        pullTargetHeight.value = 0.dp
+                    }
+                }
+                val pullOffset = animateDpAsState(
+                    targetValue = pullTargetHeight.value,
+                    // Critical damping on the release so the anchored line can
+                    // never be flung past its set level.
+                    animationSpec = if (pullTargetHeight.value == 0.dp) {
+                        spring(stiffness = 170f, dampingRatio = 1f, visibilityThreshold = 0.01.dp)
+                    } else {
+                        spring(stiffness = 260f, dampingRatio = 1f, visibilityThreshold = 0.01.dp)
+                    }
+                )
+                Spacer(modifier = Modifier.height(pullOffset.value))
             }
 
             item {

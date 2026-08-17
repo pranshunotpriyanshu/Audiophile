@@ -128,6 +128,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -629,12 +630,11 @@ fun NowPlaying(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
-        // Full screen static artwork keeps its own album-artwork backdrop:
-        // while it is on the base background stays the static dominant color
-        // extracted from the album artwork (Solid), so the artwork blends into
-        // it seamlessly. The Now Playing Background setting applies everywhere
-        // else.
-        val bgMode = if (fsEnabled) "Solid" else SettingsLibrary.NowPlayingBackground
+        // The chosen background mode applies everywhere — even while full
+        // screen static artwork is on — so the user's Now Playing Background
+        // setting is always honored ("Blurred" shows the blurred album artwork,
+        // "Solid" a static dominant color extracted from the artwork).
+        val bgMode = SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
             // 模糊专辑封面（与最初版本一致：模糊 + 饱和增强 + 缓慢 KenBurns + 流光暗角）
@@ -723,7 +723,6 @@ fun NowPlaying(
                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                     topSpacingDp = 0.dp,
                     artworkMaxHeightDp = artworkMaxHeightDp,
-                    bottomGradientColor = MediaViewModelObject.paletteDarkMutedColor.value,
                     animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
                 )
             }
@@ -798,8 +797,9 @@ fun NowPlaying(
                 }
             }
 
-            // 这是小把手
-            if (!fsAlbum) YosWrapper {
+            // 这是小把手 — always visible, even when full screen static artwork
+            // is enabled.
+            YosWrapper {
                 Column(Modifier.fillMaxWidth()) {
                     Box(
                         Modifier
@@ -1649,7 +1649,6 @@ fun HeroArtworkLayer(
     modifier: Modifier = Modifier,
     topSpacingDp: Dp = 0.dp,
     artworkMaxHeightDp: Dp = Dp.Unspecified,
-    bottomGradientColor: Color = Color.Black,
     animatedCoverOverlay: @Composable BoxScope.() -> Unit = {}
 ) {
     val url = albumUrl()
@@ -1667,38 +1666,37 @@ fun HeroArtworkLayer(
             model = request,
             contentScale = ContentScale.Crop
         )
-            val artworkModifier = Modifier
+
+        // The artwork (and its overlay) live in one block whose bottom edge
+        // dissolves into the blurred background with a soft alpha fade — no
+        // dark gradient across the lower half of the artwork.
+        Box(
+            modifier = Modifier
                 .padding(top = topSpacingDp)
                 .fillMaxWidth()
                 .height(artworkMaxHeightDp)
                 .align(Alignment.TopCenter)
-
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+                    val fadeBrush = Brush.verticalGradient(
+                        0.62f to Color.Black,
+                        1f to Color.Transparent
+                    )
+                    drawRect(brush = fadeBrush, blendMode = BlendMode.DstIn)
+                }
+        ) {
             Image(
                 painter = painter,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = artworkModifier
+                modifier = Modifier.fillMaxSize()
             )
-
-            Box(modifier = artworkModifier) {
-                animatedCoverOverlay()
-            }
-
-            Box(
-                modifier = artworkModifier
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.45f to Color.Transparent,
-                                0.75f to bottomGradientColor.copy(alpha = 0.5f),
-                                0.9f to bottomGradientColor.copy(alpha = 0.85f),
-                                1.0f to bottomGradientColor
-                            )
-                        )
-                    )
-            )
+            animatedCoverOverlay()
         }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)

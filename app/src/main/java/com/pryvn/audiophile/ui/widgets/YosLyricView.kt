@@ -85,15 +85,15 @@ const val GAP_ROW_ANIM_MS = 220L
 // grows with distance, so the lower lyrics feel dragged by inertia — and then
 // release in a wave from the top down, gliding the block onto the anchor.
 const val PULL_LINE_RANGE = 14
-const val PULL_STRENGTH = 0.55f
+const val PULL_STRENGTH = 0.65f
 const val PULL_STAGGER_MS = 14L
-const val PULL_HOLD_MS = 90L
+const val PULL_HOLD_MS = 130L
 const val PULL_RELEASE_MS = 6L
 
-// The next line highlights (scale + alpha begin immediately) before the list
-// scrolls, so switching lines never feels laggy — the new line is already lit
-// when it arrives at the anchor.
-const val HIGHLIGHT_LEAD_MS = 150L
+// The next line lights up first and the list scrolls almost together with the
+// switch — priority goes to switching the highlight, and the scroll follows
+// almost immediately so there is no perceived lag.
+const val HIGHLIGHT_LEAD_MS = 60L
 
 /**
  * YosLyricView main widget
@@ -588,8 +588,6 @@ fun YosLyricView(
     // ---- Live time updater for current index ----
     val lyricLifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(Unit) {
-        var stableIdx = currentLyricIndex.intValue
-        var stableCount = 0
         while (isActive) {
             if (!lyricLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || !pollingEnabled()) {
                 delay(500)
@@ -626,14 +624,11 @@ fun YosLyricView(
             } else if (overlapHeldIndex.intValue != -1) {
                 overlapHeldIndex.intValue = -1
             }
-            if (newIdx == stableIdx) {
-                stableCount++
-                if (stableCount >= 3 && newIdx != currentLyricIndex.intValue) {
-                    currentLyricIndex.intValue = newIdx
-                }
-            } else {
-                stableIdx = newIdx
-                stableCount = 0
+            // No stability delay: switch to the next line as soon as its target
+            // is reached, so line-synced lyrics switch with no lag (the overlap
+            // hold above still keeps the previous line lit while it finishes).
+            if (newIdx != currentLyricIndex.intValue) {
+                currentLyricIndex.intValue = newIdx
             }
             delay(100)
         }
