@@ -40,6 +40,11 @@ object MediaViewModelObject {
     val lrcEntries: MutableState<List<List<Pair<Float, String>>>> = mutableStateOf(listOf())
     val otherSideForLines = mutableStateListOf<Boolean>()
 
+    // Parallel to otherSideForLines: true when the line is a background-vocal
+    // line ("bg:" marker in line-synced LRC). The line-synced renderer draws
+    // these smaller and dimmer, mirroring CArchiveTune's background styling.
+    val backgroundLines = mutableStateListOf<Boolean>()
+
     val bitmap: MutableState<Uri?> = mutableStateOf(null)
 
     val isPlaying: MutableState<Boolean> = mutableStateOf(false)
@@ -89,5 +94,6 @@ object MediaViewModelObject {
         wordSyncedLines.value = emptyList()
         lyricLineTransliterations.clear()
         lyricLineSubtitles.clear()
+        backgroundLines.clear()
     }
 }

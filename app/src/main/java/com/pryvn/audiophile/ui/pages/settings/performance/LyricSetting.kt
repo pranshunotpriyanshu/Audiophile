@@ -1,15 +1,14 @@
 package com.pryvn.audiophile.ui.pages.settings.performance
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -30,8 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
@@ -103,13 +107,12 @@ fun LyricSetting(navController: NavController) =
 
                         // Word Effects: one live preview showing BOTH the glow and
                         // the bounce, with a plain smooth slider for each — glow
-                        // 0x..0.9x, bounce 0x..0.5x.
+                        // 0x..1.3x, bounce 0x..1.0x.
                         RoundColumn {
                             WordEffectsSliderItem(
                                 title = stringResource(id = R.string.settings_performance_lyric_style_effects),
                             )
                         }
-                        ListHeader(content = stringResource(id = R.string.settings_performance_lyric_style_effects_desc))
 
                         GroupSpacerMedium()
 
@@ -272,22 +275,39 @@ private fun WordEffectsSliderItem(
                     .fillMaxWidth()
                     .padding(vertical = 10.dp)
             ) {
-                // One live preview showing both effects at the current values:
-                // the word pulses — bouncing up and glowing — as the sliders move.
+                // One live preview: the sample lyric line with "broken" half-filled
+                // like a real paused word-synced line, glowing, and bouncing once.
                 WordEffectsPreview(glow = glow.value, bounce = bounce.value)
 
-                // Plain smooth sliders: no steps, no tick marks, no value labels.
+                // A subheading above each slider names what it controls. The sliders
+                // themselves stay plain and smooth: no steps, ticks, or value labels.
+                Text(
+                    text = stringResource(id = R.string.settings_performance_lyric_style_glow),
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.5.dp, end = 18.5.dp, top = 8.dp, bottom = 2.dp)
+                        .alpha(0.5f),
+                )
                 Slider(
                     value = glow.value,
                     onValueChange = { newValue ->
                         glow.value = newValue
                         SettingsLibrary.LyricGlowAmount = newValue
                     },
-                    valueRange = 0f..0.9f,
+                    valueRange = 0f..1.3f,
                     steps = 0,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 18.5.dp),
+                )
+                Text(
+                    text = stringResource(id = R.string.settings_performance_lyric_style_bounce),
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.5.dp, end = 18.5.dp, top = 8.dp, bottom = 2.dp)
+                        .alpha(0.5f),
                 )
                 Slider(
                     value = bounce.value,
@@ -295,7 +315,7 @@ private fun WordEffectsSliderItem(
                         bounce.value = newValue
                         SettingsLibrary.LyricBounceAmount = newValue
                     },
-                    valueRange = 0f..0.5f,
+                    valueRange = 0f..1f,
                     steps = 0,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -306,60 +326,130 @@ private fun WordEffectsSliderItem(
     }
 }
 
-// A single sample word rendered the same way word-synced lyrics are: a soft
-// glow behind the active fill and a subtle upward bounce, driven by a looping
-// sine so the preview keeps pulsing while the sliders are adjusted.
+// Renders the sample lyric line exactly like a paused word-synced line: every
+// word sits dimmed, "broken" is half-filled by the karaoke sweep with the glow
+// on the filled part, and the word bounces ONCE (the same single pop a real
+// word makes when it is sung) whenever the preview opens or a slider moves —
+// never a looping pulse.
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WordEffectsPreview(
     glow: Float,
     bounce: Float,
 ) {
-    val transition = rememberInfiniteTransition(label = "wordEffectsPreview")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "wordEffectsProgress",
-    )
-    val sinProgress = kotlin.math.sin(progress * kotlin.math.PI.toFloat()).toFloat()
+    val sampleLine = stringResource(id = R.string.settings_performance_lyric_style_effects_sample)
+    val words = remember(sampleLine) { sampleLine.split(" ") }
+
+    // One-shot bounce: snap to 0 then glide to 1. sin(0..PI) gives a single
+    // rise-and-settle, the same per-word curve AnimatedWordV2 uses. While a
+    // bounce is already running (fast slider drag) it is not restarted, so the
+    // word pops once per change instead of stuttering.
+    val bounceProgress = remember { Animatable(1f) }
+    var bounceRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(glow, bounce) {
+        if (bounceRunning) return@LaunchedEffect
+        bounceRunning = true
+        bounceProgress.snapTo(0f)
+        bounceProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+        )
+        bounceRunning = false
+    }
+    val sinProgress = kotlin.math.sin(bounceProgress.value * kotlin.math.PI.toFloat()).toFloat()
     val wordScale = 1f + 0.015f * bounce * sinProgress
     val floatOffset = -4f * bounce * sinProgress
-    val glowAlpha = sinProgress * 0.45f * glow
-    val glowRadius = sinProgress * 12f * glow
 
-    Box(
-        modifier = Modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "Glow",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = SfProFontFamily,
-                shadow =
-                    if (glowAlpha > 0f) {
-                        Shadow(
-                            color = Color.White.copy(alpha = glowAlpha),
-                            offset = Offset.Zero,
-                            blurRadius = glowRadius.coerceAtLeast(1f),
-                        )
-                    } else {
-                        null
-                    },
-            ),
-            color = Color.White,
-            modifier = Modifier
-                .padding(vertical = 10.dp)
-                .graphicsLayer {
-                    scaleX = wordScale
-                    scaleY = wordScale
-                    translationY = floatOffset * density
-                },
+    // "broken" is caught mid-word: 50% filled, the glow ramped exactly like the
+    // real renderer (twice as fast as the fill); the rest of the line is empty.
+    val fillProgress = 0.5f
+    val glowProgress = (fillProgress * 2f).coerceAtMost(1f)
+    val glowAlpha = glowProgress * 0.45f * glow
+    val glowRadius = (glowProgress * 12f * glow).coerceAtLeast(1f)
+    val glowPadding = 6.dp
+
+    val baseStyle =
+        MaterialTheme.typography.headlineMedium.copy(
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = SfProFontFamily,
+            lineHeight = (30f * 1.35f).sp,
         )
+
+    FlowRow(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.5.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        words.forEachIndexed { _, word ->
+            if (word == "broken") {
+                Box(
+                    modifier =
+                        Modifier
+                            .padding(glowPadding)
+                            .graphicsLayer {
+                                scaleX = wordScale
+                                scaleY = wordScale
+                                translationY = floatOffset * density
+                            },
+                ) {
+                    // Base layer: dim, always visible.
+                    Text(
+                        text = word,
+                        style = baseStyle,
+                        color = Color.White.copy(alpha = 0.45f),
+                    )
+                    // Filled overlay: the karaoke sweep masks the left half, with
+                    // the glow riding the filled part.
+                    Text(
+                        text = word,
+                        style =
+                            baseStyle.copy(
+                                shadow =
+                                    if (glowAlpha > 0f) {
+                                        Shadow(
+                                            color = Color.White.copy(alpha = glowAlpha),
+                                            offset = Offset.Zero,
+                                            blurRadius = glowRadius,
+                                        )
+                                    } else {
+                                        null
+                                    },
+                            ),
+                        color = Color.White,
+                        modifier =
+                            Modifier
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .drawWithContent {
+                                    drawContent()
+                                    val edge = 0.25f
+                                    val start = (fillProgress - edge).coerceIn(0f, 1f)
+                                    val end = (fillProgress + edge).coerceIn(0f, 1f)
+                                    drawRect(
+                                        brush =
+                                            Brush.horizontalGradient(
+                                                0f to Color.Black,
+                                                start to Color.Black,
+                                                end to Color.Transparent,
+                                                1f to Color.Transparent,
+                                            ),
+                                        blendMode = BlendMode.DstIn,
+                                    )
+                                },
+                    )
+                }
+            } else {
+                Text(
+                    text = word,
+                    style = baseStyle,
+                    color = Color.White.copy(alpha = 0.45f),
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+            }
+        }
     }
 }
 

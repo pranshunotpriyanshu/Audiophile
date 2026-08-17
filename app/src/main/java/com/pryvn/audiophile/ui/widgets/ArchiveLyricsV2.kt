@@ -226,7 +226,7 @@ fun LyricsV2(
     val lyricsLineSpacing = 1.3f
     val lyricsLineBlurPreference = true
     // Word bounce and glow amounts come from the Lyric Display settings
-    // (bounce 0x..0.5x, glow 0x..0.9x).
+    // (bounce 0x..1.0x, glow 0x..1.3x).
     val bounceFactor = SettingsLibrary.LyricBounceAmount
     val glowFactor = SettingsLibrary.LyricGlowAmount
     val lrcBounceEnabled = true

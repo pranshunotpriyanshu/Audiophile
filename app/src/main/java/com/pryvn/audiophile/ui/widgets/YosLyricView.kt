@@ -473,6 +473,13 @@ fun YosLyricView(
                     otherSideForLines.getOrElse(index) { false }
                 }
 
+                // Background-vocal line ("bg:" marker): rendered smaller and
+                // dimmer, mirroring CArchiveTune's background styling, while
+                // keeping every line animation (highlight, blur, bubble bounce).
+                val isBackgroundLine = remember(index) {
+                    MediaViewModelObject.backgroundLines.getOrElse(index) { false }
+                }
+
                 val thisWordSyncedWords = derivedStateOf {
                     if (MediaViewModelObject.hasWordSyncedLyrics.value) {
                         val syncedLines = MediaViewModelObject.wordSyncedLines.value
@@ -551,6 +558,7 @@ fun YosLyricView(
                             }
                         },
                         wordSyncedWords = thisWordSyncedWords.value,
+                        isBackgroundLine = isBackgroundLine,
                         onClick = {
                             Vibrator.doubleClick(context)
                             overlapHeldIndices.value = emptySet()
@@ -871,6 +879,7 @@ fun LazyItemScope.LyricItem(
     otherSide: Boolean,
     liveTimeLambda: () -> Int,
     wordSyncedWords: List<Triple<Float, Float, Boolean>> = emptyList(),
+    isBackgroundLine: Boolean = false,
     onClick: () -> Unit
 ) {
     val viewAlign = if (otherSide) Alignment.End else Alignment.Start
@@ -1016,8 +1025,11 @@ fun LazyItemScope.LyricItem(
                     val alphaTweenWithDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 0)
                     val alphaTweenWithoutDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 0)
 
+                    // Background-vocal lines sit at 60% of the normal alpha,
+                    // like CArchiveTune's background styling (alpha * 0.6).
+                    val bgAlphaScale = if (isBackgroundLine) 0.6f else 1f
                     val thisAlphaAnimated = animateFloatAsState(
-                        targetValue = if (isCurrentLambda()) 1f else 0.14f,
+                        targetValue = (if (isCurrentLambda()) 1f else 0.14f) * bgAlphaScale,
                         animationSpec = if (isCurrentLambda()) alphaTweenWithDelay else alphaTweenWithoutDelay
                     )
 
@@ -1047,11 +1059,23 @@ fun LazyItemScope.LyricItem(
                         }
                     }
 
-                    val charStyle = if (otherSide) mainTextStyle().copy(textAlign = TextAlign.End) else mainTextStyle()
+                    // Background-vocal lines render at 70% of the normal text
+                    // size (CArchiveTune background styling) with the same weight.
+                    val baseLineStyle = if (otherSide) mainTextStyle().copy(textAlign = TextAlign.End) else mainTextStyle()
+                    val lineStyle =
+                        if (isBackgroundLine) {
+                            baseLineStyle.copy(
+                                fontSize = (baseLineStyle.fontSize.value * 0.7f).sp,
+                                lineHeight = (baseLineStyle.lineHeight.value * 0.7f).sp,
+                            )
+                        } else {
+                            baseLineStyle
+                        }
+                    val charStyle = if (otherSide) lineStyle.copy(textAlign = TextAlign.End) else lineStyle
 
                     Line(
                         lines = mainLyric,
-                        style = if (otherSide) mainTextStyle().copy(textAlign = TextAlign.End) else mainTextStyle(),
+                        style = lineStyle,
                         measurer = measurer,
                         modifier = Modifier
                             .graphicsLayer {

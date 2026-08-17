@@ -184,6 +184,8 @@ object PaxsenixLyricsParser {
             val content = match.groupValues[3]
             
             val lineStartMs = parseLrcTimestamp(timestamp)
+            // "bg" is a background-vocal voice: every word in the line is background.
+            val isBg = voice.equals("bg", ignoreCase = true)
             val wordRegex = Regex("""<(\d{2}:\d{2}\.\d{2,3})>([^<]+)""")
             val wordMatches = wordRegex.findAll(content).toList()
             
@@ -196,7 +198,7 @@ object PaxsenixLyricsParser {
                 val wordText = wm.groupValues[2].trim()
                 if (wordText.isNotBlank()) {
                     val wordStartMs = if (words.isEmpty()) lineStartMs else lastEndMs
-                    words.add(ParsedWord(wordText, wordStartMs, wordTime))
+                    words.add(ParsedWord(wordText, wordStartMs, wordTime, isBg))
                     lastEndMs = wordTime
                 }
             }

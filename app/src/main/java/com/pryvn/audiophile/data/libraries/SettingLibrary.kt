@@ -176,7 +176,7 @@ object SettingsLibrary {
     )
 
     /**
-     * Word glow amount (0x..0.9x) for word-synced lyrics
+     * Word glow amount (0x..1.3x) for word-synced lyrics
      */
     @Stable
     var LyricGlowAmount by mutableDataSaverStateOf(
@@ -186,7 +186,7 @@ object SettingsLibrary {
     )
 
     /**
-     * Word bounce amount (0x..0.5x) for word-synced lyrics
+     * Word bounce amount (0x..1.0x) for word-synced lyrics
      */
     @Stable
     var LyricBounceAmount by mutableDataSaverStateOf(

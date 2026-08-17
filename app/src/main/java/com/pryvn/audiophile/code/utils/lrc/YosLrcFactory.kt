@@ -145,6 +145,7 @@ class YosLrcFactory(private val formatText: Boolean = true) {
     private fun processOtherSide(lrcEntries: List<List<Pair<Float, String>>>): List<List<Pair<Float, String>>> {
         // Duet handling
         val otherSideResult = mutableStateListOf<Boolean>()
+        val backgroundResult = mutableStateListOf<Boolean>()
         var otherSide = false
         var lastSinger: String? = null
         var otherSideFirstTime = false
@@ -164,6 +165,10 @@ class YosLrcFactory(private val formatText: Boolean = true) {
             var deleteType = -1
 
             val voiceMatch = voicePrefixRegex.find(lyric)
+            // "bg:" marks a background-vocal line: the line-synced renderer draws
+            // it smaller and dimmer (CArchiveTune background styling). The marker
+            // itself is stripped from the rendered text below.
+            val isBackgroundLine = voiceMatch?.groupValues?.get(1)?.equals("bg", ignoreCase = true) == true
             if (voiceMatch != null) {
                 // Deterministic side from the vocal agent.
                 val agent = voiceMatch.groupValues[1]
@@ -193,6 +198,7 @@ class YosLrcFactory(private val formatText: Boolean = true) {
             }
 
             otherSideResult.add(otherSide)
+            backgroundResult.add(isBackgroundLine)
 
             if (deleteType == 1 && voiceMatch != null) {
                 // Strip the vocal-agent marker from the first text pair.
@@ -213,6 +219,8 @@ class YosLrcFactory(private val formatText: Boolean = true) {
 
         MediaViewModelObject.otherSideForLines.clear()
         MediaViewModelObject.otherSideForLines.addAll(otherSideResult)
+        MediaViewModelObject.backgroundLines.clear()
+        MediaViewModelObject.backgroundLines.addAll(backgroundResult)
         //println(MediaViewModelObject.otherSideForLines)
 
         //println(filteredLrcEntries)

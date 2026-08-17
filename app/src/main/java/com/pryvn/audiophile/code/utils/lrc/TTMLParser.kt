@@ -416,14 +416,16 @@ object TTMLParser {
                     val before = lyricText.substring(lastIndex, wm.range.first).trimStart()
                     if (before.isNotBlank()) {
                         val wordEnd = parseLrcTimeToSec(wm.groupValues[1])
-                        words.add(ParsedWord(before, lastEnd, wordEnd))
+                        // A "bg:" line marks background vocals: every word in the
+                        // line is background, exactly like TTML x-bg words.
+                        words.add(ParsedWord(before, lastEnd, wordEnd, isBackground))
                         lastEnd = wordEnd
                     }
                     lastIndex = wm.range.last + 1
                 }
                 val remaining = lyricText.substring(lastIndex).trim()
                 if (remaining.isNotBlank()) {
-                    words.add(ParsedWord(remaining, lastEnd, lineEnd))
+                    words.add(ParsedWord(remaining, lastEnd, lineEnd, isBackground))
                 }
                 if (words.isNotEmpty()) {
                     lines.add(ParsedLine(lyricText, lineStart, lineEnd, words, isBackground, agent))
@@ -440,13 +442,13 @@ object TTMLParser {
                         cursor = bracket.range.last + 1
                         if (fragment.isNotBlank()) {
                             val wordEnd = parseLrcTimeToSec(bracket.groupValues[1])
-                            klyricWords.add(ParsedWord(fragment, lastEnd, wordEnd))
+                            klyricWords.add(ParsedWord(fragment, lastEnd, wordEnd, isBackground))
                             lastEnd = wordEnd
                         }
                     }
                     val tail = rawLine.substring(cursor).trim()
                     if (tail.isNotBlank()) {
-                        klyricWords.add(ParsedWord(tail, lastEnd, lineEnd))
+                        klyricWords.add(ParsedWord(tail, lastEnd, lineEnd, isBackground))
                     }
                 }
                 if (klyricWords.isNotEmpty()) {

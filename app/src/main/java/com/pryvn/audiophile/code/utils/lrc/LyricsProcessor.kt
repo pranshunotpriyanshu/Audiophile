@@ -29,6 +29,8 @@ fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, Stri
     MediaViewModelObject.otherSideForLines.addAll(
         lines.map { it.agent?.equals("v2", ignoreCase = true) == true }
     )
+    MediaViewModelObject.backgroundLines.clear()
+    MediaViewModelObject.backgroundLines.addAll(lines.map { line -> line.words.any { it.isBackground } })
     MediaViewModelObject.lyricLineTransliterations.clear()
     MediaViewModelObject.lyricLineTransliterations.addAll(lines.map { it.transliteration })
     MediaViewModelObject.lyricLineSubtitles.clear()
