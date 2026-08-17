@@ -8,6 +8,7 @@ import android.graphics.PorterDuff
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.view.animation.AccelerateDecelerateInterpolator
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -17,8 +18,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
@@ -41,9 +45,12 @@ import com.flaviofaria.kenburnsview.KenBurnsView
 import com.flaviofaria.kenburnsview.RandomTransitionGenerator
 import com.google.android.renderscript.Toolkit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
 import com.pryvn.audiophile.data.libraries.SettingsLibrary.NowplayingBackgroundEffect
+import com.pryvn.audiophile.ui.animation.MotionTokens
 import com.pryvn.audiophile.ui.pages.NowPlayingPage
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 
@@ -67,6 +74,14 @@ fun YosFloatingLight(
         mutableStateOf<Drawable?>(null)
     }
 
+    // Outgoing artwork kept on top and slowly faded out when the song changes,
+    // so the blurred background mixes into the next song instead of swapping
+    // instantly.
+    val scope = rememberCoroutineScope()
+    val transitionOverlay = remember { mutableStateOf<Drawable?>(null) }
+    val transitionAlpha = remember { Animatable(1f) }
+    var transitionJob by remember { mutableStateOf<Job?>(null) }
+
     val context = LocalContext.current
     YosWrapper {
         LaunchedEffect(album()) {
@@ -84,10 +99,30 @@ fun YosFloatingLight(
                         BitmapResolver.bitmapCompress(this)
                     }
                     if (thisBitmap != null) {
-                        drawable.value = imageResolve(
+                        val loaded = imageResolve(
                             thisBitmap
                         ).toDrawable(context.resources)
                         thisBitmap.recycle()
+                        // If artwork is already on screen, keep the outgoing one
+                        // on top and fade it out over the incoming one — a slow
+                        // mix into the next song's colors.
+                        val outgoing = drawable.value
+                        drawable.value = loaded
+                        if (outgoing != null) {
+                            transitionJob?.cancel()
+                            transitionOverlay.value = outgoing
+                            transitionAlpha.snapTo(1f)
+                            transitionJob = scope.launch {
+                                transitionAlpha.animateTo(
+                                    0f,
+                                    animationSpec = tween(
+                                        durationMillis = MotionTokens.BackgroundMixDurationMs.toInt(),
+                                        easing = FastOutSlowInEasing
+                                    )
+                                )
+                                transitionOverlay.value = null
+                            }
+                        }
                     }
                 } catch (_: Exception) {
                     // keep previous drawable on failure
@@ -135,10 +170,12 @@ fun YosFloatingLight(
                 }) {
                     if (drawable.value != null) {
                         if (it.drawable != drawable.value) {
-                            val thisOptionType = Option.Set.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
+                            // Update whenever the view is not already showing the
+                            // current artwork — the instance check alone guards
+                            // against redundant re-sets on recomposition, so the
+                            // blurred background actually advances with the song.
                             it.setImageDrawable(drawable.value!!)
-                            lastOption.value = thisOptionType
+                            lastOption.value = Option.Set.name
                         } else if (!isPlaying() || !active) {
                             val thisOptionType = Option.Pause.name
                             if (lastOption.value == thisOptionType) return@AndroidView
@@ -191,6 +228,31 @@ fun YosFloatingLight(
                     },
                 colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
             )
+        }
+
+        // Topmost layer: the outgoing artwork fades out over everything else,
+        // so the new song's blurred background is revealed gradually — a slow
+        // mix instead of an instant color/artwork change. Rendered with a plain
+        // ImageView so the outgoing drawable shows synchronously — an async
+        // image load would leave a one-frame gap that flashes the new artwork
+        // through before the fade starts.
+        YosWrapper {
+            val overlay = transitionOverlay.value
+            if (overlay != null) {
+                AndroidView(
+                    factory = { viewContext ->
+                        android.widget.ImageView(viewContext).apply {
+                            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = transitionAlpha.value
+                        },
+                    update = { it.setImageDrawable(overlay) }
+                )
+            }
         }
     }
 }

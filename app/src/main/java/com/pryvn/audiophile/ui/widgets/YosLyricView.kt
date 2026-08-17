@@ -760,8 +760,11 @@ fun LazyItemScope.LyricItem(
     ) {
         val otherSideTransformOrigin = if (otherSide) TransformOrigin(1f, 0.5f) else TransformOrigin(0f, 0.5f)
 
-        val tweenSpecWithDelay = TweenSpec<Float>(durationMillis = 270, easing = yosEasing, delay = 110)
-        val tweenSpecWithoutDelay = TweenSpec<Float>(durationMillis = 300, easing = yosEasing, delay = 45)
+        // The line highlight must start the moment the line becomes current —
+        // no animation delay, so switching lines is instant. The tween still
+        // smooths the scale/alpha change itself.
+        val tweenSpecWithDelay = TweenSpec<Float>(durationMillis = 270, easing = yosEasing, delay = 0)
+        val tweenSpecWithoutDelay = TweenSpec<Float>(durationMillis = 300, easing = yosEasing, delay = 0)
 
         val scale = animateFloatAsState(
             targetValue = if (isCurrentLambda()) 1.1f else 1f,
@@ -871,8 +874,8 @@ fun LazyItemScope.LyricItem(
                 ) {
                     val textAlign = if (otherSide) TextAlign.End else TextAlign.Start
 
-                    val alphaTweenWithDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 145)
-                    val alphaTweenWithoutDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 80)
+                    val alphaTweenWithDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 0)
+                    val alphaTweenWithoutDelay = TweenSpec<Float>(durationMillis = 350, easing = yosEasing, delay = 0)
 
                     val thisAlphaAnimated = animateFloatAsState(
                         targetValue = if (isCurrentLambda()) 1f else 0.14f,
@@ -1100,11 +1103,15 @@ fun LazyItemScope.LyricItem(
                 ) {
                     if (gapActive) {
                         val gapFill = ((liveTime.intValue - gapStartMs) / gapLenMs).coerceIn(0f, 1f)
+                        // 15.dp horizontal padding lines the dots up with the
+                        // lyric text above them (the text sits 20.dp inside the
+                        // 28.dp one-sided card inset, minus the dots' own 5.dp
+                        // internal padding), on both start- and end-aligned rows.
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .graphicsLayer { alpha = gapAlpha.value }
-                                .padding(top = 12.dp, bottom = 12.dp),
+                                .padding(horizontal = 15.dp, vertical = 12.dp),
                             horizontalArrangement = if (otherSide) Arrangement.End else Arrangement.Start,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {

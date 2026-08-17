@@ -143,16 +143,6 @@ fun UserInterfaceSetting(navController: NavController) =
                         }
 
                         ListHeader(content = stringResource(id = R.string.settings_performance_ui_nowplaying_show_volume_bar_desc))
-                        GroupSpacerMedium()
-
-                        RoundColumn {
-                            LabelItem(
-                                title = stringResource(id = R.string.settings_library_animated_album_covers),
-                                superLink = true
-                            ) {
-                                navController.toUI(UI.Settings.AnimatedAlbumCovers)
-                            }
-                        }
 
                         GroupSpacer()
                     }

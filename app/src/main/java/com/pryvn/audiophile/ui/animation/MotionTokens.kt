@@ -8,6 +8,10 @@ import androidx.compose.ui.unit.dp
 
 object MotionTokens {
 
+    // How long the Now Playing background takes to mix into the next song's
+    // colors — the blurred artwork crossfade and the palette shifts share it.
+    const val BackgroundMixDurationMs = 2600L
+
     object Duration {
         val press = 80
         val instant = 120
@@ -80,6 +84,14 @@ object MotionTokens {
 
     inline fun <reified T> colorSpring(): FiniteAnimationSpec<T> = tween(
         durationMillis = 700,
+        easing = androidx.compose.animation.core.FastOutSlowInEasing
+    )
+
+    // Slow, smooth color mix used by the Now Playing background: when the song
+    // changes, the palette shifts completely into the next song's colors over
+    // this duration instead of changing instantly.
+    inline fun <reified T> backgroundMix(): FiniteAnimationSpec<T> = tween(
+        durationMillis = BackgroundMixDurationMs.toInt(),
         easing = androidx.compose.animation.core.FastOutSlowInEasing
     )
 

@@ -53,6 +53,15 @@ object MediaViewModelObject {
     val paletteDarkVibrantColor: MutableState<Color> = mutableStateOf(Color.Black)
     val paletteDarkMutedColor: MutableState<Color> = mutableStateOf(Color.Black)
 
+    // Pre-extracted palette for the song that will play next. NowPlaying caches
+    // this ahead of time so the background is already prepared with the upcoming
+    // colors and can slowly mix into them the moment the song changes, instead
+    // of jumping after an async extraction.
+    val nextPaletteSongId: MutableState<String?> = mutableStateOf(null)
+    val nextPaletteVibrantColor: MutableState<Color> = mutableStateOf(Color.Black)
+    val nextPaletteDarkVibrantColor: MutableState<Color> = mutableStateOf(Color.Black)
+    val nextPaletteDarkMutedColor: MutableState<Color> = mutableStateOf(Color.Black)
+
     val onlineLyrics: MutableState<String?> = mutableStateOf(null)
     val translatedLyrics: MutableState<String?> = mutableStateOf(null)
     val lyricsSource: MutableState<String?> = mutableStateOf(null)

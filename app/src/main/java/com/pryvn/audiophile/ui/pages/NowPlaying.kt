@@ -491,6 +491,54 @@ fun formatTime(seconds: Long): String {
     return "$minutes:${if (secs < 10) "0$secs" else "$secs"}"
 }
 
+// Loads the album artwork and extracts its dominant palette swatches. Returns
+// null when the artwork can't be loaded; individual swatches are null when the
+// image has no such swatch (callers fall back to their previous colors).
+private suspend fun loadAlbumPalette(
+    context: Context,
+    uri: Uri?,
+): Triple<Color?, Color?, Color?>? {
+    if (uri == null) return null
+    return withContext(Dispatchers.IO) {
+        val loader = context.imageLoader
+        try {
+            val request = ImageRequest.Builder(context).data(uri).build()
+            val thisBitmap = loader.execute(request).drawable?.toBitmap()?.run {
+                BitmapResolver.bitmapCompress(this)
+            } ?: return@withContext null
+            try {
+                val palette = Palette.from(thisBitmap).generate()
+                Triple(
+                    palette?.vibrantSwatch?.rgb?.let { Color(it) },
+                    palette?.darkVibrantSwatch?.rgb?.let { Color(it) },
+                    palette?.darkMutedSwatch?.rgb?.let { Color(it) },
+                )
+            } finally {
+                thisBitmap.recycle()
+            }
+        } finally {
+            loader.shutdown()
+        }
+    }
+}
+
+// The song that will play after the current one, so its background palette can
+// be prepared ahead of time. Walks the active playlist (which already reflects
+// shuffle order); falls back to the auto-queue head, and only wraps to the
+// first song when the player is repeating all.
+private fun nextSongInQueue(): YosMediaItem? {
+    val current = MediaController.musicPlaying.value ?: return null
+    val list = MediaController.playingMusicList.value ?: return null
+    val idx = list.indexOf(current)
+    if (idx < 0) return MediaController.nextInQueueMusicList.value.firstOrNull()
+    if (idx + 1 < list.size) return list[idx + 1]
+    return if (MediaController.mediaControl?.repeatMode == REPEAT_MODE_ALL) {
+        list.firstOrNull()
+    } else {
+        null
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalSharedTransitionApi
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -534,37 +582,50 @@ fun NowPlaying(
 
         // 全局统一提取专辑主色调（Solid 背景渐变依赖此数据，与是否渲染模糊层解耦）
         val paletteContext = LocalContext.current
+
+        // Extract the current song's palette. When this song's palette was
+        // already prepared ahead of time (see the next-song pre-cache below) it
+        // is promoted instantly, so the background can begin mixing the moment
+        // the song changes — no waiting on an async extraction, no instant jump.
         LaunchedEffect(bitmap.value) {
             if (bitmap.value == null) return@LaunchedEffect
-            withContext(Dispatchers.IO) {
-                // Shared Coil loader: artwork is served from the app-wide caches.
-                val loader = paletteContext.imageLoader
-                try {
-                    val request = ImageRequest.Builder(paletteContext)
-                        .data(bitmap.value)
-                        .build()
-                    val thisBitmap = loader.execute(request).drawable?.toBitmap()?.run {
-                        BitmapResolver.bitmapCompress(this)
-                    }
-                    if (thisBitmap != null) {
-                        try {
-                            val palette = Palette.from(thisBitmap).generate()
-                            val oldVibrant = MediaViewModelObject.paletteVibrantColor.value
-                            val oldDarkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
-                            val oldDarkMuted = MediaViewModelObject.paletteDarkMutedColor.value
-                            MediaViewModelObject.paletteVibrantColor.value =
-                                palette?.vibrantSwatch?.rgb?.let { Color(it) } ?: oldVibrant
-                            MediaViewModelObject.paletteDarkVibrantColor.value =
-                                palette?.darkVibrantSwatch?.rgb?.let { Color(it) } ?: oldDarkVibrant
-                            MediaViewModelObject.paletteDarkMutedColor.value =
-                                palette?.darkMutedSwatch?.rgb?.let { Color(it) } ?: oldDarkMuted
-                        } catch (_: Exception) { }
-                        thisBitmap.recycle()
-                    }
-                } finally {
-                    loader.shutdown()
-                }
+            val key = bitmap.value.toString()
+            if (key == MediaViewModelObject.nextPaletteSongId.value) {
+                MediaViewModelObject.paletteVibrantColor.value =
+                    MediaViewModelObject.nextPaletteVibrantColor.value
+                MediaViewModelObject.paletteDarkVibrantColor.value =
+                    MediaViewModelObject.nextPaletteDarkVibrantColor.value
+                MediaViewModelObject.paletteDarkMutedColor.value =
+                    MediaViewModelObject.nextPaletteDarkMutedColor.value
+                MediaViewModelObject.nextPaletteSongId.value = null
+                return@LaunchedEffect
             }
+            val palette =
+                loadAlbumPalette(paletteContext, bitmap.value) ?: return@LaunchedEffect
+            MediaViewModelObject.paletteVibrantColor.value =
+                palette.first ?: MediaViewModelObject.paletteVibrantColor.value
+            MediaViewModelObject.paletteDarkVibrantColor.value =
+                palette.second ?: MediaViewModelObject.paletteDarkVibrantColor.value
+            MediaViewModelObject.paletteDarkMutedColor.value =
+                palette.third ?: MediaViewModelObject.paletteDarkMutedColor.value
+        }
+
+        // Pre-cache the palette of the song that will play next so the
+        // background is always prepared with the upcoming colors and shifts
+        // into them smoothly the instant the song changes.
+        LaunchedEffect(MediaController.musicPlaying.value) {
+            val next = nextSongInQueue()
+            val nextUri = next?.thumb ?: return@LaunchedEffect
+            val key = nextUri.toString()
+            if (key == MediaViewModelObject.nextPaletteSongId.value) return@LaunchedEffect
+            val palette = loadAlbumPalette(paletteContext, nextUri) ?: return@LaunchedEffect
+            MediaViewModelObject.nextPaletteSongId.value = key
+            MediaViewModelObject.nextPaletteVibrantColor.value =
+                palette.first ?: MediaViewModelObject.paletteVibrantColor.value
+            MediaViewModelObject.nextPaletteDarkVibrantColor.value =
+                palette.second ?: MediaViewModelObject.paletteDarkVibrantColor.value
+            MediaViewModelObject.nextPaletteDarkMutedColor.value =
+                palette.third ?: MediaViewModelObject.paletteDarkMutedColor.value
         }
 
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
@@ -654,17 +715,19 @@ fun NowPlaying(
                 val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
+                // The overlay colors mix slowly into the next song's palette —
+                // the background shifts completely instead of changing instantly.
                 val animatedVibrant = animateColorAsState(
                     targetValue = vibrant,
-                    animationSpec = MotionTokens.colorSpring()
+                    animationSpec = MotionTokens.backgroundMix()
                 ).value
                 val animatedDarkVibrant = animateColorAsState(
                     targetValue = darkVibrant,
-                    animationSpec = MotionTokens.colorSpring()
+                    animationSpec = MotionTokens.backgroundMix()
                 ).value
                 val animatedDarkMuted = animateColorAsState(
                     targetValue = darkMuted,
-                    animationSpec = MotionTokens.colorSpring()
+                    animationSpec = MotionTokens.backgroundMix()
                 ).value
 
                 Box(
@@ -683,12 +746,13 @@ fun NowPlaying(
             }
         } else {
             // 纯色背景：取专辑封面的主色调（由上方全局 LaunchedEffect 提取）
+            // 颜色缓慢混合进下一首歌的调色板，而不是瞬间变化。
             YosWrapper {
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
                 val animatedDarkMuted = animateColorAsState(
                     targetValue = darkMuted,
-                    animationSpec = MotionTokens.colorSpring()
+                    animationSpec = MotionTokens.backgroundMix()
                 ).value
 
                 Box(
@@ -1657,7 +1721,10 @@ fun HeroArtworkLayer(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val request = ImageRequest.Builder(LocalContext.current)
             .data(url)
-            .crossfade(true)
+            // The fullscreen artwork crossfades into the next song's artwork at
+            // the same pace as the background colors, so the whole screen shifts
+            // smoothly instead of flashing the new image in.
+            .crossfade(MotionTokens.BackgroundMixDurationMs.toInt())
             .size(CoilSize(720, 720))
             .memoryCacheKey(urlString)
             .diskCacheKey(urlString)
