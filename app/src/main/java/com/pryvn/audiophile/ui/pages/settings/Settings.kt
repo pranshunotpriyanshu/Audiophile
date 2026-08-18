@@ -38,6 +38,8 @@ import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.code.api.InnerTubeClient
+import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.code.api.innertube.YouTube as AppYouTube
 import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.MusicLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
@@ -66,48 +68,55 @@ fun Settings(navController: NavController) =
                         ListHeader(stringResource(id = R.string.settings_account))
                         RoundColumn {
                             val isLoggedIn = SettingsLibrary.isYtMusicLoggedIn
-                            if (isLoggedIn) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    val avatarUrl = SettingsLibrary.YtMusicAvatarUrl
-                                    if (avatarUrl.isNotBlank()) {
-                                        CachedArtworkImage(
-                                            url = avatarUrl,
-                                            contentDescription = null,
-                                            size = 128,
-                                            modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(MaterialTheme.shapes.extraLarge),
-                                        )
-                                    } else {
-                                        Icon(
-                                            painter = painterResource(R.drawable.songcredits_monogram_person),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(48.dp),
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                                        )
-                                    }
-                                    Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = SettingsLibrary.YtMusicAccountName,
-                                            fontSize = 17.sp,
-                                            fontWeight = headingFontWeight(),
-                                        )
-                                        val email = SettingsLibrary.YtMusicAccountEmail
-                                        if (email.isNotBlank()) {
-                                            Text(
-                                                text = email,
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            )
-                                        }
+
+                            // Mirror the YT Music account fields into local state:
+                            // SettingsLibrary properties are @Stable, so reads here
+                            // are not recomposition-tracked. The effect below refreshes
+                            // the profile from the API on open and when login state
+                            // changes; the mirrors make that update visible immediately.
+                            var accountName by remember {
+                                mutableStateOf(SettingsLibrary.YtMusicAccountName)
+                            }
+                            var accountHandle by remember {
+                                mutableStateOf(SettingsLibrary.YtMusicChannelHandle)
+                            }
+                            var accountAvatar by remember {
+                                mutableStateOf(SettingsLibrary.YtMusicAvatarUrl)
+                            }
+
+                            // Refresh the YT Music account profile whenever this screen
+                            // opens (and when login state changes) so the name and
+                            // @handle always display, even if they were never saved.
+                            LaunchedEffect(isLoggedIn) {
+                                if (isLoggedIn) {
+                                    YouTubeApi.fetchAccountInfo().onSuccess { info ->
+                                        SettingsLibrary.YtMusicAccountName = info.name
+                                        SettingsLibrary.YtMusicChannelHandle =
+                                            info.channelHandle ?: ""
+                                        SettingsLibrary.YtMusicAvatarUrl =
+                                            info.avatarUrl ?: ""
+                                        accountName = info.name
+                                        accountHandle = info.channelHandle ?: ""
+                                        accountAvatar = info.avatarUrl ?: ""
                                     }
                                 }
+                            }
+
+                            if (isLoggedIn) {
+                                // The profile picture option sits at the top and
+                                // replaces the online profile display when logged in:
+                                // its title becomes the YT Music account name and its
+                                // subtext becomes the channel handle (@handle). The
+                                // online YT avatar is shown until the user picks a
+                                // local picture — then the locally chosen one wins.
+                                ProfilePictureRow(
+                                    title = accountName
+                                        .ifBlank { stringResource(R.string.profile_picture) },
+                                    subtitle = accountHandle
+                                        .ifBlank { stringResource(R.string.profile_picture_change) },
+                                    avatarUrl = SettingsLibrary.ProfilePictureUri
+                                        .ifBlank { accountAvatar },
+                                )
                                 Divider()
                                 SwitchItem(
                                     title = stringResource(R.string.ytmusic_sync),
@@ -139,6 +148,7 @@ fun Settings(navController: NavController) =
                                         SettingsLibrary.YtMusicAccountName = ""
                                         SettingsLibrary.YtMusicAccountEmail = ""
                                         SettingsLibrary.YtMusicAvatarUrl = ""
+                                        SettingsLibrary.YtMusicChannelHandle = ""
                                         SettingsLibrary.YtMusicSyncEnabled = true
                                         InnerTubeClient.cookie = null
                                         InnerTubeClient.visitorData = null
@@ -146,6 +156,9 @@ fun Settings(navController: NavController) =
                                         YouTube.cookie = null
                                         YouTube.visitorData = null
                                         YouTube.dataSyncId = null
+                                        AppYouTube.cookie = null
+                                        AppYouTube.visitorData = null
+                                        AppYouTube.dataSyncId = null
                                         com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                             cookie = null,
                                             visitorData = null,
@@ -192,8 +205,18 @@ fun Settings(navController: NavController) =
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                        Divider()
-                        ProfilePictureRow()
+                        if (!isLoggedIn) {
+                            Divider()
+                            ProfilePictureRow(
+                                title = stringResource(R.string.profile_picture),
+                                subtitle = if (SettingsLibrary.ProfilePictureUri.isNotBlank()) {
+                                    stringResource(R.string.profile_picture_change)
+                                } else {
+                                    stringResource(R.string.profile_picture_set)
+                                },
+                                avatarUrl = SettingsLibrary.ProfilePictureUri,
+                            )
+                        }
                     }
 
                         GroupSpacer()
@@ -421,9 +444,12 @@ private fun CacheStatItem(title: String, value: String) {
 }
 
 @Composable
-private fun ProfilePictureRow() {
+private fun ProfilePictureRow(
+    title: String,
+    subtitle: String,
+    avatarUrl: String,
+) {
     val context = LocalContext.current
-    val uriString = SettingsLibrary.ProfilePictureUri
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -454,9 +480,9 @@ private fun ProfilePictureRow() {
             .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (uriString.isNotBlank()) {
+        if (avatarUrl.isNotBlank()) {
             CachedArtworkImage(
-                url = uriString,
+                url = avatarUrl,
                 contentDescription = "Profile picture",
                 size = 128,
                 modifier = Modifier
@@ -474,13 +500,12 @@ private fun ProfilePictureRow() {
         Spacer(Modifier.width(12.dp))
         Column {
             Text(
-                text = stringResource(R.string.profile_picture),
+                text = title,
                 fontSize = 17.sp,
                 fontWeight = headingFontWeight(),
             )
             Text(
-                text = if (uriString.isNotBlank()) stringResource(R.string.profile_picture_change)
-                else stringResource(R.string.profile_picture_set),
+                text = subtitle,
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )

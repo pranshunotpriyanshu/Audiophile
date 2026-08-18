@@ -396,6 +396,13 @@ object SettingsLibrary {
     )
 
     @Stable
+    var YtMusicChannelHandle by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "ytmusic_channel_handle",
+        initialValue = ""
+    )
+
+    @Stable
     var YtMusicSyncEnabled by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "ytmusic_sync_enabled",

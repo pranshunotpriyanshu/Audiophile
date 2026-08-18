@@ -51,6 +51,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.api.YouTubeApi
+import com.pryvn.audiophile.code.api.innertube.YouTube as AppYouTube
 import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
@@ -119,6 +120,7 @@ fun YTMusicLoginScreen(
                 SettingsLibrary.YtMusicAccountName = accountInfo.name
                 SettingsLibrary.YtMusicAccountEmail = accountInfo.email ?: ""
                 SettingsLibrary.YtMusicAvatarUrl = accountInfo.avatarUrl ?: ""
+                SettingsLibrary.YtMusicChannelHandle = accountInfo.channelHandle ?: ""
             }.onFailure {
                 // Account info failure is not critical for login
             }
@@ -247,6 +249,7 @@ fun YTMusicLoginScreen(
                                 SettingsLibrary.YtMusicCookie = mergedCookie
                                 com.pryvn.audiophile.code.api.InnerTubeClient.cookie = mergedCookie
                                 YouTube.cookie = mergedCookie
+                                AppYouTube.cookie = mergedCookie
                                 com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                     cookie = mergedCookie,
                                     visitorData = com.pryvn.audiophile.code.api.InnerTubeClient.visitorData,
@@ -272,6 +275,7 @@ fun YTMusicLoginScreen(
                                     SettingsLibrary.YtMusicVisitorData = newVisitorData
                                     com.pryvn.audiophile.code.api.InnerTubeClient.visitorData = newVisitorData
                                     YouTube.visitorData = newVisitorData
+                                    AppYouTube.visitorData = newVisitorData
                                     com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                         cookie = SettingsLibrary.YtMusicCookie,
                                         visitorData = newVisitorData,
@@ -286,6 +290,7 @@ fun YTMusicLoginScreen(
                                     SettingsLibrary.YtMusicDataSyncId = newDataSyncId
                                     com.pryvn.audiophile.code.api.InnerTubeClient.dataSyncId = newDataSyncId
                                     YouTube.dataSyncId = newDataSyncId
+                                    AppYouTube.dataSyncId = newDataSyncId
                                     com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                         cookie = SettingsLibrary.YtMusicCookie,
                                         visitorData = com.pryvn.audiophile.code.api.InnerTubeClient.visitorData,

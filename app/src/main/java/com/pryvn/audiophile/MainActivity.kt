@@ -120,6 +120,7 @@ import kotlinx.coroutines.launch
 import uk.akane.libphonograph.hasScopedStorageWithMediaTypes
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.InnerTubeClient
+import com.pryvn.audiophile.code.api.innertube.YouTube as AppYouTube
 import moe.rukamori.archivetune.innertube.YouTube
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.code.utils.player.FadeExo.fadePause
@@ -237,6 +238,9 @@ class MainActivity : ComponentActivity() {
                                 YouTube.cookie = cookie
                                 YouTube.visitorData = SettingsLibrary.YtMusicVisitorData
                                 YouTube.dataSyncId = SettingsLibrary.YtMusicDataSyncId
+                                AppYouTube.cookie = cookie
+                                AppYouTube.visitorData = SettingsLibrary.YtMusicVisitorData
+                                AppYouTube.dataSyncId = SettingsLibrary.YtMusicDataSyncId
                                 com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                     cookie = cookie,
                                     visitorData = SettingsLibrary.YtMusicVisitorData,
@@ -250,6 +254,9 @@ class MainActivity : ComponentActivity() {
                             }
                             if (YouTube.visitorData.isNullOrBlank()) {
                                 YouTube.visitorData = visitorData
+                            }
+                            if (AppYouTube.visitorData.isNullOrBlank()) {
+                                AppYouTube.visitorData = visitorData
                             }
                             com.pryvn.audiophile.archivetune.ArchiveTuneAdapter.updateAuth(
                                 cookie = SettingsLibrary.YtMusicCookie,

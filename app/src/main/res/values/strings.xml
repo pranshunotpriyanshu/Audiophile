@@ -152,7 +152,7 @@
     <string name="ytmusic_login_cancel_no">No, go back</string>
     <string name="ytmusic_login_cancel_yes">Yes, cancel</string>
     <string name="ytmusic_login_canceled">Sign in Canceled</string>
-    <string name="ytmusic_logout">Logout</string>
+    <string name="ytmusic_logout">Logout of YT Music</string>
     <string name="ytmusic_logout_confirm">Are you sure you want to log out? Your playlists will only be available again after logging back in.</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>

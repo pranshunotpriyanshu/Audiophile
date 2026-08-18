@@ -131,6 +131,7 @@ object YouTubeApi {
             name = info.name,
             email = info.email,
             channelHandle = info.channelHandle,
+            avatarUrl = info.thumbnailUrl,
         )
     }
 
