@@ -185,12 +185,22 @@ fun LyricsV2(
     val scope = rememberCoroutineScope()
 
     // ── Reactive settings observers ──
-    // These wrap the data-saver settings to trigger recomposition on change
+    // These wrap the data-saver settings to trigger recomposition on change.
+    // The SettingLibrary properties are @Stable, so reading them directly in
+    // composition is not tracked — mirroring them into local state and
+    // observing via snapshotFlow is what makes the effect apply instantly
+    // (instead of only on the next song).
     var lyricFontWeight by remember {
         androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricFontWeight)
     }
     var lyricFontSize by remember {
         androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricFontSize)
+    }
+    var lyricBounceAmount by remember {
+        androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricBounceAmount)
+    }
+    var lyricGlowAmount by remember {
+        androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricGlowAmount)
     }
 
     // Sync with external changes (from settings screen) via snapshotFlow
@@ -203,6 +213,16 @@ fun LyricsV2(
         snapshotFlow { SettingsLibrary.LyricFontSize }
             .distinctUntilChanged()
             .collect { lyricFontSize = it }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { SettingsLibrary.LyricBounceAmount }
+            .distinctUntilChanged()
+            .collect { lyricBounceAmount = it }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { SettingsLibrary.LyricGlowAmount }
+            .distinctUntilChanged()
+            .collect { lyricGlowAmount = it }
     }
 
     // ── Map setting string to FontWeight ──
@@ -226,9 +246,10 @@ fun LyricsV2(
     val lyricsLineSpacing = 1.3f
     val lyricsLineBlurPreference = true
     // Word bounce and glow amounts come from the Lyric Display settings
-    // (bounce 0x..1.0x, glow 0x..1.3x).
-    val bounceFactor = SettingsLibrary.LyricBounceAmount
-    val glowFactor = SettingsLibrary.LyricGlowAmount
+    // (bounce 0x..1.0x, glow 0x..1.3x), mirrored reactively above so the
+    // sliders take effect on the current song immediately.
+    val bounceFactor = lyricBounceAmount
+    val glowFactor = lyricGlowAmount
     val lrcBounceEnabled = true
     val lyricsFontFamily: FontFamily? = SfProFontFamily
 
@@ -405,24 +426,13 @@ fun LyricsV2(
         delay(HIGHLIGHT_LEAD_MS)
         if (currentLineIndex != curAtScroll) return@LaunchedEffect
 
-        val targetOffset = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
-
-        val targetItem = listState.layoutInfo.visibleItemsInfo.find { it.index == currentLineIndex }
-        if (targetItem != null) {
-            listState.animateScrollBy(
-                targetItem.offset - targetOffset.toFloat(),
-                animationSpec = spring(
-                    dampingRatio = 1f,
-                    stiffness = 150f,
-                    visibilityThreshold = 0.01f,
-                ),
-            )
-        } else {
-            listState.animateScrollToItem(
-                index = currentLineIndex.coerceAtLeast(0),
-                scrollOffset = -targetOffset,
-            )
-        }
+        // Shared anchor logic: the current line sits at 8% of the viewport —
+        // identical to the line-synced renderer, so both views place the
+        // current line at exactly the same height.
+        listState.animateCurrentLineToAnchor(
+            currentIndex = currentLineIndex,
+            viewportHeight = listState.layoutInfo.viewportSize.height,
+        )
     }
 
     // ---- Anchor guard ----
@@ -435,18 +445,10 @@ fun LyricsV2(
         val curAtStart = currentLineIndex
         delay(GAP_ROW_ANIM_MS + HIGHLIGHT_LEAD_MS + 500L)
         if (currentLineIndex != curAtStart || isManualScrolling) return@LaunchedEffect
-        val targetOffset = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
-        val currentItem = listState.layoutInfo.visibleItemsInfo.find { it.index == curAtStart }
-        if (currentItem != null && currentItem.offset < targetOffset) {
-            listState.animateScrollBy(
-                currentItem.offset - targetOffset.toFloat(),
-                animationSpec = spring(
-                    dampingRatio = 1f,
-                    stiffness = 180f,
-                    visibilityThreshold = 0.01f,
-                ),
-            )
-        }
+        listState.pullCurrentLineToAnchorIfAbove(
+            currentIndex = curAtStart,
+            viewportHeight = listState.layoutInfo.viewportSize.height,
+        )
     }
 
     val activity = context as? android.app.Activity
@@ -769,7 +771,7 @@ fun LyricsV2(
                         }
                         delay(GAP_ROW_ANIM_MS + 30)
                         val anchorPx =
-                            (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
+                            lyricAnchorOffsetPx(listState.layoutInfo.viewportSize.height)
                         val firstItem =
                             listState.layoutInfo.visibleItemsInfo.find { it.index == index }
                         if (firstItem != null && firstItem.offset < anchorPx) {
@@ -989,7 +991,10 @@ fun LyricsV2(
                                         lyricsFontFamily = lyricsFontFamily,
                                         textAlign = textAlign,
                                         bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
-                                        glowFactor = glowFactor,
+                                        // Line-synced lyrics never glow — only
+                                        // word-synced karaoke words carry the
+                                        // Word Glow setting.
+                                        glowFactor = 0f,
                                     )
                                 } else {
                                         Text(
@@ -1153,7 +1158,8 @@ fun LyricsV2(
                     if (belowCurrent && !isManualScrolling && lyricsScroll && isSynced) {
                         val distance = index - cur
                         val weight = (distance.toFloat() / PULL_LINE_RANGE.toFloat()).coerceIn(0f, 1f)
-                        val targetOffsetPx = (listState.layoutInfo.viewportSize.height * 0.08f).toInt()
+                        val targetOffsetPx =
+                            lyricAnchorOffsetPx(listState.layoutInfo.viewportSize.height)
                         val currentItem = listState.layoutInfo.visibleItemsInfo.find { it.index == cur }
                         val pullPx = if (currentItem != null) {
                             ((currentItem.offset - targetOffsetPx) * PULL_STRENGTH).coerceAtLeast(0f)

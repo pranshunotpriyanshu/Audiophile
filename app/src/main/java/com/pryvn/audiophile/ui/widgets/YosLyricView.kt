@@ -68,43 +68,6 @@ private const val LRC_LEAD_MS = 300L
 private const val LYRIC_VISUAL_TUNING_OFFSET_MS = 150L
 private const val MANUAL_SCROLL_TIMEOUT_MS = 3000L
 
-// Bubble-bounce: how far the wobble reaches around the current line and how
-// the kick amplitude decays with distance from it (dp at distance 1). Shared
-// by the line-synced (YosLyricView) and word-synced (LyricsV2) renderers.
-const val BUBBLE_RADIUS = 5
-fun bubbleAmplitudeDp(distance: Int): Float =
-    (8f * exp(-0.7f * (distance - 1).toFloat())).toFloat()
-
-// Gap-dots rows (empty lines, instrumental rows, between-lines dots) animate
-// their height with a fixed tween while they expand/collapse, and only reserve
-// space while active so the lyric list stays tight. The auto-scrolls wait this
-// long (+ a small margin) before measuring, so the layout is final and the
-// anchored line can never overshoot its set level.
-const val GAP_ROW_ANIM_MS = 220L
-
-// Between-lines gap dots reveal/hide: when the gap begins the dots slide out of
-// the line above fast and ease into place (FastOutSlowIn), and when the next
-// line starts they linger at the anchor then accelerate into it (LinearOutSlowIn)
-// while fading — Apple Music style. Shared by both lyric renderers.
-const val GAP_DOTS_REVEAL_MS = 520L
-const val GAP_DOTS_HIDE_MS = 380L
-const val GAP_DOTS_SLIDE_DP = 28f
-
-// The "pull" (spacing animation) that fires when the current line advances:
-// the spacers below the current line stretch like a rubber band — the pull
-// grows with distance, so the lower lyrics feel dragged by inertia — and then
-// release in a wave from the top down, gliding the block onto the anchor.
-const val PULL_LINE_RANGE = 14
-const val PULL_STRENGTH = 0.65f
-const val PULL_STAGGER_MS = 14L
-const val PULL_HOLD_MS = 130L
-const val PULL_RELEASE_MS = 6L
-
-// The next line lights up first and the list scrolls almost together with the
-// switch — priority goes to switching the highlight, and the scroll follows
-// almost immediately so there is no perceived lag.
-const val HIGHLIGHT_LEAD_MS = 60L
-
 /**
  * YosLyricView main widget
  * @param lrcEntriesLambda Processed LRC text (each entry is List<Pair<Float, String>>)
@@ -136,6 +99,21 @@ fun YosLyricView(
 
     // Read interaction state from single source of truth
     val interactive = LocalLyricsInteractive.current
+
+    // ---- Reactive lyric blur setting ----
+    // SettingsLibrary properties are @Stable, so direct reads in composition
+    // are not tracked — mirror the blur setting into local state and observe
+    // it via snapshotFlow so toggling it applies to the current song instantly
+    // instead of on the next one. blurLambda() still gates whether the caller
+    // wants blur at all.
+    var lyricBlurEffect by remember {
+        androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricBlurEffect)
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { SettingsLibrary.LyricBlurEffect }
+            .distinctUntilChanged()
+            .collect { lyricBlurEffect = it }
+    }
 
     // ---- Word-synced lyrics: delegate to ArchiveTune renderers ----
     // Priority: syllable-level -> word-level -> line-sync -> plain blocks.
@@ -177,7 +155,7 @@ fun YosLyricView(
                 lyricsSyncOffset = 0,
                 modifier = modifier,
                 textColorOverride = lyricTextColor,
-                lyricsLineBlurOverride = SettingsLibrary.LyricBlurEffect,
+                lyricsLineBlurOverride = lyricBlurEffect,
                 pollingEnabled = pollingEnabled,
                 onBackgroundClick = onBackClick,
             )
@@ -250,16 +228,17 @@ fun YosLyricView(
     val visibleItems = derivedStateOf { scrollState.layoutInfo.visibleItemsInfo }
 
     // ---- Auto-scroll target ----
-    // The anchor line (current + 1) sits at the golden point (6.18%) of the
-    // viewport; the scroll distance is the live difference between that line's
-    // current top and the anchor, animated with a critically damped spring so
-    // the list glides with inertia and lands exactly on the anchor level — it
-    // never overshoots past the set position.
+    // The current line sits at 8% of the viewport — the same anchor level the
+    // word-synced renderer uses (shared lyricAnchorOffsetPx). The scroll
+    // distance is the live difference between that line's current top and the
+    // anchor, animated with a critically damped spring so the list glides with
+    // inertia and lands exactly on the anchor level — it never overshoots past
+    // the set position.
     val targetOffset = rememberSaveable(height.intValue) {
-        height.intValue * 0.0618f
+        lyricAnchorOffsetPx(height.intValue).toFloat()
     }
     val targetItem = derivedStateOf {
-        visibleItems.value.find { it.index == currentLyricIndex.intValue + 1 }
+        visibleItems.value.find { it.index == currentLyricIndex.intValue }
     }
     val currentOffset = derivedStateOf {
         targetItem.value?.offset ?: targetOffset.toInt()
@@ -461,7 +440,7 @@ fun YosLyricView(
                         !showStateAnimation.value ||
                         index == currentLyricIndex.intValue ||
                         index in overlapHeldIndices.value ||
-                        !blurLambda() || !supportBlur
+                        !lyricBlurEffect || !blurLambda() || !supportBlur
                     ) {
                         0f
                     } else {
@@ -559,11 +538,16 @@ fun YosLyricView(
                         },
                         wordSyncedWords = thisWordSyncedWords.value,
                         isBackgroundLine = isBackgroundLine,
+                        // Unsynced lyrics are plain text: tapping a line does
+                        // nothing (the timestamps are fabricated and seeking on
+                        // them would jump around the song).
                         onClick = {
-                            Vibrator.doubleClick(context)
-                            overlapHeldIndices.value = emptySet()
-                            currentLyricIndex.intValue = index
-                            mediaEvent.onSeek(lines.first().first.toInt())
+                            if (!MediaViewModelObject.isUnsyncedLyrics.value) {
+                                Vibrator.doubleClick(context)
+                                overlapHeldIndices.value = emptySet()
+                                currentLyricIndex.intValue = index
+                                mediaEvent.onSeek(lines.first().first.toInt())
+                            }
                         }
                     )
                 }
@@ -669,18 +653,12 @@ fun YosLyricView(
             // the set level (the list was already positioned during the dots
             // phase).
             if (prevBlank) {
-                val currentItem = visibleItems.value.find { it.index == cur }
-                if (currentItem != null) {
-                    scrollState.animateScrollBy(
-                        currentItem.offset - targetOffset,
-                        animationSpec = spring(
-                            dampingRatio = 1f,
-                            stiffness = 150f,
-                            visibilityThreshold = 0.01f
-                        )
-                    )
-                    return@LaunchedEffect
-                }
+                scrollState.animateCurrentLineToAnchor(
+                    currentIndex = cur,
+                    viewportHeight = height.intValue,
+                    targetOffset = targetOffset.toInt(),
+                )
+                return@LaunchedEffect
             }
 
             // The next line lights up first (its scale/alpha animations start
@@ -689,27 +667,19 @@ fun YosLyricView(
             delay(HIGHLIGHT_LEAD_MS)
             if (currentLyricIndex.intValue != cur) return@LaunchedEffect
 
-            if (targetItem.value != null) {
-                scrollState.animateScrollBy(
-                    scrollDistance.value,
-                    animationSpec = spring(
-                        dampingRatio = 1f,
-                        stiffness = 150f,
-                        visibilityThreshold = 0.01f
-                    )
-                )
-            } else {
-                scrollState.animateScrollToItem(
-                    index = (currentLyricIndex.intValue + 1).coerceAtLeast(0),
-                    scrollOffset = -targetOffset.toInt()
-                )
-            }
+            // Shared anchor logic: glide the current line onto the 8% anchor
+            // level — identical to the word-synced renderer.
+            scrollState.animateCurrentLineToAnchor(
+                currentIndex = currentLyricIndex.intValue,
+                viewportHeight = height.intValue,
+                targetOffset = targetOffset.toInt(),
+            )
         } catch (_: Exception) { }
     }
 
     // ---- Anchor guard ----
-    // The next line has a fixed anchor level and can never sit above it: after
-    // the pull + scroll animations settle, if the next line is still above the
+    // The current line has a fixed anchor level and can never sit above it:
+    // after the pull + scroll animations settle, if it is still above the
     // anchor it is pulled back down exactly onto the level with a critically
     // damped spring, so it can never cross upward again.
     LaunchedEffect(currentLyricIndex.intValue) {
@@ -717,17 +687,11 @@ fun YosLyricView(
         val curAtStart = currentLyricIndex.intValue
         delay(GAP_ROW_ANIM_MS + HIGHLIGHT_LEAD_MS + 500L)
         if (currentLyricIndex.intValue != curAtStart) return@LaunchedEffect
-        val anchorItem = visibleItems.value.find { it.index == curAtStart + 1 }
-        if (anchorItem != null && anchorItem.offset < targetOffset.toInt()) {
-            scrollState.animateScrollBy(
-                anchorItem.offset - targetOffset,
-                animationSpec = spring(
-                    dampingRatio = 1f,
-                    stiffness = 180f,
-                    visibilityThreshold = 0.01f
-                )
-            )
-        }
+        scrollState.pullCurrentLineToAnchorIfAbove(
+            currentIndex = curAtStart,
+            viewportHeight = height.intValue,
+            targetOffset = targetOffset.toInt(),
+        )
     }
 
     // ---- Live time updater for current index ----
@@ -950,7 +914,7 @@ fun LazyItemScope.LyricItem(
                     isLyricEmpty() && isCurrentLambda() && percent.value != 0f && gapMs.value >= 5000f
                 }
             }
-            if (gapMs.value >= 5000f) {
+            if (gapMs.value >= 5000f && !MediaViewModelObject.isUnsyncedLyrics.value) {
                 // Dots-worthy gap: the row only occupies height while this line
                 // is the current one (dots visible). As soon as the line is
                 // passed it collapses with a short fixed tween, so the lyric
@@ -1254,7 +1218,8 @@ fun LazyItemScope.LyricItem(
             val gapStartMs = maxOf(lineEndMs, prevLineEndMs())
             val nextStartMs = nextTime()
             val gapLenMs = (nextStartMs - gapStartMs).coerceAtLeast(0f)
-            if (gapLenMs >= 5000f) {
+            // Unsynced lyrics have fabricated timestamps — no gap dots.
+            if (gapLenMs >= 5000f && !MediaViewModelObject.isUnsyncedLyrics.value) {
                 val gapActive =
                     isCurrentLambda() &&
                         liveTime.intValue >= gapStartMs &&
