@@ -7,6 +7,7 @@ import com.pryvn.audiophile.code.lyrics.LyricsHelper
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.data.objects.WordSyncedLine
 import com.pryvn.audiophile.data.objects.WordSyncedWord
+import com.mocharealm.accompanist.lyrics.core.parser.AutoParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -68,16 +69,48 @@ private fun Char.isCjkChar(): Boolean {
 
 object LyricsProcessor {
 
+    private val autoParser = AutoParser()
+
+    /**
+     * Decodes common HTML/XML entities that appear in lyrics fetched from APIs
+     * (e.g. &#x27; → ', &amp; → &, &lt; → <, &gt; → >, &quot; → ").
+     */
+    private fun decodeHtmlEntities(text: String): String {
+        if (!text.contains('&')) return text
+        return text
+            .replace("&#x27;", "'")
+            .replace("&#39;", "'")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&nbsp;", " ")
+            .replace("&#x22;", "\"")
+            .replace("&#x3C;", "<")
+            .replace("&#x3E;", ">")
+            .replace("&#x26;", "&")
+    }
+
     fun applyLyrics(
         onlineLyrics: AudiophileLyrics,
         lrcEntriesSetter: (List<List<Pair<Float, String>>>) -> Unit,
         songDurationMs: Long = 0L,
     ) {
-        val text = onlineLyrics.text
+        val text = decodeHtmlEntities(onlineLyrics.text)
         if (text.isBlank()) return
 
         MediaViewModelObject.onlineLyrics.value = text
         MediaViewModelObject.lyricsSource.value = onlineLyrics.provider
+
+        // Parse with AMLL AutoParser and cache the SyncedLyrics result.
+        // AmlLyricsView consumes this directly instead of reparsing each recomposition.
+        try {
+            val parsed = autoParser.parse(text)
+            MediaViewModelObject.parsedSyncedLyrics.value = parsed
+        } catch (_: Exception) {
+            MediaViewModelObject.parsedSyncedLyrics.value = null
+        }
 
         val lrcFactory = YosLrcFactory()
         val isWordSynced = onlineLyrics.isWordSynced || TTMLParser.isTtml(text)

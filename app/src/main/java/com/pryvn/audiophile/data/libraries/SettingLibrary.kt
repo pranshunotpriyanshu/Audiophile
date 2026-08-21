@@ -206,6 +206,17 @@ object SettingsLibrary {
     )
 
     /**
+     * AMLL blend mode for karaoke text rendering.
+     * "Plus" = glow effect, "Multiply" = darkened, "Screen" = lightened.
+     */
+    @Stable
+    var LyricBlendMode by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_performance_lyric_blend_mode",
+        initialValue = "Plus"
+    )
+
+    /**
      * Status bar lyrics enabled
      */
     @Stable

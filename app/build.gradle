@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId "com.pryvn.audiophile"
-        minSdk 23
+        minSdk 29
         targetSdk 35
         versionCode 4
         versionName "2.2.0"
@@ -199,6 +199,10 @@ dependencies {
 implementation 'com.google.code.gson:gson:2.10.1'
 
     // Removed Room - using simple file-based cache instead (Kotlin 2.3 compatibility)
+
+    // AMLL lyrics library (Accompanist Lyrics) - source copied into project
+    // to avoid IncompatibleClassChangeError from published Maven artifacts.
+    // Provides: AutoParser, KaraokeLyricsView, word fill, glow, scroll animations.
 
     implementation 'com.github.xiaowine:Lyric-Getter-Api:6.0.0'
 

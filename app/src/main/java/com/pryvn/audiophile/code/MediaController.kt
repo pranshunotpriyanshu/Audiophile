@@ -2508,8 +2508,13 @@ class YosPlaybackService : MediaSessionService() {
                         MediaViewModelObject.isLoadingLyrics.value = true
                         LyricsProcessor.resetLyricsState()
                         val lyricsJob = com.pryvn.audiophile.code.MediaController.newLyricsFetchJob()
+                        // Capture currentMediaItem on the main thread before launching IO —
+                        // ExoPlayer requires player access on the main thread. Use this instead
+                        // of musicPlaying.value which is set async in onCase() and may still
+                        // hold the previous song when onTracksChanged fires.
+                        val currentTrackFromPlayer = player.currentMediaItem?.toYosMediaItem()
                         CoroutineScope(Dispatchers.IO + lyricsJob).launch {
-                            val currentTrack = musicPlaying.value
+                            val currentTrack = currentTrackFromPlayer
                             val videoIdAtFetch = currentTrack?.mediaId
                             try {
                                 if (currentTrack != null) {
@@ -2602,9 +2607,10 @@ class YosPlaybackService : MediaSessionService() {
                             }
                         }
                         // Prefetch lyrics for upcoming songs (tied to same lyrics job for cancellation)
+                        val prefetchCurrentId = currentTrackFromPlayer?.mediaId
                         CoroutineScope(Dispatchers.IO + lyricsJob).launch {
                             val list = playingMusicList?.value ?: return@launch
-                            val currentIndex = list.indexOfFirst { item -> item.mediaId == musicPlaying.value?.mediaId }
+                            val currentIndex = list.indexOfFirst { item -> item.mediaId == prefetchCurrentId }
                             if (currentIndex >= 0) {
                                 val upcoming = list.subList(currentIndex + 1, kotlin.math.min(currentIndex + 16, list.size))
                                 for (track in upcoming) {
@@ -2898,6 +2904,14 @@ class YosPlaybackService : MediaSessionService() {
         com.pryvn.audiophile.code.MediaController.realPlayer = forwardingPlayer
 
         onServiceRunning()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        mediaSession?.run {
+            player.stop()
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {

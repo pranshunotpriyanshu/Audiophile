@@ -231,6 +231,8 @@ import com.pryvn.audiophile.ui.pages.NowPlayingPage.PlayingList
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.YosLyricView
+import com.pryvn.audiophile.ui.widgets.AmlLyricsView
+import com.pryvn.audiophile.code.player.MediaControlPlayerAdapter
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
 import com.pryvn.audiophile.ui.widgets.audio.MusicQualityIndicator
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
@@ -2388,28 +2390,14 @@ fun Lyric(
                         Color.White
                     else
                         Color.Black
-                YosLyricView(
-                    //mediaViewModel = mediaViewModel,
-                    lrcEntriesLambda = lrcEntries,
-                    liveTimeLambda = {
-                        (mediaControl?.currentPosition ?: 0).toInt()
-                    },
-                    mediaEvent = object : YosMediaEvent {
-                        override fun onSeek(position: Int) {
-                            mediaControl?.seekTo(position.toLong())
-                        }
-                    },
-                    translationLambda = translationLambda,
-                    blurLambda = {
-                        SettingsLibrary.LyricBlurEffect
-                    },
-                    uiConfig = YosUIConfig(
-                        noLrcText = stringResource(id = R.string.tip_no_lyrics),
-                        mainTextBasicColor = lyricTextColor.toArgb().toLong(),
-                        subTextBasicColor = lyricTextColor.copy(alpha = 0.55f).toArgb().toLong()
-                    ),
-                    weightLambda = weightLambda,
-                    wordSyncedLambda = wordSyncedLambda,
+
+                // AMLL KaraokeLyricsView — replaces the old YosLyricView / LyricsV2 renderers.
+                // Handles word fill, glow, syllable glow, breathing dots, scroll animations,
+                // and all other lyrics display features natively.
+                AmlLyricsView(
+                    player = MediaControlPlayerAdapter,
+                    textColor = lyricTextColor,
+                    onBackgroundClick = onBackClick,
                     modifier = Modifier.drawWithCache {
                     onDrawWithContent {
                         val overlayPaint = Paint().apply {
@@ -2455,14 +2443,6 @@ fun Lyric(
                                 Color.Black,
                                 Color.Black,
                                 Color.Black,
-                                /*Color(0xD9000000),
-                                Color(0xA6000000),
-                                Color(0x73000000),
-                                Color(0x59000000),
-                                Color(0x3F000000),
-                                Color(0x21000000),
-                                Color(0x0C000000),*/
-                                Color.Black,
                                 Color.Black,
                                 Color.Black,
                                 Color.Black,
@@ -2491,7 +2471,6 @@ fun Lyric(
                             }
                         }
                     },
-                onBackClick = onBackClick
             )
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
+import com.mocharealm.accompanist.lyrics.core.model.SyncedLyrics
 
 data class WordSyncedWord(
     val text: String,
@@ -81,6 +82,12 @@ object MediaViewModelObject {
 
     val lyricsCache: MutableMap<String, String> = mutableMapOf()
 
+    /**
+     * Pre-parsed AMLL SyncedLyrics produced by AutoParser in LyricsProcessor.applyLyrics.
+     * AmlLyricsView consumes this directly — avoids reparsing on every recomposition.
+     */
+    val parsedSyncedLyrics: MutableState<SyncedLyrics?> = mutableStateOf(null)
+
     val wordSyncedLines: MutableState<List<WordSyncedLine>> = mutableStateOf(emptyList())
     val hasWordSyncedLyrics: MutableState<Boolean> = mutableStateOf(false)
 
@@ -92,6 +99,7 @@ object MediaViewModelObject {
     fun clearWordSync() {
         hasWordSyncedLyrics.value = false
         wordSyncedLines.value = emptyList()
+        parsedSyncedLyrics.value = null
         lyricLineTransliterations.clear()
         lyricLineSubtitles.clear()
         backgroundLines.clear()

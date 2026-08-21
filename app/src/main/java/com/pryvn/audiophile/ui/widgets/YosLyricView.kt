@@ -115,10 +115,9 @@ fun YosLyricView(
             .collect { lyricBlurEffect = it }
     }
 
-    // ---- Word-synced lyrics: delegate to ArchiveTune renderers ----
-    // Priority: syllable-level -> word-level -> line-sync -> plain blocks.
-    // Single unified renderer: LyricsV2 (liquid fill / glow / bounce) handles
-    // both word-synced and syllable-synced lyrics.
+    // ---- Word-synced lyrics: delegate to AMLL KaraokeLyricsView ----
+    // AMLL handles word fill, glow, syllable glow, breathing dots,
+    // scroll animations, and all other lyrics display features natively.
     val hasWordSynced = wordSyncedLambda()
     val wordSyncedLinesExist = MediaViewModelObject.wordSyncedLines.value.isNotEmpty()
     if (hasWordSynced && wordSyncedLinesExist) {
@@ -149,14 +148,10 @@ fun YosLyricView(
                 LyricsSpinnerContent(color = lyricTextColor)
             }
         } else {
-            LyricsV2(
+            AmlLyricsView(
                 player = MediaControlPlayerAdapter,
-                sliderPositionProvider = { null },
-                lyricsSyncOffset = 0,
+                textColor = lyricTextColor,
                 modifier = modifier,
-                textColorOverride = lyricTextColor,
-                lyricsLineBlurOverride = lyricBlurEffect,
-                pollingEnabled = pollingEnabled,
                 onBackgroundClick = onBackClick,
             )
         }
