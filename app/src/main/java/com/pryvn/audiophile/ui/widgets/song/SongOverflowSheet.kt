@@ -33,6 +33,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.MediaController
@@ -43,9 +44,11 @@ import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.FavPlayListLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.artistsName
+import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.defaultArtistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.objects.LibraryObject
+import com.pryvn.audiophile.code.api.YTArtistSearchItem
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.toUI
@@ -417,12 +420,72 @@ internal fun goToAlbum(song: YosMediaItem, navController: NavController) {
 }
 
 /**
- * Routes to the song's artist page (local artists library).
+ * Routes to the song's artist page.
+ * - Online songs: resolves the artist's browseId via YouTube search and
+ *   navigates to the online artist page.
+ * - If the song has multiple artists, shows a list screen first so the
+ *   user can pick which artist to visit.
+ * - Local/offline songs: opens the local artist library page.
  */
 internal fun goToArtist(song: YosMediaItem, navController: NavController) {
-    LibraryObject.setTargetArtistName(song.artistsName ?: return)
-    LibraryObject.setArtistSongsSearchOnOpen(false)
-    navController.toUI(UI.ArtistInfo)
+    val artists = song.artistsList
+    if (song.isLocalMediaItem() || artists == null || artists.isEmpty()) {
+        // Offline / unknown artist — fall back to local artist page
+        LibraryObject.setTargetArtistName(song.artistsName ?: return)
+        LibraryObject.setArtistSongsSearchOnOpen(false)
+        navController.toUI(UI.ArtistInfo)
+        return
+    }
+
+    // Single artist: go directly to their online page
+    if (artists.size == 1) {
+        resolveAndGoToOnlineArtist(artists.first(), navController)
+        return
+    }
+
+    // Multiple artists: show a pick list, then navigate to the selected
+    // artist's online page.
+    LibraryObject.setTargetListWithTitle(
+        title = "Artists",
+        list = artists.map { name ->
+            YosMediaItem(
+                title = name,
+                artists = name,
+            )
+        },
+    )
+    navController.toUI(UI.SongArtistsList)
+}
+
+/**
+ * Searches YouTube for [artistName], picks the best-matching artist, and
+ * navigates to their online page. Falls back to the local artist page if
+ * the search fails or returns no results.
+ */
+private fun resolveAndGoToOnlineArtist(artistName: String, navController: NavController) {
+    MainScope().launch(Dispatchers.IO) {
+        val result = withTimeoutOrNull(10_000L) {
+            YouTubeApi.search(artistName, "artist")
+        }
+        val artists = result?.getOrNull()?.sections
+            ?.firstOrNull { it.title == "Artists" }
+            ?.artists.orEmpty()
+        val matched = artists.firstOrNull { name ->
+            name.name.equals(artistName, ignoreCase = true)
+        } ?: artists.firstOrNull()
+
+        withContext(Dispatchers.Main) {
+            if (matched != null) {
+                LibraryObject.setTargetBrowseId(matched.browseId)
+                navController.toUI(UI.OnlineArtistInfo)
+            } else {
+                // Fallback: open local artist page
+                LibraryObject.setTargetArtistName(artistName)
+                LibraryObject.setArtistSongsSearchOnOpen(false)
+                navController.toUI(UI.ArtistInfo)
+            }
+        }
+    }
 }
 
 @Composable

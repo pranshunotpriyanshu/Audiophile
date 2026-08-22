@@ -10,6 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,9 +51,12 @@ import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.data.libraries.PlayList
 import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
+import com.pryvn.audiophile.ui.widgets.basic.sheetSurface
+import com.pryvn.audiophile.ui.widgets.basic.sheetTextColor
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.HazeStyleSheetBlur
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,14 +73,26 @@ fun FloatingMenu(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.background,
-        shape = YosRoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+        containerColor = sheetSurface(),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        tonalElevation = 0.dp,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 8.dp)
+                    .width(36.dp)
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(2.5.dp))
+                    .background(sheetTextColor().copy(alpha = 0.3f)),
+            )
+        },
+        scrimColor = Color.Black.copy(alpha = 0.5f),
     ) {
         HazeStyleSheetBlur()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp)
+                .padding(bottom = 32.dp)
         ) {
             content()
         }
@@ -95,6 +112,8 @@ fun FloatingMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
             .then(if (enabled) Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -103,21 +122,22 @@ fun FloatingMenuItem(
                     onClick()
                 }
             ) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(horizontal = 4.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = icon,
             contentDescription = null,
-            tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            tint = if (enabled) sheetTextColor().copy(alpha = 0.6f) else sheetTextColor().copy(alpha = 0.35f),
             modifier = Modifier.size(22.dp),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             text = label,
-            fontSize = 16.sp,
-            fontWeight = userFontWeight(),
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            fontSize = 17.sp,
+            fontFamily = SfProFontFamily,
+            fontWeight = FontWeight.Normal,
+            color = if (enabled) sheetTextColor() else sheetTextColor().copy(alpha = 0.35f),
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -147,6 +167,8 @@ fun FloatingMenuItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
             .then(if (enabled) Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -155,21 +177,22 @@ fun FloatingMenuItem(
                     onClick()
                 }
             ) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 14.dp),
+            .padding(horizontal = 4.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = icon,
             contentDescription = null,
-            tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            tint = if (enabled) sheetTextColor().copy(alpha = 0.6f) else sheetTextColor().copy(alpha = 0.35f),
             modifier = Modifier.size(22.dp),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             text = label,
-            fontSize = 16.sp,
-            fontWeight = userFontWeight(),
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+            fontSize = 17.sp,
+            fontFamily = SfProFontFamily,
+            fontWeight = FontWeight.Normal,
+            color = if (enabled) sheetTextColor() else sheetTextColor().copy(alpha = 0.35f),
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.api.YouTubeApi
@@ -103,7 +104,7 @@ fun YTMusicPlaylistsScreen(navController: NavController) {
             }
         } else if (isLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                AppleLoadingSpinner()
             }
         } else if (playlists.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -131,7 +132,7 @@ fun YTMusicPlaylistsScreen(navController: NavController) {
                 if (isRefreshing) {
                     item("refresh_indicator") {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            AppleLoadingSpinner()
                         }
                     }
                 }

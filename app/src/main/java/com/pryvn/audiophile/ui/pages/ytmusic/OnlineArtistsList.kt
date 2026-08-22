@@ -48,6 +48,7 @@ import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.toUI
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import kotlinx.coroutines.Dispatchers
@@ -127,7 +128,7 @@ fun OnlineArtistsList(navController: NavController) {
                             .height(100.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        androidx.compose.material3.CircularProgressIndicator()
+                        AppleLoadingSpinner()
                     }
                 }
             } else if (hasSearched && artists.isEmpty()) {

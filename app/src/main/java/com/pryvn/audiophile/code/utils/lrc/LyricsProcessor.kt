@@ -271,6 +271,7 @@ object LyricsProcessor {
 
     fun resetLyricsState() {
         clearWordSync()
+        MediaViewModelObject.parsedSyncedLyrics.value = null
         MediaViewModelObject.onlineLyrics.value = null
         MediaViewModelObject.lyricsSource.value = null
     }

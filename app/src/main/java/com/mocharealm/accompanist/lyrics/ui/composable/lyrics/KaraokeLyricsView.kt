@@ -1,10 +1,10 @@
 package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +56,7 @@ import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
 import com.mocharealm.accompanist.lyrics.ui.utils.modifier.springPlacement
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.absoluteValue
@@ -298,6 +299,8 @@ fun KaraokeLyricsView(
         }
     }
 
+    // Anchor fraction: where the current line sits vertically (audgit uses 8%).
+    val anchorFraction = 0.08f
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,
@@ -307,16 +310,25 @@ fun KaraokeLyricsView(
                 if (!scrollInCode.value) {
                     val items = listState.layoutInfo.visibleItemsInfo
                     val targetItem = items.firstOrNull { it.index == firstIndex }
+                    val viewportHeight = listState.layoutInfo.viewportSize.height
+                    val anchorPx = (viewportHeight * anchorFraction).toInt()
                     val scrollOffset =
-                        (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + stableOffsetPx + keepAliveZonePx))
+                        (targetItem?.offset?.minus(listState.layoutInfo.viewportStartOffset + anchorPx))
                     try {
                         scrollInCode.value = true
                         if (scrollOffset != null) {
-                            listState.scrollBy(scrollOffset.toFloat())
+                            listState.animateScrollBy(
+                            scrollOffset.toFloat(),
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 1f,
+                                stiffness = 150f,
+                                visibilityThreshold = 0.01f,
+                            ),
+                        )
                         } else {
                             listState.animateScrollToItem(
                                 firstIndex,
-                                (-stableOffsetPx - keepAliveZonePx).toInt()
+                                (-anchorPx).toInt()
                             )
                         }
                     } catch (_: Exception) {
@@ -326,9 +338,39 @@ fun KaraokeLyricsView(
                 }
             }
     }
+
+    // After manual scroll, return to current line if idle for 3 seconds
+    LaunchedEffect(lyricsFocusState.firstIndex) {
+        androidx.compose.runtime.snapshotFlow { isManualScrolling }.collect { scrolling ->
+            if (!scrolling) {
+                delay(3000)
+                val firstIndex = lyricsFocusState.firstIndex
+                val items = listState.layoutInfo.visibleItemsInfo
+                val targetItem = items.firstOrNull { it.index == firstIndex }
+                val viewportHeight = listState.layoutInfo.viewportSize.height
+                val anchorPx = (viewportHeight * anchorFraction).toInt()
+                val scrollOffset = targetItem?.offset?.minus(
+                    listState.layoutInfo.viewportStartOffset + anchorPx
+                )
+                if (scrollOffset != null && scrollOffset.toFloat() != 0f) {
+                    scrollInCode.value = true
+                    try {
+                        listState.animateScrollBy(
+                            scrollOffset.toFloat(),
+                            animationSpec = androidx.compose.animation.core.spring(
+                                dampingRatio = 1f,
+                                stiffness = 150f,
+                                visibilityThreshold = 0.01f,
+                            ),
+                        )
+                    } catch (_: Exception) {}
+                    finally { scrollInCode.value = false }
+                }
+            }
+        }
+    }
     LookaheadScope {
-        Crossfade(lyrics) { lyrics ->
-            Box(modifier = modifier.clipToBounds()) {
+        Box(modifier = modifier.clipToBounds()) {
                 LazyColumn(
                     state = listState,
                     modifier = modifier
@@ -506,6 +548,5 @@ fun KaraokeLyricsView(
                     }
                 }
             }
-        }
     }
 }

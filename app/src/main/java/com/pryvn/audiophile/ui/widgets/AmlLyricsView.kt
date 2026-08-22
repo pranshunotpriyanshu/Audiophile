@@ -3,6 +3,7 @@ package com.pryvn.audiophile.ui.widgets
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -29,6 +30,7 @@ import com.pryvn.audiophile.code.player.PlayerAdapter
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -58,7 +60,15 @@ fun AmlLyricsView(
     // Consume pre-parsed SyncedLyrics from the cache (parsed in LyricsProcessor)
     val syncedLyrics by MediaViewModelObject.parsedSyncedLyrics
 
+    // Show loading spinner while lyrics are being fetched from online sources
+    val isLoadingLyrics by MediaViewModelObject.isLoadingLyrics
+
     if (syncedLyrics == null) {
+        if (isLoadingLyrics) {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                AppleLoadingSpinner()
+            }
+        }
         // No synced lyrics available — caller handles empty state
         return
     }
@@ -115,7 +125,7 @@ fun AmlLyricsView(
 
     // ---- Swipe-down to show player controls ----
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
-    val swipeThreshold = 120f
+    val swipeThreshold = 40f
 
     // ---- Instant refresh on song change ----
     LaunchedEffect(syncedLyrics) {

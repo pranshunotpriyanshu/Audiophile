@@ -171,6 +171,7 @@ import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistSongs
 import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistSingles
 import com.pryvn.audiophile.ui.pages.ytmusic.onlineartistinfo.OnlineArtistAlbums
 import com.pryvn.audiophile.ui.pages.ytmusic.OnlineArtistsList
+import com.pryvn.audiophile.ui.pages.ytmusic.SongArtistsList
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import com.pryvn.audiophile.ui.pages.settings.performance.userinterface.UserInterfaceSetting
 import com.pryvn.audiophile.ui.pages.settings.integration.ShazamRecognitionScreen
@@ -696,6 +697,9 @@ class MainActivity : ComponentActivity() {
                                             }
                                             composable(UI.OnlineArtistsList) {
                                                 OnlineArtistsList(navController)
+                                            }
+                                            composable(UI.SongArtistsList) {
+                                                SongArtistsList(navController)
                                             }
                                         }
 

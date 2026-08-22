@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -159,7 +159,7 @@ fun OnlineArtistSongs(navController: NavController, browseId: String) {
                         .height(160.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    AppleLoadingSpinner()
                 }
             }
         } else if (displayedSongs.value.isEmpty()) {
@@ -261,7 +261,7 @@ private fun OnlineArtistReleasesGrid(
                         .height(200.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator()
+                    AppleLoadingSpinner()
                 }
             }
         }

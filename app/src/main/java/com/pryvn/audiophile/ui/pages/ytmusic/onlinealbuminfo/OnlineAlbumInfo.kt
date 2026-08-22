@@ -24,7 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -176,7 +176,7 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
 
             if (isLoading.value) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    AppleLoadingSpinner()
                 }
                 return@Box
             }
@@ -389,7 +389,7 @@ fontWeight = headingFontWeight()
                                 .padding(vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp))
+                            AppleLoadingSpinner()
                         }
                     }
                 }
