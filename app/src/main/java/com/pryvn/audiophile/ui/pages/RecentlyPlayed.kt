@@ -36,6 +36,8 @@ import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
+import com.pryvn.audiophile.ui.animation.itemEntrance
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -108,9 +110,13 @@ fun RecentlyPlayed(navController: NavController) {
             ) {
                 items(history, key = { it.videoId }) { entry: HistoryEntry ->
                     val song = entry.toYTSongItem()
+                    val cardInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     Column(
                         modifier = Modifier
+                            .pressableFeedback(cardInteraction, pressedScale = 0.96f)
                             .combinedClickable(
+                                interactionSource = cardInteraction,
+                                indication = null,
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
                                         when (entry.source) {
@@ -151,7 +157,7 @@ fun RecentlyPlayed(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
-                                .clip(RoundedCornerShape(8.dp)),
+                                .clip(RoundedCornerShape(12.dp)),
                         )
                         Text(
                             text = song.title,

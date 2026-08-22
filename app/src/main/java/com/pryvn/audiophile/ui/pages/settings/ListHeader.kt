@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.headline
 import com.pryvn.audiophile.ui.theme.headlineDark
 import com.pryvn.audiophile.ui.theme.withNight
@@ -16,7 +18,14 @@ import com.pryvn.audiophile.ui.theme.withNight
 fun ListHeader(content: String) = Box(
     modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 32.dp, vertical = 5.dp)
+        .padding(horizontal = 32.dp, vertical = 6.dp)
 ) {
-    Text(text = content, fontSize = 13.sp, lineHeight = 15.sp, color = headline withNight headlineDark)
+    Text(
+        text = content,
+        fontSize = 13.sp,
+        lineHeight = 15.sp,
+        fontWeight = FontWeight.Normal,
+        fontFamily = SfProFontFamily,
+        color = headline withNight headlineDark
+    )
 }

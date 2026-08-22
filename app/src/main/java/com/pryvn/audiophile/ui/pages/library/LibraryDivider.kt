@@ -17,8 +17,8 @@ fun LibraryDivider(modifier: Modifier = Modifier) =
     Spacer(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 60.dp)
-            .alpha(0.15f)
+            .padding(start = 62.dp)
+            .alpha(0.12f)
             .height(0.5.dp)
             .background(Color.Black withNight Color.White)
     )

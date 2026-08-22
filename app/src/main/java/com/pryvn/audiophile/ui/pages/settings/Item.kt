@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -30,6 +32,7 @@ import io.github.alexzhirkevich.cupertino.CupertinoSwitch
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.code.utils.others.Vibrator
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 
 
 @Composable
@@ -172,18 +175,21 @@ fun DefaultItem(
     onClick: (() -> Unit)?,
     backIcon: (@Composable () -> Unit)? = null
 ) {
+    val defaultInteraction = if (onClick != null) remember { MutableInteractionSource() } else null
     Row(
         Modifier
             .fillMaxWidth()
             .then(
-                if (onClick == null) Modifier else Modifier.clickable(enabled) {
-                    onClick()
-                }
+                if (onClick == null) Modifier
+                else Modifier
+                    .pressableFeedback(defaultInteraction!!, pressedScale = 0.98f, pressedAlpha = 0.85f)
+                    .clickable(enabled = enabled, interactionSource = defaultInteraction, indication = null) {
+                        onClick()
+                    }
             )
-            .padding(horizontal = 15.dp, vertical = 11.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .graphicsLayer {
                 if (!enabled) {
-                    // compositingStrategy = CompositingStrategy.Offscreen
                     alpha = 0.6f
                 }
             },
@@ -194,30 +200,27 @@ fun DefaultItem(
                 .fillMaxWidth()
                 .weight(1f)
                 .align(Alignment.CenterVertically)
-                .alpha(0.94f)
         ) {
             if (titleHighLight) {
                 Text(
                     text = title,
-                    fontSize = 16.5.sp,
-                    lineHeight = 20.5.sp,
-                    // fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
             } else {
                 Text(
                     text = title,
-                    fontSize = 16.5.sp,
-                    lineHeight = 20.5.sp,
-                    // fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
+                    lineHeight = 22.sp,
                 )
             }
 
             if (desc != null) {
                 Text(
                     text = desc,
-                    fontSize = 13.2.sp,
-                    lineHeight = 16.2.sp,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
                     modifier = Modifier.alpha(0.5f),
                 )
             }

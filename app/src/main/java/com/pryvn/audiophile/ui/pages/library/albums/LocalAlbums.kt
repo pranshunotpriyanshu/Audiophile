@@ -24,8 +24,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.pryvn.audiophile.R
@@ -184,23 +186,21 @@ private fun LazyGridItemScope.AlbumItems(
         Text(
             text = albumName,
             fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            fontFamily = SfProFontFamily,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .alpha(0.9f)
-            /*.sharedElement(
-                sharedTransitionScope.rememberSharedContentState(key = "album_name-$albumName"),
-                animatedVisibilityScope = animatedContentScope
-            )*/
         )
-        /*}*/
 
         Text(
             text = stringResource(id = R.string.page_library_album_desc, songs.size),
-            fontSize = 13.sp,
+            fontSize = 12.sp,
+            fontFamily = SfProFontFamily,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.alpha(0.6f),
+            modifier = Modifier.alpha(0.5f),
             lineHeight = 17.sp
         )
     }

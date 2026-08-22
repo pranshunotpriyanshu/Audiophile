@@ -3107,9 +3107,7 @@ fun PlayerControl(
                                 }
                                 AnimatedContent(targetState = buttonState, transitionSpec = {
                                     (scaleIn(initialScale = 0.85f) + fadeIn()).togetherWith(
-                                        scaleOut(
-                                            targetScale = 0.85f
-                                        ) + fadeOut()
+                                        scaleOut(targetScale = 0.85f) + fadeOut()
                                     )
                                 }) {
                                     when (it) {
@@ -3184,14 +3182,16 @@ fun PlayerControl(
                         horizontalArrangement = Arrangement.Center
                     ) {
                     val dp = 32.dp
+                    val lyricsInteraction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
                             .height(36.dp)
                             .weight(1f)
+                            .pressableScale(lyricsInteraction, pressedScale = 0.85f)
                             .clickable(
                                 onClick = { onLyrics() },
                                 indication = null,
-                                interactionSource = remember { MutableInteractionSource() }),
+                                interactionSource = lyricsInteraction),
                         contentAlignment = Alignment.Center
                     ) {
                         AnimatedContent(
@@ -3223,14 +3223,16 @@ fun PlayerControl(
 
                     Spacer(modifier = Modifier.weight(0.1f))
 
+                    val queueInteraction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
                             .height(36.dp)
                             .weight(1f)
+                            .pressableScale(queueInteraction, pressedScale = 0.85f)
                             .clickable(
                                 onClick = { onPlaylist() },
                                 indication = null,
-                                interactionSource = remember { MutableInteractionSource() }),
+                                interactionSource = queueInteraction),
                         contentAlignment = Alignment.Center
                     ) {
                         AnimatedContent(

@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.animation.pressableScale
 
 @Composable
 fun sheetSurface(): Color = if (isSystemInDarkTheme()) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
@@ -139,15 +140,17 @@ fun AppleSheetMenuRow(
         )
     }
     val rowAlpha = if (enabled) 1f else 0.35f
+    val rowInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(12.dp))
+            .pressableScale(rowInteraction, pressedScale = 0.97f)
             .clickable(
                 enabled = enabled,
                 indication = null,
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = rowInteraction,
                 onClick = onClick,
             )
             .background(Color.Transparent)

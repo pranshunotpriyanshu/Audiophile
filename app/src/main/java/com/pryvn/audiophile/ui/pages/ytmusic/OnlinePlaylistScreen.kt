@@ -39,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,6 +60,7 @@ import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 
 @Composable
@@ -159,7 +161,9 @@ fontWeight = headingFontWeight(),
 
                     Text(
                         text = "PLAYLIST",
-                        fontSize = 11.5.sp,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 1.5.sp,
                         modifier = Modifier
                             .alpha(0.4f)
                             .padding(top = 2.dp),
@@ -219,7 +223,7 @@ fontWeight = headingFontWeight(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 58.dp, end = 18.dp)
-                            .alpha(0.25f)
+                            .alpha(0.15f)
                             .height(0.5.dp)
                             .background(Color.Black withNight Color.White)
                     )
@@ -266,7 +270,7 @@ fontWeight = headingFontWeight(),
                         modifier = Modifier
                             .statusBarsPadding()
                             .padding(horizontal = 10.dp)
-                            .size(32.dp)
+                            .size(17.5.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -286,7 +290,7 @@ private fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modi
     Row(
         modifier = modifier
             .background(
-                color = (Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f),
+                color = (Color.LightGray withNight Color.DarkGray).copy(alpha = 0.2f),
                 shape = shape
             )
             .clip(shape)
@@ -299,14 +303,15 @@ private fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modi
             painter = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
-        Spacer(modifier = Modifier.width(5.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = userFontWeight(),
-            fontSize = 17.sp
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            fontFamily = SfProFontFamily,
         )
     }
 }
@@ -340,7 +345,7 @@ private fun PlaylistSongRow(
             size = 128,
             modifier = Modifier.size(48.dp),
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(Modifier.padding(vertical = 10.dp)) {
             Text(
@@ -352,11 +357,11 @@ private fun PlaylistSongRow(
             )
             Text(
                 text = if (song.artists.isNotEmpty()) song.artists.joinToString(", ") { it.name } else "",
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 16.sp,
-                modifier = Modifier.alpha(if (song.artists.isNotEmpty()) 0.4f else 0f),
+                lineHeight = 17.sp,
+                modifier = Modifier.alpha(if (song.artists.isNotEmpty()) 0.5f else 0f),
             )
         }
     }

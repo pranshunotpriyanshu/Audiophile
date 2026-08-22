@@ -12,8 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.R
@@ -73,8 +75,10 @@ fun YTMusicExploreScreen(navController: NavController) {
                 item("section_title_${section.title}") {
                     Text(
                         text = section.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = 18.dp, top = 12.dp, bottom = 4.dp),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = SfProFontFamily,
+                        modifier = Modifier.padding(start = 18.dp, top = 16.dp, bottom = 6.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -82,8 +86,8 @@ fun YTMusicExploreScreen(navController: NavController) {
 
                 item("section_row_${section.title}") {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(horizontal = 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(section.items) { item ->
                             ExploreItemCard(item = item, onClick = {
@@ -105,30 +109,32 @@ fun YTMusicExploreScreen(navController: NavController) {
 private fun ExploreItemCard(item: HomeItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(140.dp)
+            .width(150.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CachedArtworkImage(
             url = item.thumbnailUrl,
             contentDescription = null,
-            size = 280,
+            size = 300,
             modifier = Modifier
-                .width(140.dp)
-                .height(140.dp)
-                .padding(4.dp),
+                .width(150.dp)
+                .height(150.dp),
         )
         Text(
             text = item.title,
-            fontSize = 13.sp,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            fontFamily = SfProFontFamily,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         )
         if (item.artists.isNotEmpty()) {
             Text(
                 text = item.artists.joinToString(", ") { it.name },
-                fontSize = 11.sp,
+                fontSize = 12.sp,
+                fontFamily = SfProFontFamily,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

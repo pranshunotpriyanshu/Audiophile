@@ -307,7 +307,7 @@ fun Settings(navController: NavController) =
                         ListHeader("Home Feed")
                         RoundColumn {
                             SwitchItem(
-                                title = "Featured Picks",
+                                title = "Top Picks",
                                 onClick = { SettingsLibrary.HomeShowFeaturedPicks = !SettingsLibrary.HomeShowFeaturedPicks },
                                 checkedLambda = { SettingsLibrary.HomeShowFeaturedPicks }
                             )

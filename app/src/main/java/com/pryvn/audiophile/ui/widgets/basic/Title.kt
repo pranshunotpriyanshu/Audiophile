@@ -3,6 +3,7 @@ package com.pryvn.audiophile.ui.widgets.basic
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInCirc
 import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -69,6 +70,7 @@ import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
+import com.pryvn.audiophile.ui.animation.pressableScale
 
 /*@OptIn(ExperimentalCupertinoApi::class)
 @Composable
@@ -474,8 +476,8 @@ private fun TitleBar(
         AnimatedVisibility(
             visible = showSmallTitle.value,
             modifier = Modifier.fillMaxWidth(),
-            enter = fadeIn(animationSpec = tween(120)),
-            exit = fadeOut(animationSpec = tween(120))
+            enter = fadeIn(animationSpec = spring(stiffness = 400f, dampingRatio = 0.9f)),
+            exit = fadeOut(animationSpec = spring(stiffness = 500f, dampingRatio = 1f))
         ) {
             Spacer(
                 modifier = Modifier
@@ -487,9 +489,7 @@ private fun TitleBar(
                                 HazeMaterials
                                     .thick(Color.White withNight Color.Black)
                                     .copy(
-                                        blurRadius = 16.dp,
-                                        backgroundColor = Color.White withNight Color.Black,
-                                        tint = (Color.White withNight Color.Black).copy(alpha = 0.7f)
+                                        blurRadius = 40.dp
                                     )
                             )
                         else
@@ -505,6 +505,7 @@ private fun TitleBar(
         ) {
             Box(Modifier.height(statusBarHeight + 48.dp), contentAlignment = Alignment.CenterStart) {
                 if (onBack != null) {
+                    val backInteraction = remember { MutableInteractionSource() }
                     Icon(
                         painter = painterResource(id = R.drawable.ic_back),
                         contentDescription = null,
@@ -512,8 +513,9 @@ private fun TitleBar(
                             .statusBarsPadding()
                             .padding(horizontal = 10.dp)
                             .size(17.5.dp)
+                            .pressableScale(backInteraction, pressedScale = 0.8f)
                             .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
+                                interactionSource = backInteraction,
                                 indication = null,
                                 onClick = onBack
                             ),
@@ -532,17 +534,17 @@ private fun TitleBar(
                 ) {
                     AnimatedVisibility(
                         visible = showSmallTitle.value,
-                        enter = fadeIn(animationSpec = tween(120, easing = EaseOut)) +
+                        enter = fadeIn(animationSpec = spring(stiffness = 400f, dampingRatio = 0.9f)) +
                                 expandVertically(
                                     expandFrom = Alignment.Top,
                                     clip = false,
-                                    animationSpec = tween(120, easing = EaseOut)
+                                    animationSpec = spring(stiffness = 300f, dampingRatio = 0.9f)
                                 ),
-                        exit = fadeOut(animationSpec = tween(120, easing = EaseInCirc)) +
+                        exit = fadeOut(animationSpec = spring(stiffness = 500f, dampingRatio = 1f)) +
                                 shrinkVertically(
                                     shrinkTowards = Alignment.Top,
                                     clip = false,
-                                    animationSpec = tween(120, easing = EaseInCirc)
+                                    animationSpec = spring(stiffness = 500f, dampingRatio = 1f)
                                 )
                     ) {
                         Text(
@@ -562,8 +564,8 @@ private fun TitleBar(
 
             AnimatedVisibility(
                 visible = showSmallTitle.value,
-                enter = fadeIn(animationSpec = tween(120, easing = EaseOut)),
-                exit = fadeOut(animationSpec = tween(120, easing = EaseInCirc))
+                enter = fadeIn(animationSpec = spring(stiffness = 400f, dampingRatio = 0.9f)),
+                exit = fadeOut(animationSpec = spring(stiffness = 500f, dampingRatio = 1f))
             ) {
                 Spacer(
                     modifier = Modifier

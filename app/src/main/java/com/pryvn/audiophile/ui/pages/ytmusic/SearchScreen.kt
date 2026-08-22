@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,7 @@ import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.MarqueeText
 import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import kotlinx.coroutines.Dispatchers
@@ -891,11 +893,15 @@ private fun SearchSongRow(
         }
     }
     val isPlaying = MediaViewModelObject.isPlaying
+    val songInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(YosRoundedCornerShape(12.dp))
+            .pressableFeedback(songInteraction, pressedScale = 0.98f, pressedAlpha = 0.85f)
             .combinedClickable(
+                interactionSource = songInteraction,
+                indication = null,
                 onClick = onPlay,
                 onLongClick = onOverflow,
             )
@@ -973,12 +979,18 @@ private fun GenreCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val genreInteraction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
             .height(105.dp)
             .clip(YosRoundedCornerShape(14.dp))
             .background(category.color)
-            .clickable(onClick = onClick)
+            .pressableFeedback(genreInteraction, pressedScale = 0.96f)
+            .clickable(
+                interactionSource = genreInteraction,
+                indication = null,
+                onClick = onClick,
+            )
     ) {
         if (category.coverUri != null) {
             Box(
@@ -1024,12 +1036,18 @@ private fun SearchShortcutPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val pillInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .height(48.dp)
             .clip(YosRoundedCornerShape(14.dp))
             .background(Color.Gray.copy(alpha = 0.12f))
-            .clickable(onClick = onClick)
+            .pressableFeedback(pillInteraction, pressedScale = 0.96f)
+            .clickable(
+                interactionSource = pillInteraction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

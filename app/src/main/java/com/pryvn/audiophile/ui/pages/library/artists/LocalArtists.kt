@@ -2,6 +2,7 @@ package com.pryvn.audiophile.ui.pages.library.artists
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,7 @@ import com.pryvn.audiophile.ui.toUI
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 
 @Composable
 fun LocalArtists(navController: NavController) {
@@ -183,13 +185,19 @@ private fun LazyItemScope.ArtistItem(
     modifier: Modifier = Modifier,
     artistName: String,
     onClick: () -> Unit
-) =
+) {
+    val artistInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .animateItem(fadeInSpec = null, fadeOutSpec = null)
             .fillMaxWidth()
             .height(56.dp)
-            .clickable(onClick = onClick)
+            .pressableFeedback(artistInteraction, pressedScale = 0.98f, pressedAlpha = 0.85f)
+            .clickable(
+                interactionSource = artistInteraction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(start = 18.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -272,3 +280,4 @@ private fun LazyItemScope.ArtistItem(
                 .alpha(0.3f), tint = MaterialTheme.colorScheme.onBackground
         )
     }
+}

@@ -35,6 +35,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -215,6 +217,18 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         enableEdgeToEdge()
         window.attributes.windowAnimations = 0
+
+        // Request 120fps refresh rate for maximum smoothness
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val display = windowManager?.defaultDisplay
+            if (display != null) {
+                val supportedModes = display.supportedModes
+                val highRefreshMode = supportedModes?.maxByOrNull { it.refreshRate }
+                if (highRefreshMode != null && highRefreshMode.refreshRate >= 120f) {
+                    window.attributes.preferredDisplayModeId = highRefreshMode.modeId
+                }
+            }
+        }
         setContent {
             YosMusicTheme {
                     val context = LocalContext.current
@@ -491,51 +505,64 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         AnimatedNavHost(
-                                            modifier = Modifier.then(
-                                                if (SettingsLibrary.BarBlurEffect && !showNowPlaying.value) {
-                                                    Modifier.haze(state = hazeState)
-                                                } else {
-                                                    //println("haze parent effect disabled")
-                                                    Modifier
-                                                }
-                                            ),
+                                            modifier = Modifier,
                                             navController = navController,
                                             startDestination = UI.HomePage,
                                             enterTransition = {
-                                                fadeIn(animationSpec = fadeAnimationSpec) + expandHorizontally(
-                                                    animationSpec = animationSpec,
-                                                    clip = false,
-                                                    expandFrom = Alignment.Start
-                                                ) {
-                                                    -it / 2
-                                                }
+                                                slideInHorizontally(
+                                                    initialOffsetX = { it },
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.92f,
+                                                        stiffness = 280f,
+                                                    )
+                                                ) + fadeIn(
+                            animationSpec = spring(
+                                dampingRatio = 0.92f,
+                                stiffness = 280f,
+                            )
+                        )
                                             },
                                             exitTransition = {
-                                                fadeOut(animationSpec = fadeAnimationSpec) + shrinkHorizontally(
-                                                    animationSpec = animationSpec,
-                                                    clip = false,
-                                                    shrinkTowards = Alignment.End
-                                                ) {
-                                                    it / 2
-                                                }
+                                                slideOutHorizontally(
+                                                    targetOffsetX = { it / 3 },
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.92f,
+                                                        stiffness = 280f,
+                                                    )
+                                                ) + fadeOut(
+                            animationSpec = spring(
+                                dampingRatio = 0.92f,
+                                stiffness = 280f,
+                            )
+                        )
                                             },
                                             popEnterTransition = {
-                                                fadeIn(animationSpec = fadeAnimationSpec) + expandHorizontally(
-                                                    animationSpec = animationSpec,
-                                                    clip = false,
-                                                    expandFrom = Alignment.End
-                                                ) {
-                                                    it / 2
-                                                }
+                                                slideInHorizontally(
+                                                    initialOffsetX = { -it / 3 },
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.92f,
+                                                        stiffness = 280f,
+                                                    )
+                                                ) + fadeIn(
+                            animationSpec = spring(
+                                dampingRatio = 0.92f,
+                                stiffness = 280f,
+                            )
+                        )
                                             },
                                             popExitTransition = {
-                                                fadeOut(animationSpec = fadeAnimationSpec) + shrinkHorizontally(
-                                                    animationSpec = animationSpec,
-                                                    clip = false,
-                                                    shrinkTowards = Alignment.Start
-                                                ) {
-                                                    -it / 2
-                                                }
+                                                slideOutHorizontally(
+                                                    targetOffsetX = { it },
+                                                    animationSpec = spring(
+                                                        dampingRatio = 0.92f,
+                                                        stiffness = 280f,
+                                                    )
+                                                ) + fadeOut(
+                            animationSpec = spring(
+                                dampingRatio = 0.92f,
+                                stiffness = 280f,
+                            )
+                        )
                                             }) {
 
                                             composable(UI.HomePage) {

@@ -76,22 +76,31 @@ fun SearchTextField(
         Row(
             modifier = modifier
                 .background(
-                    (Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f),
-                    RoundedCornerShape(10.dp)
+                    (Color.LightGray withNight Color.DarkGray).copy(alpha = 0.18f),
+                    RoundedCornerShape(12.dp)
                 )
-                .height(44.dp),
+                .height(40.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_uitabbar_search),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .size(18.dp),
+                tint = (Color.Black withNight Color.White).copy(alpha = 0.4f)
+            )
+            Spacer(Modifier.width(6.dp))
             Box(
                 Modifier
                     .weight(1f)
-                    .padding(horizontal = 10.dp)
+                    .padding(end = 10.dp)
             ) {
                 if (text.isEmpty() && !showDisplayText) {
                     Text(
                         placeholder,
                         fontSize = fontSize,
-                        modifier = Modifier.alpha(0.6f),
+                        modifier = Modifier.alpha(0.45f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -138,7 +147,7 @@ fun SearchTextField(
                 Box(
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .size(28.dp)
+                        .size(26.dp)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -149,11 +158,11 @@ fun SearchTextField(
                     Icon(
                         painter = painterResource(id = R.drawable.ic_action_close),
                         contentDescription = stringResource(R.string.playlist_search_clear_cd),
-                        tint = (Color.Black withNight Color.White).copy(alpha = 0.55f),
-                        modifier = Modifier.size(18.dp),
+                        tint = (Color.Black withNight Color.White).copy(alpha = 0.4f),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             }
         }
     }

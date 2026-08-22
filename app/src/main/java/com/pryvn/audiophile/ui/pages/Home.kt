@@ -15,17 +15,19 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -69,6 +71,9 @@ import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
 import com.pryvn.audiophile.ui.widgets.basic.rememberArtworkDominantColor
 import com.pryvn.audiophile.ui.widgets.basic.darken
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
+import com.pryvn.audiophile.ui.animation.pressableFeedback
+import com.pryvn.audiophile.ui.animation.itemEntrance
+import com.pryvn.audiophile.ui.animation.shimmer
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -405,11 +410,23 @@ fun Home(
                 }
 
                 if (!isLoading && !loadError) {
-                    // Featured Picks
-                    if (tryTheseSongs.isNotEmpty() && SettingsLibrary.HomeShowFeaturedPicks) {
+                    // Top Picks (Apple Music-style sticky card pager)
+                    if (SettingsLibrary.HomeShowFeaturedPicks) {
                         item("toppicks_title") {
-                            SectionHeader("Featured Picks")
+                            SectionHeader(
+                                "Featured Picks",
+                                modifier = Modifier.itemEntrance(0)
+                            )
                         }
+
+                        // Shimmer placeholder while loading
+                        if (isLoading && tryTheseSongs.isEmpty()) {
+                            item("toppicks_shimmer") {
+                                ShimmerTopPickPlaceholder()
+                            }
+                        }
+
+                        if (tryTheseSongs.isNotEmpty()) {
                         item("toppicks_pager") {
                             val pagerState = rememberPagerState(
                                 pageCount = { tryTheseSongs.size },
@@ -417,12 +434,17 @@ fun Home(
                             HorizontalPager(
                                 state = pagerState,
                                 beyondViewportPageCount = 1,
-                                contentPadding = PaddingValues(start = 20.dp, end = 136.dp),
+                                contentPadding = PaddingValues(start = 20.dp, end = 52.dp),
                                 pageSize = PageSize.Fill,
-                                modifier = Modifier.height(420.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(400.dp)
+                                    .itemEntrance(1),
                             ) { page ->
-                                FeaturedPickCard(
+                                TopPickCard(
                                     song = tryTheseSongs[page],
+                                    pagerState = pagerState,
+                                    thisPage = page,
                                     onClick = {
                                         scope.launch(Dispatchers.IO) {
                                             MediaController.playOnline(tryTheseSongs[page])
@@ -435,7 +457,8 @@ fun Home(
                                 )
                             }
                         }
-                    }
+                        } // end tryTheseSongs.isNotEmpty()
+                    } // end HomeShowFeaturedPicks
 
                     // Recently Played
                     if (SettingsLibrary.HomeShowRecentlyPlayed && (!recentLoading || recentlyPlayed.isNotEmpty())) {
@@ -443,6 +466,7 @@ fun Home(
                             SectionHeaderWithArrow(
                                 title = "Recently Played",
                                 onClick = { navController.toUI(UI.RecentlyPlayed) },
+                                modifier = Modifier.itemEntrance(2)
                             )
                         }
                         if (recentlyPlayed.isNotEmpty()) {
@@ -500,7 +524,10 @@ fun Home(
                     // Related
                     if (SettingsLibrary.HomeShowRelated) {
                     item("related_title") {
-                        SectionHeader("Because You Recently Listened")
+                        SectionHeader(
+                            "Because You Recently Listened",
+                            modifier = Modifier.itemEntrance(3)
+                        )
                     }
                     if (relatedSongs.isNotEmpty()) {
                         item("related_list") {
@@ -538,6 +565,7 @@ fun Home(
                             SectionHeaderWithArrow(
                                 title = "World of $dailyArtistName",
                                 onClick = {},
+                                modifier = Modifier.itemEntrance(4)
                             )
                         }
                         item("daily_artist_list") {
@@ -569,6 +597,7 @@ fun Home(
                             SectionHeaderWithArrow(
                                 title = dailyDiscoverTitle,
                                 onClick = {},
+                                modifier = Modifier.itemEntrance(5)
                             )
                         }
                         item("daily_discover_list") {
@@ -597,7 +626,10 @@ fun Home(
                     // Find Your Mood
                     if (SettingsLibrary.HomeShowMood) {
                     item("mood_title") {
-                        SectionHeader("Find Your Mood")
+                        SectionHeader(
+                            "Find Your Mood",
+                            modifier = Modifier.itemEntrance(6)
+                        )
                     }
                     item("mood_list") {
                         LazyRow(
@@ -754,14 +786,14 @@ private fun parseSongList(json: String): List<YTSongItem> {
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontWeight = headingFontWeight(),
         fontSize = 22.sp,
         lineHeight = 22.sp,
         fontFamily = SfProFontFamily,
-        modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 10.dp),
+        modifier = modifier.padding(start = 20.dp, top = 24.dp, bottom = 10.dp),
     )
 }
 
@@ -769,9 +801,10 @@ private fun SectionHeader(text: String) {
 private fun SectionHeaderWithArrow(
     title: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(start = 20.dp, top = 24.dp, bottom = 10.dp, end = 20.dp),
@@ -808,102 +841,168 @@ private fun EmptyMessage(text: String) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FeaturedPickCard(
+private fun TopPickCard(
     song: YTSongItem,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+    thisPage: Int,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
     val artworkUrl = song.thumbnailUrl.toHighResThumbnail()
     val dominantColor = rememberArtworkDominantColor(url = artworkUrl)
+    val cardInteraction = remember { MutableInteractionSource() }
+
+    // Parallax: artwork shifts opposite to swipe direction (max ~14dp)
+    val parallaxOffset by remember {
+        derivedStateOf {
+            val offset = (pagerState.currentPage - thisPage) + pagerState.currentPageOffsetFraction
+            (14.dp * offset).coerceIn((-14).dp, 14.dp)
+        }
+    }
+
+    // Settle effect: active page is full scale, adjacent pages recede
+    val settleScale by remember {
+        derivedStateOf {
+            val offset = (pagerState.currentPage - thisPage) + pagerState.currentPageOffsetFraction
+            val absOffset = kotlin.math.abs(offset)
+            lerp(1f, 0.94f, absOffset.coerceIn(0f, 1f))
+        }
+    }
+    val settleAlpha by remember {
+        derivedStateOf {
+            val offset = (pagerState.currentPage - thisPage) + pagerState.currentPageOffsetFraction
+            val absOffset = kotlin.math.abs(offset)
+            lerp(1f, 0.88f, absOffset.coerceIn(0f, 1f))
+        }
+    }
+
+    // Blur: non-active cards get a gentle blur that increases with distance
+    val blurRadius by remember {
+        derivedStateOf {
+            val offset = (pagerState.currentPage - thisPage) + pagerState.currentPageOffsetFraction
+            val absOffset = kotlin.math.abs(offset)
+            lerp(0f, 12f, absOffset.coerceIn(0f, 1f))
+        }
+    }
+
+    // Shadow: active card has a lifted shadow, adjacent cards are flat
+    val shadowElevation by remember {
+        derivedStateOf {
+            val offset = (pagerState.currentPage - thisPage) + pagerState.currentPageOffsetFraction
+            val absOffset = kotlin.math.abs(offset)
+            lerp(16f, 0f, absOffset.coerceIn(0f, 1f))
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .aspectRatio(0.78f)
+            .graphicsLayer {
+                scaleX = settleScale
+                scaleY = settleScale
+                alpha = settleAlpha
+                // Shadow: lifts the active card off the surface
+                this.shadowElevation = shadowElevation
+                shape = RoundedCornerShape(20.dp)
+                clip = true
+                // Blur: softens non-active cards for depth-of-field
+                if (blurRadius > 0.5f) {
+                    renderEffect = BlurEffect(
+                        radiusX = blurRadius * density,
+                        radiusY = blurRadius * density,
+                        edgeTreatment = TileMode.Clamp,
+                    )
+                } else {
+                    renderEffect = null
+                }
+            }
+            .clip(RoundedCornerShape(20.dp))
+            .pressableFeedback(cardInteraction, pressedScale = 0.97f)
             .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = cardInteraction,
                 indication = null,
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.85f)
-                .clip(RoundedCornerShape(14.dp)),
+            modifier = Modifier.fillMaxSize(),
         ) {
-            CachedArtworkImage(
-                url = artworkUrl,
-                contentDescription = null,
-                size = 556,
-                modifier = Modifier.fillMaxSize(),
-            )
+            // Full-bleed artwork with parallax shift
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp)),
+            ) {
+                CachedArtworkImage(
+                    url = artworkUrl,
+                    contentDescription = null,
+                    size = 556,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = parallaxOffset.toPx()
+                        },
+                )
+            }
+            // Cinematic gradient overlay — darkens dramatically toward bottom
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                dominantColor.darken(0.35f).copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.75f),
+                                Color.Transparent,
+                                dominantColor.darken(0.5f).copy(alpha = 0.10f),
+                                Color.Black.copy(alpha = 0.35f),
+                                Color.Black.copy(alpha = 0.78f),
+                                Color.Black.copy(alpha = 0.92f),
                             ),
+                            startY = 0f,
+                            endY = Float.POSITIVE_INFINITY,
                         ),
                     ),
             )
+            // Text overlay at bottom
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(16.dp),
+                    .padding(start = 20.dp, end = 20.dp, bottom = 22.dp),
             ) {
                 Text(
                     text = "From Library",
                     fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
                     fontFamily = SfProFontFamily,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = Color(0xFFCCBBAA).copy(alpha = 0.85f),
                     maxLines = 1,
+                    letterSpacing = 0.3.sp,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = song.title,
-                    fontSize = 19.sp,
-                    fontWeight = userFontWeight(),
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                     fontFamily = SfProFontFamily,
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    lineHeight = 24.sp,
+                    letterSpacing = (-0.2).sp,
                 )
                 if (song.artists.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(5.dp))
                     Text(
                         text = song.artists.joinToString(", ") { it.name },
-                        fontSize = 14.sp,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
                         fontFamily = SfProFontFamily,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Color.White.copy(alpha = 0.65f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-            }
-            // Play button overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.25f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onClick,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Play",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp),
-                )
             }
         }
     }
@@ -916,10 +1015,13 @@ private fun AlbumCard(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val cardInteraction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
             .width(160.dp)
+            .pressableFeedback(cardInteraction, pressedScale = 0.96f)
             .combinedClickable(
+                interactionSource = cardInteraction,
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
@@ -961,10 +1063,16 @@ private fun MoodCard(
     mood: MoodCategory,
     onClick: () -> Unit,
 ) {
+    val moodInteraction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
             .width(160.dp)
-            .clickable(onClick = onClick),
+            .pressableFeedback(moodInteraction, pressedScale = 0.96f)
+            .clickable(
+                interactionSource = moodInteraction,
+                indication = null,
+                onClick = onClick,
+            ),
     ) {
         Box(
             modifier = Modifier
@@ -997,10 +1105,13 @@ private fun HomeCard(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val homeCardInteraction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
             .width(150.dp)
+            .pressableFeedback(homeCardInteraction, pressedScale = 0.96f)
             .combinedClickable(
+                interactionSource = homeCardInteraction,
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
@@ -1034,4 +1145,17 @@ private fun HomeCard(
             )
         }
     }
+}
+
+@Composable
+private fun ShimmerTopPickPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(400.dp)
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .shimmer()
+    )
 }

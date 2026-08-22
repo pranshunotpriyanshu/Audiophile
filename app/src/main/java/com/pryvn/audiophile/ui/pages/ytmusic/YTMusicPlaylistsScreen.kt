@@ -26,6 +26,7 @@ import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -161,10 +162,11 @@ private fun PlaylistRow(playlist: YTPlaylist, onClick: () -> Unit) {
                 .width(48.dp)
                 .height(48.dp),
         )
-        Column(Modifier.padding(start = 12.dp).weight(1f)) {
+        Column(Modifier.padding(start = 14.dp).weight(1f)) {
             Text(
                 text = playlist.title,
-                fontSize = 15.sp,
+                fontSize = 17.sp,
+                fontFamily = SfProFontFamily,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -178,7 +180,8 @@ private fun PlaylistRow(playlist: YTPlaylist, onClick: () -> Unit) {
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
+                    fontFamily = SfProFontFamily,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -186,5 +189,5 @@ private fun PlaylistRow(playlist: YTPlaylist, onClick: () -> Unit) {
             }
         }
     }
-    HorizontalDivider(modifier = Modifier.padding(start = 64.dp))
+    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f))
 }

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,8 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pryvn.audiophile.R
@@ -39,6 +42,10 @@ import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImageWithCache
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
+import com.pryvn.audiophile.ui.animation.pressableFeedback
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.widgets.basic.PlayingIndicator
+import com.pryvn.audiophile.code.MediaController
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -125,12 +132,15 @@ LaunchedEffect(Unit) {
         )
     )
     val alpha by animateFloatAsState(if (music() == musicPlaying.value) 0.3F else 1F)*/
+    val isCurrentlyPlaying = music.mediaId != null && music.mediaId == MediaController.musicPlaying.value?.mediaId
+    val listInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Row(
         modifier = Modifier
-            /*.animateItem(fadeInSpec = null, fadeOutSpec = null)*/
             .height(64.dp)
             .fillMaxWidth()
+            .pressableFeedback(listInteraction, pressedScale = 0.98f, pressedAlpha = 0.85f)
             .combinedClickable(
+                interactionSource = listInteraction,
                 onClick = {
                     if (selectionMode) onToggleSelected?.invoke() else itemClick()
                 },
@@ -139,7 +149,7 @@ LaunchedEffect(Unit) {
                     songMenuOpen.value = true
                 },
             )
-            .padding(horizontal = 22.dp),
+            .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box {
@@ -169,23 +179,36 @@ LaunchedEffect(Unit) {
             }
         }
 
-        Column(Modifier.padding(start = 16.dp)) {
-            Text(
-                text = music.title ?: defaultTitle,
-                modifier = Modifier.padding(bottom = 1.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontSize = 16.sp,
-                lineHeight = 16.sp,
-            )
-
+        Column(Modifier.padding(start = 14.dp).weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 2.dp),
+            ) {
+                if (isCurrentlyPlaying) {
+                    PlayingIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 6.dp),
+                    )
+                }
+                Text(
+                    text = music.title ?: defaultTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = if (isCurrentlyPlaying) FontWeight.SemiBold else FontWeight.Normal,
+                    fontFamily = SfProFontFamily,
+                    color = if (isCurrentlyPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                )
+            }
             Text(
                 text = music.artistsName ?: defaultArtistsName,
-                modifier = Modifier.alpha(0.5f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 13.sp,
-                lineHeight = 13.sp,
+                lineHeight = 17.sp,
+                fontFamily = SfProFontFamily,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
         }
     }

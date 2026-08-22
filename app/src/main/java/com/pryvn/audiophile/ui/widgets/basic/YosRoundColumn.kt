@@ -18,8 +18,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 
-private val defaultCorner = 9.dp
-private val defaultPadding = 16.5.dp
+private val defaultCorner = 10.dp
+private val defaultPadding = 16.dp
 
 @Composable
 fun RoundColumn(

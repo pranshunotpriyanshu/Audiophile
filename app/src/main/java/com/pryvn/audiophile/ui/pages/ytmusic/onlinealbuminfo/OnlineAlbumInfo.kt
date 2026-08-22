@@ -6,6 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,6 +84,7 @@ import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
 import com.pryvn.audiophile.ui.widgets.basic.rememberArtworkDominantColor
 import com.pryvn.audiophile.ui.widgets.basic.darken
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 
@@ -281,15 +283,14 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                             .statusBarsPadding()
                             .padding(top = 54.dp, bottom = 24.dp),
                         contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 36.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            // Large album artwork
-                            ShadowImage(
+                    ) {    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 36.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // Large album artwork
+        ShadowImage(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp)),
@@ -520,11 +521,17 @@ private fun AlbumActionButton(
     }
     val iconTint = if (accent) Color.White else MaterialTheme.colorScheme.primary
 
+    val btnInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .background(color = bgColor, shape = shape)
             .clip(shape)
-            .clickable(onClick = onClick)
+            .pressableFeedback(btnInteraction, pressedScale = 0.96f)
+            .clickable(
+                interactionSource = btnInteraction,
+                indication = null,
+                onClick = onClick,
+            )
             .height(46.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -562,10 +569,14 @@ private fun AlbumSongsItem(
 ) {
     val context = LocalContext.current
     val songMenuOpen = remember(music.uri, music.mediaId) { mutableStateOf(false) }
+    val trackInteraction = remember { MutableInteractionSource() }
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .pressableFeedback(trackInteraction, pressedScale = 0.98f, pressedAlpha = 0.85f)
             .combinedClickable(
+                interactionSource = trackInteraction,
+                indication = null,
                 onClick = onClick,
                 onLongClick = {
                     Vibrator.longClick(context)

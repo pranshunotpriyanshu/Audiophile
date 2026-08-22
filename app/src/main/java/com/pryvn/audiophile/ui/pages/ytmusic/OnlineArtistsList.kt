@@ -2,6 +2,7 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,7 @@ import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
+import com.pryvn.audiophile.ui.animation.pressableFeedback
 import com.pryvn.audiophile.ui.widgets.basic.SearchTextField
 import com.pryvn.audiophile.ui.widgets.basic.TitleWithLazyVerticalGrid
 import kotlinx.coroutines.Dispatchers
@@ -194,10 +196,16 @@ private fun ArtistGridItem(
     artist: YTArtistSearchItem,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .pressableFeedback(interaction, pressedScale = 0.96f)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -224,13 +232,13 @@ private fun ArtistGridItem(
         Spacer(Modifier.height(10.dp))
         Text(
             text = artist.name,
-            fontSize = 15.sp,
-            fontWeight = userFontWeight(),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
             fontFamily = SfProFontFamily,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            lineHeight = 19.sp,
+            lineHeight = 18.sp,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
     }

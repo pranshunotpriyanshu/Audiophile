@@ -31,31 +31,67 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.ui.unit.sp
+import com.pryvn.audiophile.ui.animation.pressableFeedback
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
+import com.pryvn.audiophile.ui.theme.withNight
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+
 
 @Stable
 data class NavItem(val label: String, val iconResId: Int)
 
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun BottomNavigator(
     nowLabel: () -> String,
     onLabelChange: (String) -> Unit,
     items: List<NavItem>,
-    modifier: Modifier
+    modifier: Modifier,
+    hazeState: HazeState = remember { HazeState() },
 ) {
     val navBarHeight = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() + 64.dp }
     Box(
         modifier
             .fillMaxWidth()
             .height(navBarHeight)
-        //.background(Color.White withNight Color.Black)
     ) {
-        /*Spacer(
+        // Apple-style translucent material background with blur
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .alpha(0.08f)
-                .height(1.6.dp)
-                .background(Color.Black withNight Color.White)
-        )*/
+                .height(62.dp)
+                .align(Alignment.BottomCenter)
+                .then(
+                    if (SettingsLibrary.BarBlurEffect)
+                        Modifier.hazeChild(
+                            hazeState,
+                            HazeMaterials.thick(Color.White withNight Color.Black)
+                                .copy(
+                                    blurRadius = 40.dp
+                                )
+                        )
+                    else
+                        Modifier.background(Color.White withNight Color.Black)
+                )
+        )
+        // Thin top separator — Apple's hairline divider
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .align(Alignment.TopCenter)
+                .background((Color.Black withNight Color.White).copy(alpha = 0.12f))
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -74,44 +110,55 @@ fun RowScope.NavigatorItem(
     item: NavItem,
     nowLabel: () -> String,
     onLabelChange: (String) -> Unit
-) =
+) {
+    val isSelected = remember(item) {
+        derivedStateOf { nowLabel() == item.label }
+    }
+    val navInteraction = remember { MutableInteractionSource() }
+    val color by animateColorAsState(
+        targetValue = if (isSelected.value) MaterialTheme.colorScheme.primary else Color(0xFF8E8E93),
+        animationSpec = spring(stiffness = 350f, dampingRatio = 0.85f),
+        label = "navTint",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected.value) 1f else 0.92f,
+        animationSpec = spring(stiffness = 350f, dampingRatio = 0.85f),
+        label = "navScale",
+    )
+
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxHeight()
             .weight(1f)
+            .pressableFeedback(navInteraction, pressedScale = 0.85f, pressedAlpha = 0.65f)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = /*ripple(bounded = true, radius = 68.dp)*/ null
+                interactionSource = navInteraction,
+                indication = null,
             ) {
                 onLabelChange(item.label)
             }
     ) {
-        val isSelected = remember(item) {
-            derivedStateOf {
-                nowLabel() == item.label
-            }
-        }
-        val color = animateColorAsState(
-            targetValue = if (isSelected.value) MaterialTheme.colorScheme.primary else Color.Gray,
-            animationSpec = spring(stiffness = 500f, dampingRatio = 0.82f),
-            label = "navTint",
-        )
-
         Icon(
             painterResource(item.iconResId),
             contentDescription = null,
-            tint = color.value,
+            tint = color,
             modifier = Modifier
-                .size(30.dp)
-                .padding(bottom = 0.dp)
+                .size(28.dp)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
         )
         Text(
             item.label,
-            color = color.value,
-            fontSize = 12.sp,
+            color = color,
+            fontSize = 10.sp,
             lineHeight = 12.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = if (isSelected.value) FontWeight.SemiBold else FontWeight.Medium,
+            fontFamily = SfProFontFamily,
+            modifier = Modifier.padding(top = 2.dp)
         )
     }
+}
