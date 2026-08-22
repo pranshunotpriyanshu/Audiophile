@@ -1,7 +1,6 @@
 package com.pryvn.audiophile.ui.pages
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -19,6 +18,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -52,6 +52,7 @@ import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.data.libraries.HistoryEntry
 import com.pryvn.audiophile.data.libraries.ListeningHistory
 import com.pryvn.audiophile.data.libraries.PlaybackSource
+import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 import com.pryvn.audiophile.data.libraries.toHighResThumbnail
 import com.pryvn.audiophile.data.models.ImageViewModel
@@ -65,6 +66,8 @@ import com.pryvn.audiophile.ui.theme.screenTitleFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
 import com.pryvn.audiophile.ui.widgets.basic.ProfileButton
 import com.pryvn.audiophile.ui.widgets.basic.PullToRefreshLayout
+import com.pryvn.audiophile.ui.widgets.basic.rememberArtworkDominantColor
+import com.pryvn.audiophile.ui.widgets.basic.darken
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 import org.json.JSONArray
 import org.json.JSONObject
@@ -99,16 +102,17 @@ private fun YTSongItem.toYosMediaItem(): YosMediaItem = YosMediaItem(
 
 private data class MoodCategory(
     val name: String,
+    val searchQuery: String,
     val color: Color,
     val icon: String,
 )
 
 private val moodCategories = listOf(
-    MoodCategory("Feel Good", Color(0xFFF5A623), "\u2606"),
-    MoodCategory("Love", Color(0xFFE91E63), "\u2665"),
-    MoodCategory("Chill", Color(0xFF5C6BC0), "\u2615"),
-    MoodCategory("Workout", Color(0xFFE53935), "\u26A1"),
-    MoodCategory("Focus", Color(0xFF43A047), "\u2605"),
+    MoodCategory("Feel Good", "Feel Good Music", Color(0xFFF5A623), "\u2606"),
+    MoodCategory("Love", "Love Songs Romance", Color(0xFFE91E63), "\u2665"),
+    MoodCategory("Chill", "Chill Relaxation Lo-fi", Color(0xFF5C6BC0), "\u2615"),
+    MoodCategory("Workout", "Workout Gym Energy", Color(0xFFE53935), "\u26A1"),
+    MoodCategory("Focus", "Focus Study Deep", Color(0xFF43A047), "\u2605"),
 )
 
 @Composable
@@ -402,7 +406,7 @@ fun Home(
 
                 if (!isLoading && !loadError) {
                     // Featured Picks
-                    if (tryTheseSongs.isNotEmpty()) {
+                    if (tryTheseSongs.isNotEmpty() && SettingsLibrary.HomeShowFeaturedPicks) {
                         item("toppicks_title") {
                             SectionHeader("Featured Picks")
                         }
@@ -434,7 +438,7 @@ fun Home(
                     }
 
                     // Recently Played
-                    if (!recentLoading || recentlyPlayed.isNotEmpty()) {
+                    if (SettingsLibrary.HomeShowRecentlyPlayed && (!recentLoading || recentlyPlayed.isNotEmpty())) {
                         item("recent_header") {
                             SectionHeaderWithArrow(
                                 title = "Recently Played",
@@ -494,6 +498,7 @@ fun Home(
                     }
 
                     // Related
+                    if (SettingsLibrary.HomeShowRelated) {
                     item("related_title") {
                         SectionHeader("Because You Recently Listened")
                     }
@@ -525,8 +530,10 @@ fun Home(
                         }
                     }
 
+                    } // end HomeShowRelated
+
                     // Daily Artist Spotlight
-                    if (dailyArtistSongs.isNotEmpty()) {
+                    if (SettingsLibrary.HomeShowDailyArtist && dailyArtistSongs.isNotEmpty()) {
                         item("daily_artist_title") {
                             SectionHeaderWithArrow(
                                 title = "World of $dailyArtistName",
@@ -557,7 +564,7 @@ fun Home(
                     }
 
                     // Daily Discover
-                    if (dailyDiscoverSongs.isNotEmpty()) {
+                    if (SettingsLibrary.HomeShowDailyDiscover && dailyDiscoverSongs.isNotEmpty()) {
                         item("daily_discover_title") {
                             SectionHeaderWithArrow(
                                 title = dailyDiscoverTitle,
@@ -588,6 +595,7 @@ fun Home(
                     }
 
                     // Find Your Mood
+                    if (SettingsLibrary.HomeShowMood) {
                     item("mood_title") {
                         SectionHeader("Find Your Mood")
                     }
@@ -599,11 +607,15 @@ fun Home(
                             items(moodCategories) { mood ->
                                 MoodCard(
                                     mood = mood,
-                                    onClick = {},
+                                    onClick = {
+                                        LibraryObject.setTargetListWithTitle(mood.name, emptyList())
+                                        navController.toUI(UI.YTMusicCategory, mood.searchQuery)
+                                    },
                                 )
                             }
                         }
                     }
+                    } // end HomeShowMood
 
                     // API sections
                     sections.forEach { section ->
@@ -801,6 +813,9 @@ private fun FeaturedPickCard(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val artworkUrl = song.thumbnailUrl.toHighResThumbnail()
+    val dominantColor = rememberArtworkDominantColor(url = artworkUrl)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -818,7 +833,7 @@ private fun FeaturedPickCard(
                 .clip(RoundedCornerShape(14.dp)),
         ) {
             CachedArtworkImage(
-                url = song.thumbnailUrl.toHighResThumbnail(),
+                url = artworkUrl,
                 contentDescription = null,
                 size = 556,
                 modifier = Modifier.fillMaxSize(),
@@ -828,7 +843,10 @@ private fun FeaturedPickCard(
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)),
+                            colors = listOf(
+                                dominantColor.darken(0.35f).copy(alpha = 0.3f),
+                                Color.Black.copy(alpha = 0.75f),
+                            ),
                         ),
                     ),
             )
@@ -865,6 +883,27 @@ private fun FeaturedPickCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+            // Play button overlay
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.25f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = "Play",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp),
+                )
             }
         }
     }

@@ -303,6 +303,47 @@ fun Settings(navController: NavController) =
                         ListHeader(content = stringResource(id = R.string.settings_audio_fade_in_out_desc))
 
                         GroupSpacer()
+                        // ---- Home Feed section ----
+                        ListHeader("Home Feed")
+                        RoundColumn {
+                            SwitchItem(
+                                title = "Featured Picks",
+                                onClick = { SettingsLibrary.HomeShowFeaturedPicks = !SettingsLibrary.HomeShowFeaturedPicks },
+                                checkedLambda = { SettingsLibrary.HomeShowFeaturedPicks }
+                            )
+                            Divider()
+                            SwitchItem(
+                                title = "Recently Played",
+                                onClick = { SettingsLibrary.HomeShowRecentlyPlayed = !SettingsLibrary.HomeShowRecentlyPlayed },
+                                checkedLambda = { SettingsLibrary.HomeShowRecentlyPlayed }
+                            )
+                            Divider()
+                            SwitchItem(
+                                title = "Related Songs",
+                                onClick = { SettingsLibrary.HomeShowRelated = !SettingsLibrary.HomeShowRelated },
+                                checkedLambda = { SettingsLibrary.HomeShowRelated }
+                            )
+                            Divider()
+                            SwitchItem(
+                                title = "Daily Artist Spotlight",
+                                onClick = { SettingsLibrary.HomeShowDailyArtist = !SettingsLibrary.HomeShowDailyArtist },
+                                checkedLambda = { SettingsLibrary.HomeShowDailyArtist }
+                            )
+                            Divider()
+                            SwitchItem(
+                                title = "Daily Discover",
+                                onClick = { SettingsLibrary.HomeShowDailyDiscover = !SettingsLibrary.HomeShowDailyDiscover },
+                                checkedLambda = { SettingsLibrary.HomeShowDailyDiscover }
+                            )
+                            Divider()
+                            SwitchItem(
+                                title = "Find Your Mood",
+                                onClick = { SettingsLibrary.HomeShowMood = !SettingsLibrary.HomeShowMood },
+                                checkedLambda = { SettingsLibrary.HomeShowMood }
+                            )
+                        }
+
+                        GroupSpacer()
                         // ---- Cache section ----
                         ListHeader(stringResource(id = R.string.settings_cache_title))
                         RoundColumn {

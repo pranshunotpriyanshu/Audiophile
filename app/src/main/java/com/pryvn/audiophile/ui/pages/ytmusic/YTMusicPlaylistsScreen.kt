@@ -3,6 +3,9 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -79,11 +82,11 @@ fun YTMusicPlaylistsScreen(navController: NavController) {
         title = stringResource(R.string.ytmusic_playlists),
         onBack = { navController.popBackStack() },
         rightBarIcon = {
-            androidx.compose.material3.IconButton(onClick = {
+            IconButton(onClick = {
                 isRefreshing = true
                 loadPlaylists()
             }) {
-                androidx.compose.material3.Icon(
+                Icon(
                     painterResource(R.drawable.ic_refresh),
                     contentDescription = stringResource(R.string.ytmusic_sync),
                 )

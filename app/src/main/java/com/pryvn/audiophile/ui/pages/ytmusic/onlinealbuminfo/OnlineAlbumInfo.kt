@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,7 +40,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -71,13 +72,17 @@ import com.pryvn.audiophile.data.libraries.artistsList
 import com.pryvn.audiophile.data.libraries.artistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.data.objects.LibraryObject
+import com.pryvn.audiophile.ui.theme.SfProFontFamily
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
+import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.ImageQuality
 import com.pryvn.audiophile.ui.widgets.basic.ShadowImage
 import com.pryvn.audiophile.ui.widgets.basic.Title
 import com.pryvn.audiophile.ui.widgets.basic.YosWrapper
+import com.pryvn.audiophile.ui.widgets.basic.rememberArtworkDominantColor
+import com.pryvn.audiophile.ui.widgets.basic.darken
 import com.pryvn.audiophile.ui.widgets.effects.ShadowType
 import com.pryvn.audiophile.ui.widgets.song.SongOverflowSheet
 
@@ -133,7 +138,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
 
                 if (page != null) {
                     if (page.songs.isNotEmpty() || page.songsContinuation != null) {
-                        // The album browse itself carries the tracklist.
                         firstBatch = page.songs
                         firstContinuation = page.songsContinuation
                     } else {
@@ -203,6 +207,9 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                 page.album.artists?.joinToString(", ") { it.name } ?: ""
             }
 
+            val albumThumbUrl = remember(page) { page.album.thumbnail }
+            val dominantColor = rememberArtworkDominantColor(url = albumThumbUrl)
+
             val (songCount, totalMinutes) = remember(songs) {
                 val totalDuration = songs.sumOf { it.duration }
                 val totalMinutes = totalDuration / 60000
@@ -237,96 +244,132 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                 isLoadingMore.value = false
             }
 
+            // Scroll progress for hero collapse
+            val scrollProgress by remember {
+                derivedStateOf {
+                    val firstItem = state.layoutInfo.visibleItemsInfo.firstOrNull()
+                    if (firstItem == null || firstItem.size == 0) 0f
+                    else {
+                        val offset = firstItem.offset.coerceAtMost(0)
+                        (-offset.toFloat() / firstItem.size).coerceIn(0f, 1f)
+                    }
+                }
+            }
+
             LazyColumn(
                 state = state,
                 modifier = Modifier
                     .fillMaxSize()
                     .overScrollVertical(),
                 flingBehavior = rememberOverscrollFlingBehavior { state },
-                contentPadding = PaddingValues(bottom = 18.dp, top = 54.dp)
+                contentPadding = PaddingValues(bottom = 18.dp)
             ) {
-                item("OnlineAlbumInfo") {
-                    Column(
-                        Modifier
+                // ── Hero section with dominant color background ──
+                item("hero") {
+                    Box(
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 9.5.dp)
-                            .padding(horizontal = 18.dp)
-                            .statusBarsPadding(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        dominantColor.darken(0.45f).copy(alpha = 0.7f),
+                                        dominantColor.darken(0.6f).copy(alpha = 0.4f),
+                                        MaterialTheme.colorScheme.background,
+                                    ),
+                                )
+                            )
+                            .statusBarsPadding()
+                            .padding(top = 54.dp, bottom = 24.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        ShadowImage(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 54.5.dp),
-                            dataLambda = { page.album.thumbnail },
-                            contentDescription = null,
-                            cornerRadius = 7.dp,
-                            imageQuality = ImageQuality.RAW,
-                            shadowType = ShadowType.Medium
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text(
-                            text = page.album.title,
-                            fontSize = 20.sp,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 26.sp,
-fontWeight = headingFontWeight()
-                        )
-
-                        Spacer(modifier = Modifier.height(2.dp))
-
-                        Text(
-                            text = mainArtistsName,
-                            fontSize = 17.5.sp,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 23.5.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        Text(
-                            text = "ALBUM",
-                            fontSize = 11.5.sp,
-                            modifier = Modifier
-                                .alpha(0.4f)
-                                .padding(top = 2.dp)
-                        )
-
-                        YosWrapper {
-                            Row(
-                                Modifier
+                                .padding(horizontal = 36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // Large album artwork
+                            ShadowImage(
+                                modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 12.dp, bottom = 15.dp)
-                            ) {
+                                    .clip(RoundedCornerShape(8.dp)),
+                                dataLambda = { albumThumbUrl },
+                                contentDescription = null,
+                                cornerRadius = 8.dp,
+                                imageQuality = ImageQuality.RAW,
+                                shadowType = ShadowType.Large,
+                            )
 
-                                NormalButton(
-                                    icon = painterResource(id = R.drawable.button_icon_play),
-                                    label = stringResource(id = R.string.normal_button_play),
-                                    modifier = Modifier.weight(1f)
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            // Album title
+                            Text(
+                                text = page.album.title,
+                                fontSize = 22.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 28.sp,
+                                fontWeight = headingFontWeight(),
+                                fontFamily = SfProFontFamily,
+                                color = Color.White,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Artist name
+                            Text(
+                                text = mainArtistsName,
+                                fontSize = 16.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 22.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontFamily = SfProFontFamily,
+                                fontWeight = userFontWeight(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            // "ALBUM" label
+                            Text(
+                                text = "ALBUM",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 1.2.sp,
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontFamily = SfProFontFamily,
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Play / Shuffle buttons
+                            YosWrapper {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    scope.launch(Dispatchers.IO) {
-                                        val first = songs.firstOrNull() ?: return@launch
-                                        MediaController.prepare(
-                                            first,
-                                            songs
-                                        )
+                                    AlbumActionButton(
+                                        icon = painterResource(id = R.drawable.button_icon_play),
+                                        label = stringResource(id = R.string.normal_button_play),
+                                        modifier = Modifier.weight(1f),
+                                        accent = true,
+                                    ) {
+                                        scope.launch(Dispatchers.IO) {
+                                            val first = songs.firstOrNull() ?: return@launch
+                                            MediaController.prepare(first, songs)
+                                        }
                                     }
-                                }
-                                Spacer(modifier = Modifier.width(15.dp))
-                                NormalButton(
-                                    icon = painterResource(id = R.drawable.button_icon_shuffle),
-                                    label = stringResource(id = R.string.normal_button_shuffle),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    scope.launch(Dispatchers.IO) {
-                                        val random = songs.randomOrNull() ?: return@launch
-                                        MediaController.prepare(
-                                            random,
-                                            songs,
-                                            shuffleModeEnabled = true
-                                        )
+                                    AlbumActionButton(
+                                        icon = painterResource(id = R.drawable.button_icon_shuffle),
+                                        label = stringResource(id = R.string.normal_button_shuffle),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        scope.launch(Dispatchers.IO) {
+                                            val random = songs.randomOrNull() ?: return@launch
+                                            MediaController.prepare(random, songs, shuffleModeEnabled = true)
+                                        }
                                     }
                                 }
                             }
@@ -334,10 +377,7 @@ fontWeight = headingFontWeight()
                     }
                 }
 
-                item {
-                    AlbumDivider()
-                }
-
+                // ── Track list ──
                 itemsIndexed(
                     songs,
                     key = { _, music -> music }
@@ -345,13 +385,11 @@ fontWeight = headingFontWeight()
                     key(music) {
                         AlbumSongsItem(
                             music = music,
-                            mainArtists = mainArtists
+                            mainArtists = mainArtists,
+                            trackColor = dominantColor.darken(0.3f),
                         ) {
                             scope.launch(Dispatchers.IO) {
-                                MediaController.prepare(
-                                    music,
-                                    songs
-                                )
+                                MediaController.prepare(music, songs)
                             }
                         }
                     }
@@ -362,8 +400,8 @@ fontWeight = headingFontWeight()
                             Spacer(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = 50.dp, end = 18.dp)
-                                    .alpha(0.25f)
+                                    .padding(start = 58.dp, end = 18.dp)
+                                    .alpha(0.12f)
                                     .height(0.5.dp)
                                     .background(Color.Black withNight Color.White)
                             )
@@ -384,21 +422,36 @@ fontWeight = headingFontWeight()
                     }
                 }
 
-                item {
-                    AlbumDivider()
-                }
-
-                item("OnlineAlbumInfo_others") {
-                    Text(
-                        text = stringResource(
-                            id = R.string.page_library_album_info_others,
-                            songCount,
-                            totalMinutes
-                        ), fontSize = 15.sp, modifier = Modifier
-                            .alpha(0.4f)
+                // ── Album info footer ──
+                item("album_footer") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .padding(horizontal = 18.dp)
-                            .padding(top = 18.dp)
-                    )
+                            .padding(top = 20.dp)
+                    ) {
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(0.12f)
+                                .height(0.5.dp)
+                                .background(Color.Black withNight Color.White)
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = stringResource(
+                                id = R.string.page_library_album_info_others,
+                                songCount,
+                                totalMinutes
+                            ),
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                            fontFamily = SfProFontFamily,
+                            lineHeight = 20.sp,
+                        )
+                    }
                 }
 
                 item("navbar") {
@@ -406,6 +459,7 @@ fontWeight = headingFontWeight()
                 }
             }
 
+            // ── Floating back button ──
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -427,14 +481,16 @@ fontWeight = headingFontWeight()
                                 .statusBarsPadding()
                                 .padding(horizontal = 10.dp)
                                 .size(32.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    dominantColor.darken(0.55f).copy(alpha = (0.5f - scrollProgress * 0.5f).coerceAtLeast(0f))
+                                )
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = {
-                                        navController.popBackStack()
-                                    }
+                                    onClick = { navController.popBackStack() }
                                 ),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = Color.White,
                         )
                     }
                 }
@@ -444,46 +500,56 @@ fontWeight = headingFontWeight()
 }
 
 @Composable
-fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
+private fun AlbumActionButton(
+    icon: Painter,
+    label: String,
+    modifier: Modifier = Modifier,
+    accent: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    val bgColor = if (accent) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        Color.White.copy(alpha = 0.15f)
+    }
+    val textColor = if (accent) {
+        Color.White
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val iconTint = if (accent) Color.White else MaterialTheme.colorScheme.primary
+
     Row(
         modifier = modifier
-            .background(
-                color = (Color.LightGray withNight Color.DarkGray).copy(alpha = 0.25f),
-                shape = shape
-            )
+            .background(color = bgColor, shape = shape)
             .clip(shape)
             .clickable(onClick = onClick)
-            .height(44.dp),
+            .height(46.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
             painter = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp)
+            tint = iconTint,
+            modifier = Modifier.size(22.dp),
         )
-        Spacer(modifier = Modifier.width(5.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = label,
-            color = MaterialTheme.colorScheme.primary,
+            color = textColor,
             fontWeight = userFontWeight(),
-            fontSize = 17.sp
+            fontSize = 16.sp,
+            fontFamily = SfProFontFamily,
         )
     }
 }
 
 @Composable
-private fun AlbumDivider(modifier: Modifier = Modifier) =
-    Spacer(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp)
-            .alpha(0.2f)
-            .height(0.5.dp)
-            .background(Color.Black withNight Color.White)
-    )
+fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    AlbumActionButton(icon = icon, label = label, modifier = modifier, onClick = onClick)
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -491,6 +557,7 @@ private fun AlbumSongsItem(
     modifier: Modifier = Modifier,
     music: YosMediaItem,
     mainArtists: List<String>,
+    trackColor: Color = MaterialTheme.colorScheme.background,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -505,31 +572,36 @@ private fun AlbumSongsItem(
                     songMenuOpen.value = true
                 },
             )
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = 18.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Track number
         Box(
             contentAlignment = Alignment.TopCenter, modifier = Modifier
-                .width(24.dp)
+                .width(28.dp)
                 .fillMaxHeight()
         ) {
             Text(
-                text = "${music.trackNumber?:"-"}",
-                fontSize = 16.sp,
-                modifier = Modifier.alpha(0.4f),
+                text = "${music.trackNumber ?: "-"}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.alpha(0.35f),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                fontFamily = SfProFontFamily,
             )
         }
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-        Column(Modifier.padding(vertical = 10.dp)) {
+        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
             Text(
                 text = music.title ?: defaultTitle,
                 fontSize = 16.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp
+                lineHeight = 21.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = SfProFontFamily,
             )
             YosWrapper {
                 val needShowArtists = remember(music) {
@@ -540,14 +612,27 @@ private fun AlbumSongsItem(
                 if (needShowArtists.value) {
                     Text(
                         text = music.artistsName ?: "",
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 16.sp,
-                        modifier = Modifier.alpha(0.4f)
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        fontFamily = SfProFontFamily,
                     )
                 }
             }
+        }
+
+        // Duration
+        if (music.duration > 0) {
+            val min = (music.duration / 60000).toInt()
+            val sec = ((music.duration % 60000) / 1000).toInt()
+            Text(
+                text = "%d:%02d".format(min, sec),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                fontFamily = SfProFontFamily,
+            )
         }
     }
 

@@ -562,4 +562,47 @@ object SettingsLibrary {
         key = "normalize_volume",
         initialValue = false
     )
+
+    // ---------- Home Daily Sections ----------
+    @Stable
+    var HomeShowFeaturedPicks by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_featured_picks",
+        initialValue = true
+    )
+
+    @Stable
+    var HomeShowRecentlyPlayed by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_recently_played",
+        initialValue = true
+    )
+
+    @Stable
+    var HomeShowRelated by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_related",
+        initialValue = true
+    )
+
+    @Stable
+    var HomeShowDailyArtist by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_daily_artist",
+        initialValue = true
+    )
+
+    @Stable
+    var HomeShowDailyDiscover by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_daily_discover",
+        initialValue = true
+    )
+
+    @Stable
+    var HomeShowMood by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "home_show_mood",
+        initialValue = true
+    )
 }
