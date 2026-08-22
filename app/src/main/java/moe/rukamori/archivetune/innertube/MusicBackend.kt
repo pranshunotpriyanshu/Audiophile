@@ -76,7 +76,6 @@ interface MusicBackend {
 
     fun createDnsOverHttps(url: String): Dns
 
-    // Search
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions>
 
     suspend fun searchSummary(query: String): Result<SearchSummaryPage>
@@ -92,7 +91,6 @@ interface MusicBackend {
         useAccountContext: Boolean = true,
     ): Result<SearchResult>
 
-    // Browse / Content
     suspend fun album(
         browseId: String,
         withSongs: Boolean = true,
@@ -134,7 +132,6 @@ interface MusicBackend {
 
     suspend fun getChartsPage(continuation: String? = null): Result<ChartsPage>
 
-    // Library
     suspend fun library(
         browseId: String,
         tabIndex: Int = 0,
@@ -146,7 +143,6 @@ interface MusicBackend {
 
     suspend fun musicHistory(): Result<HistoryPage>
 
-    // Player / Playback
     suspend fun player(
         videoId: String,
         playlistId: String? = null,
@@ -180,7 +176,6 @@ interface MusicBackend {
 
     suspend fun transcript(videoId: String): Result<String>
 
-    // Auth helpers
     suspend fun visitorData(): Result<String>
 
     suspend fun accountInfo(): Result<AccountInfo>
@@ -189,7 +184,6 @@ interface MusicBackend {
 
     suspend fun getChannelId(browseId: String): String
 
-    // Interactions
     suspend fun likeVideo(
         videoId: String,
         like: Boolean,
@@ -251,6 +245,5 @@ interface MusicBackend {
 
     suspend fun deletePlaylist(playlistId: String): Result<Unit>
 
-    // Misc
     suspend fun getMediaInfo(videoId: String): Result<MediaInfo>
 }

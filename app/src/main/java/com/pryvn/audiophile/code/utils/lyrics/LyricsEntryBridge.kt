@@ -5,9 +5,6 @@ import com.pryvn.audiophile.data.objects.LyricsEntry
 import com.pryvn.audiophile.data.objects.WordTimestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/**
- * Converts raw lyrics text to List<LyricsEntry> using Audiophile's TTMLParser.
- */
 object LyricsEntryBridge {
     private const val LYRICS_NOT_FOUND_MARKER = "LYRICS_NOT_FOUND"
 
@@ -63,7 +60,6 @@ object LyricsEntryBridge {
         val text = if (words != null) words.joinToString("") { it.text } else pl.text
         val timeMs = (pl.startTime * 1000).toLong()
 
-        // Detect if this is an instrumental break (empty text with timing gap)
         val isInstrumental = text.isBlank() && pl.startTime >= 0
 
         return LyricsEntry(

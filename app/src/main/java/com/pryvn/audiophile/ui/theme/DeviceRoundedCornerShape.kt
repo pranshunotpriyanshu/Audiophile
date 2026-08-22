@@ -33,5 +33,3 @@ fun getCornerRadiusTop(context: Context): Float {
         0f
     }
 }
-
-

@@ -12,9 +12,6 @@ import kotlinx.serialization.Serializable
 import com.pryvn.audiophile.code.api.innertube.models.ResponseContext
 import com.pryvn.audiophile.code.api.innertube.models.Thumbnails
 
-/**
- * PlayerResponse with [moe.rukamori.archivetune.innertube.models.YouTubeClient.WEB_REMIX] client
- */
 @Serializable
 data class PlayerResponse(
     val responseContext: ResponseContext,

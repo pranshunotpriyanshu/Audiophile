@@ -76,8 +76,6 @@ fun MusicQualityIndicator() {
             }
         }
 
-        //println("quality recv ${musicBitrate.intValue} ${musicSamplingRate.intValue}")
-        //println("quality recv lossless ${isLossless.value} ${isHiRes.value} ${isDolby.value}")
 
         AnimatedVisibility(
             showDetail.value,

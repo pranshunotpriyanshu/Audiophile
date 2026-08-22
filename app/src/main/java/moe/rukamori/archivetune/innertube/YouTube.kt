@@ -96,10 +96,6 @@ import okhttp3.dnsoverhttps.DnsOverHttps
 import java.net.Proxy
 import kotlin.random.Random
 
-/**
- * Parse useful data with [InnerTube] sending requests.
- * Modified from [ViMusic](https://github.com/vfsfitvnm/ViMusic)
- */
 object YouTube {
     private const val BROWSE_ID_EXPLORE = "FEmusic_explore"
     private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"

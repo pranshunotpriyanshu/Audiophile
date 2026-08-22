@@ -77,9 +77,6 @@ fun YosMusicTheme(
 
     val appTypography = buildTypography()
 
-    // Apply the app-wide font-size setting as a global density font scale so every
-    // .sp text — including components with hardcoded sizes — follows the setting
-    // instead of only the Material body styles.
     val baseDensity = LocalDensity.current
     val appFontScale = (SettingsLibrary.AppFontSize / 16f).coerceIn(0.75f, 2f)
     val scaledDensity = Density(

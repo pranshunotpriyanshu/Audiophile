@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 
-// Apple Music inspired color palette
 val appleMusicRed = Color(0xFFFA0B34)
 val appleMusicRedDark = Color(0xFFFF3B5C)
 val appleMusicBackground = Color.White
@@ -45,7 +44,6 @@ fun isAudiophileInDarkMode(): Boolean {
     return if (SettingsLibrary.CustomTheme == "Auto") isSystemInDarkTheme() else SettingsLibrary.CustomTheme == "Dark"
 }
 
-// Apple Music style gradients
 val appleMusicGradient = listOf(
     Color(0xFFFA0B34),
     Color(0xFFFF3B5C),

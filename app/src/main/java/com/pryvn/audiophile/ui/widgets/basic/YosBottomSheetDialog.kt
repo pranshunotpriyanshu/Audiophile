@@ -169,14 +169,6 @@ internal fun <T> SheetAnimatedContent(
     )
 }
 
-/**
- * Visibility is `internal` so sibling widget packages (e.g. the playlist
- * picker, the sleep-timer sheet) can reuse the same styling internals —
- * corner radius from [SettingsLibrary.ScreenCorner], edge-to-edge insets,
- * scrim alpha, haptic-on-open — without duplicating them.
- *
- * For most use cases prefer the higher-level [OptionDialog] or [ActionSheet].
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun YosBottomSheetDialog(
@@ -385,19 +377,6 @@ fun OptionDialog(
         }
     }
 
-/**
- * One row in an [ActionSheet]. Designed for menu-style sheets (e.g. the Now Playing
- * overflow menu).
- *
- * @param iconRes drawable resource for the left icon (24dp).
- * @param label primary label text.
- * @param subtitle optional secondary text shown below the label.
- * @param tint optional override for icon + label color. Used to highlight the
- *   "currently active" row (e.g. Sleep Timer when a timer is running).
- * @param enabled if false the row is dimmed and not clickable.
- * @param showChevron whether a right-side chevron is shown (indicates a sub-sheet).
- * @param onClick invoked on tap. Haptic feedback is fired automatically.
- */
 @Stable
 data class ActionItem(
     val iconRes: Int,
@@ -409,20 +388,6 @@ data class ActionItem(
     val onClick: () -> Unit,
 )
 
-/**
- * A menu-style bottom sheet. Sibling of [OptionDialog]; shares the same
- * [YosBottomSheetDialog] internals (corner radius from settings, edge-to-edge,
- * scrim, vibration on open).
- *
- * Use this for any "list of actions" sheet (e.g. NowPlaying overflow menu).
- *
- * @param isOpen controls visibility. Setting this to false dismisses the sheet.
- * @param header optional composable rendered above the action list (e.g. song
- *   preview). A 1px divider is drawn between the header and the first action.
- * @param items the action rows, in display order.
- * @param onDismiss invoked when the sheet is dismissed (scrim tap, back, drag).
- *   Defaults to setting [isOpen] to false.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionSheet(
@@ -446,18 +411,6 @@ fun ActionSheet(
     }
 }
 
-/**
- * Bare action-sheet body — the content of an [ActionSheet] without its
- * surrounding [YosBottomSheetDialog]. Use this when you want to render the
- * action list inside another bottom sheet (e.g. the NowPlaying overflow
- * menu hosts its own sheet and swaps between this body and the
- * playlist-picker / sleep-timer content based on internal navigation, so
- * the sub-screens appear without a close + reopen animation).
- *
- * @param header optional composable rendered above the action list. A 1px
- *   divider separates the header from the rows when present.
- * @param items the action rows, in display order.
- */
 @Composable
 fun ActionSheetBody(
     header: (@Composable () -> Unit)? = null,

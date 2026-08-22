@@ -117,7 +117,6 @@ fun LyricShareContent(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Header with back button
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -163,7 +162,6 @@ fun LyricShareContent(
             }
         }
 
-        // Line list
         if (lineTexts.isNotEmpty()) {
             Box(
                 modifier = Modifier
@@ -222,7 +220,6 @@ fun LyricShareContent(
             )
         }
 
-        // Card preview (text only)
         AnimatedVisibility(visible = showCard && selectedLines.isNotEmpty()) {
             Column(
                 modifier = Modifier
@@ -280,7 +277,6 @@ fun LyricShareContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Action buttons
         if (showCard && selectedLines.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

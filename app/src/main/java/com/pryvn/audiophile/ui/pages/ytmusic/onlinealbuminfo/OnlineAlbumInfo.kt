@@ -127,9 +127,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                 songsState.value = emptyList()
                 songsContinuation.value = null
 
-                // Lazy path: album metadata + the first song batch render
-                // immediately; the remaining songs stream in via continuation as
-                // the user scrolls. No stream URLs are resolved here.
                 var page = YouTube.albumFirstPage(browseId.value).getOrNull()
                 var firstBatch: List<SongItem>? = null
                 var firstContinuation: String? = null
@@ -140,9 +137,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                         firstBatch = page.songs
                         firstContinuation = page.songsContinuation
                     } else {
-                        // No inline shelf — lazily pull the first batch from the
-                        // album's playlist browse instead of blocking on the full
-                        // album (still lazy: batch + continuation, not everything).
                         page.album.playlistId?.let { playlistId ->
                             val songsPage = YouTube.albumSongsFirstPage(playlistId, page.album).getOrNull()
                             if (songsPage != null) {
@@ -152,8 +146,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
                         }
                     }
                 } else {
-                    // Total failure of the first-page parse — last-resort fallback
-                    // to the old full loader so the screen still shows the album.
                     page = YouTube.album(browseId.value).getOrNull()
                     firstBatch = page?.songs
                     firstContinuation = null
@@ -220,8 +212,6 @@ fun OnlineAlbumInfo(navController: NavController, browseIdArg: String? = null) {
 
             val scope = rememberCoroutineScope()
 
-            // Progressive loading: request the next continuation page as the user
-            // scrolls near the end of the currently loaded songs.
             val shouldLoadMore by remember {
                 derivedStateOf {
                     val info = state.layoutInfo
@@ -567,11 +557,6 @@ private fun AlbumSongsItem(
     )
 }
 
-/**
- * Converts an album song to a playable item WITHOUT resolving any stream URL:
- * the existing online playback path resolves the ytmusic:// URI lazily when the
- * song actually needs to play.
- */
 private fun SongItem.toAlbumYosMediaItem(trackNumber: Int): YosMediaItem {
     return YosMediaItem(
         uri = Uri.parse("ytmusic://$id"),

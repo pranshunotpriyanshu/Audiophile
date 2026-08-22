@@ -7,14 +7,6 @@ import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.mapper.toSyncedLine
 import com.mocharealm.accompanist.lyrics.core.utils.toTimeFormattedString
 
-/**
- * Exporter for the standard LRC format.
- *
- * It converts [SyncedLyrics] back into a string representation in the standard LRC format without syllables and background lines.
- * - Supports ID3 tags ([ti:...], [ar:...]).
- * - Supports standard line timestamps [mm:ss.xx].
- * - Supports translations as separate lines with the same timestamp.
- */
 object LrcExporter : ILyricsExporter {
     override fun export(lyrics: SyncedLyrics): String {
         if (lyrics.lines.isEmpty()) return ""

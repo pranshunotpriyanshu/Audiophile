@@ -118,8 +118,6 @@ private val PlayListContextMenuEstimatedHeight = 342.dp
 
 @Composable
 fun PlayLists(navController: NavController) {
-    // PRD §5.4: pinned playlists float to the top in pinOrder asc;
-    // unpinned tail keeps the existing alpha-by-name order.
     val playLists = playList
     val pinned = playLists.filter { it.isPinned }
         .sortedBy { it.pinOrder ?: Int.MAX_VALUE }
@@ -173,16 +171,7 @@ fun PlayLists(navController: NavController) {
         draggingPlayListId.value = null
     }
 
-    // FR-M-10: the delete-undo snackbar is hosted by MainActivity
-    // ([UndoSnackbarHost]), not this page — see the rationale on
-    // [PendingPlayListDeletion]. Nothing to do here other than
-    // PlayListLibrary.remove() + stash from the detail page, which
-    // happens in NormalMusic.onDelete.
 
-    // PRD §5.5 FR-AP-5: this page's "Add" row opens the same reusable picker
-    // used by the NowPlaying overflow menu, in create-only mode (no song to
-    // attach). Hoisting visibility to this composable keeps a single picker
-    // instance shared across the page.
     val createPickerOpen = remember { mutableStateOf(false) }
     val contextMenuOpen = remember { mutableStateOf(false) }
     val contextMenuPlayList = remember { mutableStateOf<PlayList?>(null) }
@@ -368,9 +357,6 @@ fun PlayLists(navController: NavController) {
                     }
                 }
 
-                // Offline library: every song whose audio file is permanently
-                // cached on device, browsable and playable without a network.
-                // Only shown while there is at least one cached song.
                 val cachedCount = AudioCacheStore.cachedCount
                 if (cachedCount > 0) {
                     item("CachedList") {
@@ -783,10 +769,6 @@ private fun PlayListContextMenuHeader(playList: PlayList)
 {
     val context = LocalContext.current
     val shape = YosRoundedCornerShape(5.dp)
-    // songDataList already holds full YosMediaItems (uri, thumb, …), so the
-    // collage can consume them directly. (This used to look each one up in
-    // MusicLibrary.songs by comparing a Uri to a YosMediaItem — never
-    // matching — which left the auto-cover permanently empty.)
     val songsInPlaylist = playList.songDataList
 
     Row(
@@ -1149,10 +1131,6 @@ private fun PlayListContextMenuItem(
             .padding(start = 19.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Leading action icon on the left (Apple-style), label filling the
-        // remaining width, and the trailing chevron pinned to the far right.
-        // Previously the label+chevron were bunched on the left with the action
-        // icon at the right edge, which left a large empty gap in the middle.
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = label,
@@ -1383,11 +1361,6 @@ private fun LazyItemScope.PlayListItem(
     }
 }
 
-/**
- * Pin-aware variant of [PlayListItem] used for the Library list
- * (PRD §5.4). Adds a small pin badge over the cover and a queue-style
- * reorder handle for pinned rows while reorder mode is active.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LazyItemScope.PinnedAwarePlayListItem(
@@ -1442,13 +1415,6 @@ private fun LazyItemScope.PinnedAwarePlayListItem(
             .padding(start = 22.dp, end = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Resolve the playlist's URIs to YosMediaItem for the
-        // auto-collage fallback. Cheap — same lookup performed each
-        // time the row recomposes; with a few hundred songs in the
-        // library this is sub-millisecond.
-        // songDataList already holds full YosMediaItems — feed them straight
-        // to the auto-collage (see PlayListContextMenuHeader for the bug this
-        // fixes: the old URI lookup never matched).
         val songsInPlaylist = playList.songDataList
         val coverContext = LocalContext.current
         Box(modifier = Modifier.size(64.dp)) {

@@ -1,0 +1,34 @@
+comments:
+  active: true
+  CommentOverPrivateFunction:
+    active: false
+  CommentOverPrivateProperty:
+    active: false
+  EndOfSentenceFormat:
+    active: true
+  KDocReferencesNonPublicProperty:
+    active: false
+  UndocumentedPublicClass:
+    active: false
+  UndocumentedPublicFunction:
+    active: false
+  UndocumentedPublicProperty:
+    active: false
+
+style:
+  active: true
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    ignoreBacktickIdentifiers: true
+    ignoreComment: false
+    ignorePackages: true
+  WildcardImport:
+    active: true
+  MagicNumber:
+    active: false
+
+naming:
+  active: true
+  FunctionNaming:
+    active: false

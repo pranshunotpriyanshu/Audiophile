@@ -12,17 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
-/**
- * Converts word-synced lines into the lyric-view entry shape:
- * each line is [(lineStart, ""), (wordEnd_i, word_i)..., (lineStart, "")].
- * Word timestamps use the word END time, mirroring Shourya's TtmlFactory
- * (segment end takes priority). The trailing pair is the translation slot,
- * the leading empty pair marks the sentence start.
- */
-/**
- * Zero-width invisible marker prefixing background-vocal word entries (TTML isBackground).
- * The lyric view strips it when rendering and treats the word as background (smaller/dimmer).
- */
 const val BACKGROUND_WORD_MARKER = "\u200B"
 
 fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, String>>> {
@@ -42,11 +31,6 @@ fun wordSyncedToEntries(lines: List<WordSyncedLine>): List<List<Pair<Float, Stri
             add(startMs to "")
             line.words.forEach { word ->
                 val text = word.text.trimEnd()
-                // Insert one natural space between words; keep CJK scripts and
-                // duet markers ("：" / ":") tight so other-side detection and
-                // the view's padding check keep working.
-                // Background-vocal words get an invisible marker prefix so the view
-                // can render them smaller/dimmer (CArchiveTune LyricsLineV2 parity).
                 val marked = if (word.isBackground && text.isNotEmpty()) "$BACKGROUND_WORD_MARKER$text" else text
                 val withSpacing = when {
                     text.isEmpty() || text.last().isCjkChar() || text.endsWith("：") || text.endsWith(":") -> marked
@@ -71,10 +55,6 @@ object LyricsProcessor {
 
     private val autoParser = AutoParser()
 
-    /**
-     * Decodes common HTML/XML entities that appear in lyrics fetched from APIs
-     * (e.g. &#x27; → ', &amp; → &, &lt; → <, &gt; → >, &quot; → ").
-     */
     private fun decodeHtmlEntities(text: String): String {
         if (!text.contains('&')) return text
         return text
@@ -103,8 +83,6 @@ object LyricsProcessor {
         MediaViewModelObject.onlineLyrics.value = text
         MediaViewModelObject.lyricsSource.value = onlineLyrics.provider
 
-        // Parse with AMLL AutoParser and cache the SyncedLyrics result.
-        // AmlLyricsView consumes this directly instead of reparsing each recomposition.
         try {
             val parsed = autoParser.parse(text)
             MediaViewModelObject.parsedSyncedLyrics.value = parsed
@@ -161,10 +139,6 @@ object LyricsProcessor {
                 lrcEntriesSetter(lrcFactory.formatLrcEntries(text))
             }
             else -> {
-                // Plain text lyrics with no timestamps: fabricate dummy 30s
-                // marks so they flow through the normal pipeline, and flag them
-                // so the lyric view renders them all-white / blur-free and never
-                // auto-scrolls or restores a position.
                 clearWordSync()
                 MediaViewModelObject.isUnsyncedLyrics.value = true
                 val lines = text.lines().filter { it.isNotBlank() }
@@ -199,14 +173,6 @@ object LyricsProcessor {
             )
         }
 
-    /**
-     * Re-queries every lyric provider and applies the result ONLY when it scores
-     * strictly higher than the currently displayed lyrics (TTML > synced LRC >
-     * plain text). If the fresh fetch returns nothing or a lower-ranked result,
-     * the previously displayed lyrics are left completely untouched.
-     *
-     * @return true when the displayed lyrics were replaced with the fresh result.
-     */
     suspend fun refetchLyrics(
         title: String?,
         artist: String?,
@@ -214,8 +180,6 @@ object LyricsProcessor {
         durationMs: Long,
         videoId: String?,
     ): Boolean = withContext(NonCancellable + Dispatchers.IO) {
-        // Show the "Loading lyrics…" state immediately so the action has
-        // visible feedback; the fetch itself may take up to ~15s.
         MediaViewModelObject.isLoadingLyrics.value = true
         try {
             val currentText = MediaViewModelObject.onlineLyrics.value

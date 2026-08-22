@@ -38,11 +38,6 @@ object PlayListLibrary {
     )
         private set
 
-    /**
-     * Replace [old] with [new] in-place. Preserves the list's overall
-     * order (the original position of [old]) rather than appending the
-     * replacement to the end.
-     */
     private fun replace(old: PlayList, new: PlayList) {
         val idx = playList.indexOfFirst { it.listID == old.listID }
         if (idx < 0) {
@@ -103,11 +98,6 @@ object PlayListLibrary {
         replace(this, copy(isPinned = false, pinOrder = null))
     }
 
-    /**
-     * Bulk-set pin order for the long-press reorder gesture. [ordering] is
-     * the desired top-to-bottom order of pinned playlists' listIDs;
-     * pinOrder is reassigned to that index. Non-pinned playlists untouched.
-     */
     fun reorderPins(ordering: List<String>) {
         val orderMap = ordering.withIndex().associate { (i, id) -> id to i }
         playList = playList.map { pl ->
@@ -127,11 +117,6 @@ object PlayListLibrary {
         playList = playList.filterNot { it.listID == list.listID }
     }
 
-    /**
-     * Re-insert a previously-removed playlist at its original index (used
-     * by the delete-undo flow). When [originalIndex] is out of range the
-     * playlist is appended to the end.
-     */
     fun restore(list: PlayList, originalIndex: Int) {
         if (playList.any { it.listID == list.listID }) return
         val safeIndex = originalIndex.coerceIn(0, playList.size)

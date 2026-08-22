@@ -25,15 +25,6 @@ enum class ShadowType(val blur: Dp, val offsetY: Float, val offsetX: Float, val 
     Small(16.dp, 0.11f, 0f, 0.94f)
 }
 
-/**
- * Blurred drop shadow that is rendered ONCE into a cached bitmap (per node size) and then
- * composited as a plain texture on every redraw. This turns the per-frame GPU blur used by a
- * scrolling list into a single one-time cost per visible item, which keeps fling/scroll frames
- * cheap.
- *
- * The bitmap carries a margin around the node so the glow never gets clipped, exactly like the
- * old per-frame draw on the unlimited canvas.
- */
 @Composable
 fun Modifier.dropShadow(
     shape: Shape,

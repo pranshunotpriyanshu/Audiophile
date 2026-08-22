@@ -22,9 +22,7 @@ interface UI {
         const val ArtistSingles = "ArtistSingles"
         const val ArtistAlbums = "ArtistAlbums"
 
-        
 
-        // YT Music screens
         const val YTMusicExplore = "YTMusicExplore"
         const val YTMusicSearch = "YTMusicSearch"
         const val YTMusicPlaylists = "YTMusicPlaylists"
@@ -38,6 +36,7 @@ interface UI {
         const val SongArtistsList = "SongArtistsList"
         const val YTMusicMainSearch = "YTMusicMainSearch"
         const val YTMusicCategory = "YTMusicCategory"
+        const val RecentlyPlayed = "RecentlyPlayed"
     }
 
     @Stable

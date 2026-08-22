@@ -12,9 +12,6 @@ import kotlinx.serialization.Serializable
 import moe.rukamori.archivetune.innertube.models.ResponseContext
 import moe.rukamori.archivetune.innertube.models.Thumbnails
 
-/**
- * PlayerResponse with [moe.rukamori.archivetune.innertube.models.YouTubeClient.WEB_REMIX] client
- */
 @Serializable
 data class PlayerResponse(
     val responseContext: ResponseContext,

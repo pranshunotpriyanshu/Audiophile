@@ -5,24 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.core.view.WindowInsetsCompat
 import com.pryvn.audiophile.code.MediaController
 import com.pryvn.audiophile.code.api.AudiophileOnlineTrack
 import com.pryvn.audiophile.code.api.ArchiveTuneApis
@@ -38,10 +36,10 @@ import com.pryvn.audiophile.ui.theme.userFontWeight
 import com.pryvn.audiophile.ui.theme.headingFontWeight
 import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import com.pryvn.audiophile.ui.widgets.basic.CachedArtworkImage
+import com.pryvn.audiophile.ui.widgets.basic.Title
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YTMusicCategoryScreen(
     category: String,
@@ -50,13 +48,6 @@ fun YTMusicCategoryScreen(
     var sections by remember { mutableStateOf<List<SearchResultSection>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val systemBarsBottom = with(LocalDensity.current) {
-        WindowInsetsCompat.Type.systemBars().let { type ->
-            // Use WindowInsetsCompat for system bars
-            0.dp // Fallback, actual insets handled by Scaffold
-        }
-    }
 
     LaunchedEffect(category) {
         isLoading = true
@@ -91,107 +82,71 @@ fun YTMusicCategoryScreen(
         isLoading = false
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+    Title(
+        title = category,
+        onBack = { navController?.popBackStack() }
+    ) {
+        if (isLoading) {
+            item("loading") {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AppleLoadingSpinner(modifier = Modifier.size(64.dp))
+                }
+            }
+        } else if (sections.isEmpty()) {
+            item("empty") {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
+                    Spacer(Modifier.height(16.dp))
                     Text(
-                        text = category,
+                        text = "No Results",
+                        fontSize = 17.sp,
+                        fontFamily = SfProFontFamily,
+                        fontWeight = userFontWeight(),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                    Text(
+                        text = "Try a different category",
+                        fontSize = 14.sp,
+                        fontFamily = SfProFontFamily,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        } else {
+            sections.forEach { section ->
+                item("section_${section.title}") {
+                    Text(
+                        text = section.title,
                         fontSize = 20.sp,
                         fontWeight = headingFontWeight(),
-                        fontFamily = SfProFontFamily
+                        lineHeight = 20.sp,
+                        fontFamily = SfProFontFamily,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController?.popBackStack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AppleLoadingSpinner(modifier = Modifier.size(64.dp))
-                    }
                 }
-                sections.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = "No Results",
-                            fontSize = 17.sp,
-                            fontFamily = SfProFontFamily,
-                            fontWeight = userFontWeight(),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = "Try a different category",
-                            fontSize = 14.sp,
-                            fontFamily = SfProFontFamily,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 16.dp),
-                        contentPadding = PaddingValues(top = 8.dp)
-                    ) {
-                        sections.forEach { section ->
-                            item {
-                                Text(
-                                    text = section.title,
-                                    fontSize = 20.sp,
-                                    fontWeight = headingFontWeight(),
-                                    lineHeight = 20.sp,
-                                    fontFamily = SfProFontFamily,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                                )
-                            }
-                            items(section.items) { item ->
-                                when (item) {
-                                    is YTSongItem -> CategorySongRow(item) { song ->
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(song)
-                                        }
-                                    }
-                                    is YTAlbumSearchItem -> CategoryAlbumRow(item)
-                                    is YTArtistSearchItem -> CategoryArtistRow(item)
-                                    is YTPlaylist -> CategoryPlaylistRow(item)
-                                }
+                items(section.items, key = { it.hashCode() }) { item ->
+                    when (item) {
+                        is YTSongItem -> CategorySongRow(item) { song ->
+                            scope.launch(Dispatchers.IO) {
+                                MediaController.playOnline(song)
                             }
                         }
+                        is YTAlbumSearchItem -> CategoryAlbumRow(item)
+                        is YTArtistSearchItem -> CategoryArtistRow(item)
+                        is YTPlaylist -> CategoryPlaylistRow(item)
                     }
                 }
             }

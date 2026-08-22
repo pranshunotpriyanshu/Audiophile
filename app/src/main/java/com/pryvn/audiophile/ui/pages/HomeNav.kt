@@ -43,9 +43,6 @@ fun HomeNav(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
-            // Only pre-compose the adjacent tab. The pages hold their own LazyList
-            // state so far tabs are disposed when off-screen — this stops background
-            // tabs from animating and rendering frames while the user is elsewhere.
             beyondViewportPageCount = 1,
             key = { page -> page },
             userScrollEnabled = false

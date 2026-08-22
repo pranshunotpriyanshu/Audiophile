@@ -16,10 +16,7 @@ val NormalSaver = YosDataSaver(DataType.NORMAL)
 val SongListSaver = YosDataSaver(DataType.SONG_LIST)
 // Songs, hidden songs, all folders
 val SettingsSaver = YosDataSaver(DataType.SETTINGS)
-// Store settings data
 val PlayListSaver = YosDataSaver(DataType.PLAY_LIST)
-// Playlist V2, favorite songs list
-// Playlist V1 is located in YosPlayerCore
 
 @Stable
 class YosDataSaver(dataType: DataType = DataType.NORMAL) : DataSaverInterface() {

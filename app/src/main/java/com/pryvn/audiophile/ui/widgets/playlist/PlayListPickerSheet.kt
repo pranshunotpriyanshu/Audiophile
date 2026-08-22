@@ -78,27 +78,6 @@ import com.pryvn.audiophile.ui.widgets.basic.sheetBackground
 import com.pryvn.audiophile.ui.widgets.basic.sheetSeparator
 import com.pryvn.audiophile.ui.widgets.basic.sheetTextColor
 
-/**
- * Reusable bottom sheet for picking an existing playlist to add a song to,
- * OR creating a new playlist.
- *
- * Modes:
- * - **Picker mode** (`songToAdd != null`): shows "Create New Playlist" at the
- *   top followed by the user's existing playlists. Tapping an existing
- *   playlist appends [songToAdd] to it (with de-duplication, per PRD §10 OQ-1
- *   — duplication guarded at the picker level, not the data layer).
- * - **Create-only mode** (`songToAdd == null`): shows ONLY the
- *   "Create New Playlist" row. Used by the Playlists page's "Add" button.
- *
- * Per PRD §5.5 FR-AP-1 through FR-AP-5.
- *
- * @param isOpen controls visibility. Set to false to dismiss.
- * @param songToAdd the song to be added to the selected playlist, or `null`
- *   for create-only mode.
- * @param onCreated optional callback invoked after a new playlist is created
- *   (whether or not [songToAdd] was attached to it). Receives the freshly
- *   created [PlayList].
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayListPickerSheet(
@@ -148,29 +127,6 @@ fun PlayListPickerSheet(
     }
 }
 
-/**
- * Bare picker content — the body of [PlayListPickerSheet] without its
- * surrounding [YosBottomSheetDialog]. Use this when you want to render the
- * picker INSIDE another bottom sheet (e.g. the NowPlaying overflow menu
- * swaps its content to this composable when the user picks "Add to a
- * Playlist", so the sub-screen appears without a close + reopen animation).
- *
- * @param songToAdd song to attach to the selected playlist, or `null` for
- *   create-only mode.
- * @param onDone called when the picker should be torn down — either after
- *   a successful add/create, or when the host should close the containing
- *   sheet entirely. The host decides what "done" means (e.g. dismiss the
- *   sheet, or return to a previous internal screen).
- * @param onBack optional callback for hosts that embed the picker inside
- *   their own navigation stack (e.g. the NowPlaying overflow menu wants
- *   the picker's list view to offer a back arrow that returns to the
- *   overflow menu). The picker manages its own internal List ↔ Create
- *   navigation: a single back arrow is shown that either pops Create ➝
- *   List, or — when in List with [onBack] non-null — invokes [onBack] so
- *   the host can pop one level further. When [onBack] is null and the
- *   picker is in its top-level List view, no back arrow is shown.
- * @param onCreated optional callback fired after a new playlist is created.
- */
 @Composable
 fun PlayListPickerContent(
     songToAdd: YosMediaItem?,
@@ -178,34 +134,12 @@ fun PlayListPickerContent(
     songsToAdd: List<YosMediaItem>? = null,
     onBack: (() -> Unit)? = null,
     onCreated: ((PlayList) -> Unit)? = null,
-    /**
-     * When non-null the picker enters **bulk mode**: the list of
-     * existing playlists is shown (just like single-song add), but
-     * tapping a row hands off to [onBulkAdd] instead of attaching
-     * [songToAdd] to it. The "Create New Playlist" row at the top
-     * still appears and routes through [onCreated]; the host is
-     * expected to fold the bulk insert into the onCreated handler.
-     *
-     * Used by the playlist detail page's "Add to a Playlist…"
-     * action (PRD FR-M-08) to copy every song from the source
-     * playlist into the selected target.
-     */
     bulkAddSource: PlayList? = null,
     onBulkAdd: ((PlayList) -> Unit)? = null,
-    /**
-     * Apple Music skin for hosts that embed the picker inside the
-     * [com.pryvn.audiophile.ui.widgets.basic.AppleActionSheet] sheet: rows are
-     * grouped into rounded cards with adaptive text/separator colors and
-     * proper inset padding.
-     */
     appleTheme: Boolean = false,
 ) {
     val context = LocalContext.current
     val bulkMode = bulkAddSource != null
-    // Local UI state: are we in "create new playlist" mode (text input
-    // visible) or the default list view? Bulk mode (multi-song add or
-    // playlist-copy) lands in list view by default; the user can still tap
-    // "Create New Playlist" to make a fresh target.
     var createMode by remember {
         mutableStateOf(songToAdd == null && songsToAdd == null && !bulkMode)
     }
@@ -215,7 +149,6 @@ fun PlayListPickerContent(
     var newPlaylistName by remember { mutableStateOf("") }
     var nameError by remember { mutableStateOf<String?>(null) }
 
-    // When the user taps a playlist that already contains the song(s), a
     // centered confirmation asks whether to insert duplicates or skip.
     var duplicateTarget by remember { mutableStateOf<PlayList?>(null) }
     var duplicateSongs by remember { mutableStateOf<List<YosMediaItem>>(emptyList()) }
@@ -243,8 +176,6 @@ fun PlayListPickerContent(
         onDone()
     }
 
-    // Shared "tap a playlist row" handler for both the Apple-skinned and
-    // regular layouts (bulk copy, duplicate guard, toast, finish).
     val onPickPlaylist: (PlayList) -> Unit = { playlist ->
         if (bulkMode) {
             onBulkAdd?.invoke(playlist)
@@ -396,9 +327,6 @@ fun PlayListPickerContent(
                 apple = appleTheme,
             )
         } else if (appleTheme) {
-            // Apple Music skin: Create New + existing playlists live in one
-            // rounded card on the grey sheet surface, separated by hairline
-            // dividers — matching AppleSheetMenuGroup.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -586,8 +514,6 @@ private fun CreatePlaylistBody(
         keyboardController?.show()
     }
 
-    // Text field — borrows the styling used by SearchTextField in
-    // widgets/basic/YosTextField.kt for visual consistency.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -761,8 +687,6 @@ private fun ExistingPlayListList(
         return
     }
 
-    // Cap list height so the sheet doesn't take over the whole screen for
-    // libraries with many playlists. ~5 rows visible before scrolling.
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
@@ -858,10 +782,6 @@ private fun Divider() {
     )
 }
 
-/**
- * Centered confirmation shown when the chosen playlist already contains the
- * song(s): "{song} already exists in {playlist}" — add a duplicate or skip.
- */
 @Composable
 private fun DuplicateAddConfirmDialog(
     songTitle: String,

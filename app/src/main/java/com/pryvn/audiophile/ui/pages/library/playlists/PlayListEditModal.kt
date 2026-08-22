@@ -144,30 +144,6 @@ private fun movePlaylistSongDuringDrag(
     staged.addAll(remapped)
 }
 
-/**
- * Full-screen modal exposing every edit operation defined by PRD
- * §5.3:
- *  - rename (FR-E-06)
- *  - description (FR-E-07)
- *  - cover carousel — custom photo pick + 2×2 auto-collage (FR-E-03,
- *    FR-E-05)
- *  - drag-to-reorder via long-press handle (FR-E-10)
- *  - multi-select removal via leading checkbox (FR-E-09)
- *  - atomic commit on close (FR-E-11), X and ✓ are functionally
- *    identical per the session's product decisions; both call save.
- *
- * Duplicates: the songs list may contain the same URI multiple
- * times; row identity is by list index (FR-E-12 simplified — no
- * schema change required as long as edits are atomic per session).
- *
- * @param isOpen visibility. Setting to false dismisses & commits.
- * @param source playlist to edit. The modal makes a local working
- *   copy on open and only writes back to [PlayListLibrary] on
- *   dismiss.
- * @param onAppliedNameChange optional hook fired with the post-edit
- *   name so the host can update its title bar without waiting for a
- *   recomposition cycle.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayListEditModal(
@@ -189,11 +165,6 @@ fun PlayListEditModal(
         remember(source.listID) { mutableStateListOf<YosMediaItem>().apply { addAll(source.songDataList) } }
     val staged: SnapshotStateList<Int> = remember(source.listID) { mutableStateListOf() }
 
-    // Photo picker — uses the modern Android Photo Picker on API
-    // 30+, falls back to ACTION_OPEN_DOCUMENT under the hood
-    // (handled by AndroidX). The returned URI is persisted in the
-    // playlist; we don't copy the bytes locally to keep storage
-    // overhead near zero.
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri: Uri? ->
@@ -204,8 +175,6 @@ fun PlayListEditModal(
         val finalSongs = workingSongs.toList().filterIndexed { idx, _ -> idx !in staged }
         val finalDescription = description.trim().take(DescriptionMaxChars).ifEmpty { null }
         val finalName = name.trim().take(NameMaxChars).ifEmpty { source.name }
-        // PRD FR-E-11: atomic write — apply all edits in one
-        // PlayListLibrary mutation.
         val live = playList.firstOrNull { it.listID == source.listID } ?: source
         live.applyEdits(
             name = finalName,
@@ -215,9 +184,6 @@ fun PlayListEditModal(
         )
         if (finalName != source.name) onAppliedNameChange?.invoke(finalName)
 
-        // Also update the LibraryObject so the host page reflects
-        // the new title + (post-removal) song list without needing
-        // an explicit nav restart.
         if (LibraryObject.getTargetPlaylistId() == source.listID) {
             val resolved = finalSongs.mapNotNull { music ->
                 songs.firstOrNull { it.uri == music.uri }
@@ -298,9 +264,6 @@ private fun EditPlaylistContent(
         mutableStateOf<String?>(null)
     }
 
-    // Resolve URIs → YosMediaItem for display. Falls back to a
-    // synthetic placeholder if the song was removed from the library
-    // since the playlist was saved (orphan URI).
     val resolvedSongs = remember(workingSongs.toList()) {
         workingSongs.map { music ->
             songs.firstOrNull { it.uri == music.uri }
@@ -469,16 +432,6 @@ private fun EditHeader(onClose: () -> Unit, onDone: () -> Unit) {
     }
 }
 
-/**
- * Cover carousel. Slot 1 is the custom-photo picker (or the current
- * selection if a custom URI is set). Slot 2 is the 2×2 auto-collage
- * built from the playlist's first 4 unique album arts. PRD FR-E-03,
- * FR-E-05.
- *
- * Selection is signalled by a 2dp accent-colored border around the
- * active slot; the other slot uses a faint dim ring to read as
- * "tappable but not selected."
- */
 @Composable
 private fun CoverCarousel(
     coverUri: String?,
@@ -497,7 +450,6 @@ private fun CoverCarousel(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Slot 1: custom photo picker.
         CarouselSlot(
             selected = customSelected,
             onClick = onPickCustom,
@@ -527,7 +479,6 @@ private fun CoverCarousel(
                 }
             }
         }
-        // Slot 2: auto-collage.
         CarouselSlot(
             selected = autoSelected,
             onClick = onChooseAuto,
@@ -571,8 +522,6 @@ private fun CarouselSlot(
         ) {
             content()
         }
-        // Border drawn as an overlay so it sits ABOVE clipped content
-        // without being clipped itself.
         androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
             val outline = shape.createOutline(
                 androidx.compose.ui.geometry.Size(size.width, size.height),
@@ -590,10 +539,6 @@ private fun CarouselSlot(
     }
 }
 
-/**
- * Edit-modal alias for the shared playlist cover collage. See
- * [PlayListAutoCover] for the layout matrix and fallbacks.
- */
 @Composable
 private fun AutoCollage(resolvedSongs: List<YosMediaItem>) {
     PlayListAutoCover(songs = resolvedSongs)
@@ -774,14 +719,6 @@ private fun EditSongRow(
     }
 }
 
-/**
- * Square checkbox styled for "stage for removal" semantics. The
- * outline is drawn with [androidx.compose.foundation.Canvas] +
- * `drawRoundRect` so the corners are continuous; the previous
- * version composed `drawRect` (sharp corners) inside a parent with a
- * [RoundedCornerShape] clip, which produced the visible breaks the
- * user reported.
- */
 @Composable
 private fun RemovalCheckbox(
     checked: Boolean,
@@ -809,16 +746,11 @@ private fun RemovalCheckbox(
             val rPx = cornerRadius.toPx()
             val swPx = strokeWidth.toPx()
             if (checked) {
-                // Filled rounded square; check glyph is drawn over it
-                // by the Icon below.
                 drawRoundRect(
                     color = destructive,
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(rPx, rPx),
                 )
             } else {
-                // Outline only. Inset by half the stroke so the stroke
-                // sits entirely inside the box bounds — otherwise the
-                // outer edge gets clipped at 0,0 by the canvas bounds.
                 val inset = swPx / 2f
                 drawRoundRect(
                     color = destructive,

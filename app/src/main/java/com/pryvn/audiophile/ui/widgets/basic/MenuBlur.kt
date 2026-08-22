@@ -32,17 +32,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.pryvn.audiophile.code.utils.others.BitmapResolver
 import com.pryvn.audiophile.data.libraries.SettingsLibrary
 
-/**
- * Haze-style backdrop blur for bottom sheets / dialogs that live in their own
- * window (Material3 [androidx.compose.material3.ModalBottomSheet] and friends).
- *
- * [dev.chrisbanes.haze.hazeChild] can only sample content drawn in the same
- * window, so this uses Android 12+'s native window background blur
- * (WindowManager.LayoutParams.blurBehindRadius) to blur the app content behind
- * the sheet window — the same visual result as the login sheet's Haze scrim.
- *
- * Falls back to no blur below API 31, or when the Bar Blur effect is disabled.
- */
 @Composable
 internal fun HazeStyleSheetBlur(
     blurRadius: Dp = 24.dp,

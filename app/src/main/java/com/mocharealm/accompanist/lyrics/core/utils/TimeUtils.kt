@@ -4,11 +4,6 @@ internal fun String.isDigitsOnly(): Boolean {
     return this.all { it.isDigit() }
 }
 
-/**
- * Parse the non-negative integer in `[start, end)`, or 0 if the range is empty or
- * contains any non-digit. This mirrors `substring(start, end).toIntOrNull() ?: 0`
- * for the (non-negative) values timestamps use, but without allocating a substring.
- */
 private fun String.digitsToIntOr0(start: Int, end: Int): Int {
     if (start >= end) return 0
     var value = 0
@@ -36,8 +31,6 @@ private fun String.parseSecondsAndMillis(start: Int, end: Int): Int {
     val millisLen = end - millisStart
     if (millisLen <= 0) return seconds
 
-    // Take the first up-to-3 digits, then scale a 1- or 2-digit fraction like the
-    // old "pad to 3 chars" logic (".1" -> 100ms, ".12" -> 120ms, ".1234" -> 123ms).
     val take = if (millisLen >= 3) 3 else millisLen
     var millis = digitsToIntOr0(millisStart, millisStart + take)
     if (millisLen == 1) millis *= 100 else if (millisLen == 2) millis *= 10

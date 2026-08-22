@@ -69,11 +69,6 @@ fun Settings(navController: NavController) =
                         RoundColumn {
                             val isLoggedIn = SettingsLibrary.isYtMusicLoggedIn
 
-                            // Mirror the YT Music account fields into local state:
-                            // SettingsLibrary properties are @Stable, so reads here
-                            // are not recomposition-tracked. The effect below refreshes
-                            // the profile from the API on open and when login state
-                            // changes; the mirrors make that update visible immediately.
                             var accountName by remember {
                                 mutableStateOf(SettingsLibrary.YtMusicAccountName)
                             }
@@ -84,9 +79,6 @@ fun Settings(navController: NavController) =
                                 mutableStateOf(SettingsLibrary.YtMusicAvatarUrl)
                             }
 
-                            // Refresh the YT Music account profile whenever this screen
-                            // opens (and when login state changes) so the name and
-                            // @handle always display, even if they were never saved.
                             LaunchedEffect(isLoggedIn) {
                                 if (isLoggedIn) {
                                     YouTubeApi.fetchAccountInfo().onSuccess { info ->
@@ -103,12 +95,6 @@ fun Settings(navController: NavController) =
                             }
 
                             if (isLoggedIn) {
-                                // The profile picture option sits at the top and
-                                // replaces the online profile display when logged in:
-                                // its title becomes the YT Music account name and its
-                                // subtext becomes the channel handle (@handle). The
-                                // online YT avatar is shown until the user picks a
-                                // local picture — then the locally chosen one wins.
                                 ProfilePictureRow(
                                     title = accountName
                                         .ifBlank { stringResource(R.string.profile_picture) },
@@ -320,8 +306,6 @@ fun Settings(navController: NavController) =
                         // ---- Cache section ----
                         ListHeader(stringResource(id = R.string.settings_cache_title))
                         RoundColumn {
-                            // Compose-observable counts: refresh automatically when
-                            // a background download completes or a cache is cleared.
                             val audioCount = AudioCacheStore.cachedCount
                             val audioBytes = AudioCacheStore.cachedBytes
                             val lyricCount = LyricsCacheStore.cachedCount

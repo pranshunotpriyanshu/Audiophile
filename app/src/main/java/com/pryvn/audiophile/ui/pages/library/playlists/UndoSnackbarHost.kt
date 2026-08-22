@@ -43,18 +43,6 @@ import com.pryvn.audiophile.data.libraries.PlayListLibrary
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
 
-/**
- * Activity-level host for the playlist delete-undo snackbar.
- * Rendered inline at the activity root so the undo window outlives
- * any single page's lifecycle — the user can tap Library → Songs
- * while the timer is running and the snackbar stays put. The 5s
- * auto-dismiss is owned by [PendingPlayListDeletion], not by a
- * composable's coroutine.
- *
- * Sits flush against the bottom of the screen offset by
- * [bottomOffset] (the mini-player's height) so it floats right
- * above the mini-player with a small visible gap.
- */
 @Composable
 fun UndoSnackbarHost(bottomOffset: Dp = 62.dp) {
     val pending = PendingPlayListDeletion.current
@@ -112,9 +100,6 @@ private fun UndoSnackbarSurface(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Sits flush with the bottom of the screen, offset only
-            // by the mini-player so it floats right above it. An 8dp
-            // gap keeps the two surfaces visually distinct.
             .padding(bottom = bottomOffset + 8.dp, start = 8.dp, end = 8.dp)
             .graphicsLayer { translationY = dragOffset.value }
             .pointerInput(Unit) {

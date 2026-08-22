@@ -275,8 +275,6 @@ object MusicLibrary {
             duration = this.duration,
             modifiedDate = this.modifiedDate,
             cdTrackNumber = this.cdTrackNumber
-            //samplingRate = this.samplingRate,
-            //bitrate = this.bitrate
         )
     }
 
@@ -312,8 +310,6 @@ object MusicLibrary {
                         putLong("Duration", this@toMediaItem.duration)
                         this@toMediaItem.modifiedDate?.let { putLong("ModifiedDate", it) }
                         this@toMediaItem.cdTrackNumber?.let { putInt("CdTrackNumber", it) }
-                        //this@toMediaItem.samplingRate?.let { putInt("SamplingRate", it) }
-                        //this@toMediaItem.bitrate?.let { putInt("Bitrate", it) }
                     })
                     .build()
             )
@@ -468,8 +464,6 @@ object MusicLibrary {
                 readerConfiguration
             )
 
-            // Hierarchical: result.folderStructure.folderList[""].folderList
-            // val folderList = result.folderStructure.folderList
 
             songSaver = result.songList.fastMap {
                 it.toYosMediaItem()

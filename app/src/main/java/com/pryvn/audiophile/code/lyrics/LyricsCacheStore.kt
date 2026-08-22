@@ -4,15 +4,6 @@ import androidx.compose.runtime.mutableStateOf
 import com.pryvn.audiophile.YosBasicApplication
 import java.io.File
 
-/**
- * Permanent on-disk lyrics cache ("cache forever").
- *
- * One small text file per song key (videoId, or "title" fallback) under
- * filesDir/lyrics_cache/. The in-memory MediaViewModelObject.lyricsCache stays
- * a bounded hot cache; this store is the authoritative long-term record and is
- * never evicted, so lyrics survive app restarts and re-fetch only when a song
- * is genuinely never seen before.
- */
 object LyricsCacheStore {
 
     private const val DIR_NAME = "lyrics_cache"
@@ -67,8 +58,6 @@ object LyricsCacheStore {
         invalidateStats()
     }
 
-    // Snapshot-backed count so the Settings page updates after clears/writes
-    // without a manual refresh. -1 means "not computed yet".
     private val stats = mutableStateOf(-1L)
 
     /** Number of cached songs (Compose-observable). */

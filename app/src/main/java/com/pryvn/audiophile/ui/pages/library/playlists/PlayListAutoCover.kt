@@ -17,22 +17,6 @@ import coil.request.ImageRequest
 import com.pryvn.audiophile.R
 import com.pryvn.audiophile.data.libraries.YosMediaItem
 
-/**
- * Auto-generated 2×2 collage of the playlist's first 4 songs, in the order
- * they were added (PRD FR-E-05). The subsquares fill diagonally:
- *
- *   song 1 → top-left, song 2 → bottom-right (the diagonal pair),
- *   song 3 → top-right, song 4 → bottom-left (the last remaining square).
- *   More than 4 songs keep the same 4-cover collage.
- *
- * Fallbacks:
- *   1 song → that song's cover fills the whole square.
- *   2 songs → diagonal pair only; the other two squares stay blank.
- *   A song without artwork gets the default placeholder in its square.
- *
- * Shared between [com.pryvn.audiophile.ui.pages.library.NormalMusic]'s
- * playlist detail header and the Edit Playlist cover carousel.
- */
 @Composable
 fun PlayListAutoCover(songs: List<YosMediaItem>) {
     val context = LocalContext.current
@@ -55,9 +39,6 @@ fun PlayListAutoCover(songs: List<YosMediaItem>) {
         )
         return
     }
-    // Subsquare fill order within the 2×2 grid (row-major 0..3):
-    // covers[0] → 0 (top-left), covers[1] → 3 (bottom-right),
-    // covers[2] → 1 (top-right), covers[3] → 2 (bottom-left).
     val order = remember(covers) { listOf(0, 3, 1, 2) }
     Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {

@@ -16,11 +16,6 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Loads [url] and extracts its dominant color with AndroidX Palette so a screen can
- * paint an artwork-derived hero background. Falls back to a neutral dark tone when the
- * artwork is missing or extraction fails. All bitmap work happens off the main thread.
- */
 @Composable
 fun rememberArtworkDominantColor(url: String?): Color {
     var color by remember(url) { mutableStateOf(Color(0xFF1A1A1A)) }
@@ -33,8 +28,6 @@ fun rememberArtworkDominantColor(url: String?): Color {
         }
         withContext(Dispatchers.IO) {
             try {
-                // Shared Coil loader: artwork is served from the app-wide memory/disk
-                // cache instead of being re-downloaded and re-decoded on every visit.
                 val loader = context.imageLoader
                 val request = ImageRequest.Builder(context).data(url).build()
                 val bitmap = loader.execute(request).drawable?.toBitmap()
@@ -55,10 +48,6 @@ fun rememberArtworkDominantColor(url: String?): Color {
     return color
 }
 
-/**
- * Darkens a [Color] toward black by [factor] (0f = unchanged, 1f = black) for readable
- * gradient scrims built from the artwork-derived hero color.
- */
 fun Color.darken(factor: Float): Color {
     val f = factor.coerceIn(0f, 1f)
     return Color(

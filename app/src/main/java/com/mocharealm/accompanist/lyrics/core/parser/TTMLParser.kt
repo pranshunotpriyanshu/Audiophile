@@ -15,13 +15,6 @@ import com.mocharealm.accompanist.lyrics.core.utils.SimpleXmlParser
 import com.mocharealm.accompanist.lyrics.core.utils.XmlElement
 import com.mocharealm.accompanist.lyrics.core.utils.parseAsTime
 
-/**
- * A parser for lyrics in the TTML(Apple Syllable) format.
- *
- * More information about TTML(Apple Syllable) format can be found [here](https://help.apple.com/itc/videoaudioassetguide/#/itc0f14fecdd).
- *
- * @property fallbackPhoneticProvider
- */
 class TTMLParser(
     private val fallbackPhoneticProvider: PhoneticProvider? = null,
 ) : ILyricsParser {
@@ -49,8 +42,6 @@ class TTMLParser(
             .replace(Regex("\\s+"), " ")
             .trim()
 
-    // Single-name fast path: avoids allocating a vararg array on every lookup
-    // (begin/end/ttm:agent/itunes:key are read for every line and syllable).
     private fun XmlElement.attr(name: String) =
         attributes.firstOrNull { it.name == name }?.value
 
@@ -63,16 +54,11 @@ class TTMLParser(
     override fun parse(content: String): SyncedLyrics {
         val root = SimpleXmlParser().parse(preformattingTTML(content))
 
-        // Agents are declared in the head <metadata>; scope that lookup to it.
-        // Translations/transliterations, however, can be inline within the body in
-        // some Apple/AMLL variants, so those keep searching the whole tree.
         val metadata = findMetadata(root)
         val agentTypes = metadata?.let(::parseAgentTypes) ?: emptyMap()
         val translations = parseITunesTranslations(root)
         val transliterations = parseITunesTransliterations(root)
 
-        // Parse each line's begin time once (as the sort key) rather than letting
-        // sortedBy re-evaluate parseAsTime O(n log n) times.
         val sortedPElements = findAllPElements(root)
             .map { it to (it.attr("begin")?.parseAsTime() ?: Int.MAX_VALUE) }
             .sortedBy { it.second }
@@ -204,12 +190,6 @@ class TTMLParser(
         }
     }
 
-    /**
-     * Parses Apple/iTunes translation metadata without flattening nested x-bg spans
-     * into the main-line translation. A metadata <text> may look like:
-     *
-     * <text for="L3">主唱翻译<span ttm:role="x-bg">伴唱翻译</span></text>
-     */
     private fun parseITunesTranslations(element: XmlElement): Map<String, TTMLTranslation> {
         val translations = mutableMapOf<String, TTMLTranslation>()
 
@@ -308,10 +288,6 @@ class TTMLParser(
         return SyncedLyrics(lines = processedLines)
     }
 
-    /**
-     * Parses a list of XmlElement children to extract KaraokeSyllables.
-     * This function intelligently handles spacing by checking for `#text` nodes between `<span>` elements.
-     */
     private fun parseSyllablesFromChildren(children: List<XmlElement>): List<KaraokeSyllable> {
         val syllables = mutableListOf<KaraokeSyllable>()
         for (i in children.indices) {
@@ -319,8 +295,6 @@ class TTMLParser(
 
             // We only care about <span> elements that are not for translation or background roles at this level.
             if (child.name == "span") {
-                // Single pass over the (tiny) attribute list: grab begin/end and
-                // detect an excluded role at once instead of scanning it 3×.
                 var spanBegin: String? = null
                 var spanEnd: String? = null
                 var excludedRole = false
@@ -380,22 +354,6 @@ class TTMLParser(
             }.toMap()
     }
 
-    /**
-     * Decide each line's left/right side, matching how Apple Music assembles lines
-     * (`assembleProcessedLines`, reverse-engineered from MusicApplication) — with one
-     * deliberate change: the starting side is seeded from the **first line's agent
-     * id** (v1/v3/v5… → left, v2/v4/v6… → right) instead of Apple's always-left.
-     *
-     * Then, over the lines in start-time order:
-     *  - a **person** agent keeps the current side while the same person keeps
-     *    singing, and **flips** to the other side each time the person changes;
-     *  - a **group** agent (合唱/everyone) is always on the left and is transparent
-     *    to the flip (it neither flips nor becomes the "current" person);
-     *  - an **other** agent is always on the right, also transparent to the flip.
-     *
-     * An agent with no declared type defaults to "person"; a line with no agent at
-     * all keeps the current side.
-     */
     private fun computeLineAlignments(
         sortedLines: List<XmlElement>,
         agentTypes: Map<String, String>

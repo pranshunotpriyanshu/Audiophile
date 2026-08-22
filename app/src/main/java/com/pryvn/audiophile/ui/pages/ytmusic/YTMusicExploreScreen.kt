@@ -2,14 +2,13 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -23,11 +22,11 @@ import com.pryvn.audiophile.code.api.HomeItem
 import com.pryvn.audiophile.code.api.HomeSection
 import com.pryvn.audiophile.code.api.YouTubeApi
 import com.pryvn.audiophile.code.api.toYTSongItem
+import com.pryvn.audiophile.ui.widgets.basic.Title
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YTMusicExploreScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
@@ -53,56 +52,47 @@ fun YTMusicExploreScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.ytmusic_explore)) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(painterResource(R.drawable.ic_back), contentDescription = null)
-                    }
-                },
-            )
-        }
-    ) { padding ->
+    Title(
+        title = stringResource(R.string.ytmusic_explore),
+        onBack = { navController.popBackStack() }
+    ) {
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                AppleLoadingSpinner()
+            item("loading") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                    AppleLoadingSpinner()
+                }
             }
         } else if (sections.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.tip_no_lyrics))
+            item("empty") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.tip_no_lyrics))
+                }
             }
         } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(padding),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                sections.forEach { section ->
-                    item {
-                        Text(
-                            text = section.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+            sections.forEach { section ->
+                item("section_title_${section.title}") {
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = 18.dp, top = 12.dp, bottom = 4.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
 
-                    item {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(section.items) { item ->
-                                ExploreItemCard(item = item, onClick = {
-                                    item.videoId?.let {
-                                        scope.launch(Dispatchers.IO) {
-                                            MediaController.playOnline(item.toYTSongItem())
-                                        }
+                item("section_row_${section.title}") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(section.items) { item ->
+                            ExploreItemCard(item = item, onClick = {
+                                item.videoId?.let {
+                                    scope.launch(Dispatchers.IO) {
+                                        MediaController.playOnline(item.toYTSongItem())
                                     }
-                                })
-                            }
+                                }
+                            })
                         }
                     }
                 }

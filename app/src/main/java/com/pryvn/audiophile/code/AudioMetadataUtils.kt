@@ -24,10 +24,6 @@ object AudioMetadataUtils {
         }
     }
 
-    /**
-     * Reads lyrics embedded in the audio file's tags (USLT / SYLT, LYRICS comment,
-     * etc.) via TagLib. Returns null when the file has no embedded lyrics.
-     */
     fun loadEmbeddedLyrics(context: Context, uri: Uri?): String? {
         if (uri == null) return null
         return try {

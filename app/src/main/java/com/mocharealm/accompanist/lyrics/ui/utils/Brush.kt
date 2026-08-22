@@ -17,7 +17,6 @@ fun Brush.Companion.easedHorizontalGradient(
     endX: Float = 1f,
     steps: Int = 100,
 ): Brush {
-    // Edge cases
     if (colorStops.isEmpty()) {
         return SolidColor(Color.Transparent)
     }

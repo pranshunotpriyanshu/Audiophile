@@ -37,10 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * Simple list of artists from a single song. Clicking an artist resolves
- * their browseId via YouTube search and navigates to the online artist page.
- */
 @Composable
 fun SongArtistsList(navController: NavController) {
     val (title, artistItems) = LibraryObject.getTargetListWithTitle()

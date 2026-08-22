@@ -159,9 +159,7 @@ fun measureSyllablesAndDetermineAnimation(
                     layoutWidth = trimmedWidth + (spaceWidth * spaceCount)
                 }
             }
-            // -----------------------------
 
-            // Ensure width is at least phonetic width
             val finalWidth = maxOf(layoutWidth, phoneticLayout?.size?.width?.toFloat() ?: 0f)
 
             // 新增：如果需要高级动画，预先测量每个字符
@@ -182,7 +180,7 @@ fun measureSyllablesAndDetermineAnimation(
                 textLayoutResult = layoutResult,
                 wordId = wordIndex,
                 useAwesomeAnimation = useAwesomeAnimation,
-                width = finalWidth, 
+                width = finalWidth,
                 charLayouts = charLayouts,      // 存入缓存
                 charOriginalBounds = charBounds,
                 firstBaseline = layoutResult.firstBaseline,
@@ -322,9 +320,6 @@ fun calculateBalancedLines(
     return lines
 }
 
-/**
- * 修复版：移除 Alignment 依赖，使用布尔值控制布局起始点，解决 RTL 居中问题
- */
 fun calculateStaticLineLayout(
     wrappedLines: List<WrappedLine>,
     isLineRightAligned: Boolean,
@@ -339,7 +334,7 @@ fun calculateStaticLineLayout(
 
     val positionedLines = wrappedLines.mapIndexed { lineIndex, wrappedLine ->
         val maxBaselineInLine = wrappedLine.syllables.maxOfOrNull { it.firstBaseline } ?: 0f
-        
+
         val rowHeight = lineHeight + if (hasPhoneticInBlock) (phoneticHeight * 0.7f) else 0f
         val rowTopY = lineIndex * rowHeight + if (hasPhoneticInBlock) (phoneticHeight * 0.7f) else 0f
 

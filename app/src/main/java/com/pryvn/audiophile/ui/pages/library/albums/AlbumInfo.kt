@@ -391,9 +391,6 @@ fun NormalButton(icon: Painter, label: String, modifier: Modifier = Modifier, on
     }
 }
 
-/**
- * Album page horizontal divider
- */
 @Composable
 private fun AlbumDivider(modifier: Modifier = Modifier) =
     Spacer(

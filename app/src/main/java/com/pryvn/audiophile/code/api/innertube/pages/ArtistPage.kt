@@ -221,7 +221,6 @@ data class ArtistPage(
                 }
 
                 renderer.isPlaylist -> {
-                    // Playlist from YouTube Music
                     PlaylistItem(
                         id =
                             renderer.navigationEndpoint.browseEndpoint

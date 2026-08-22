@@ -2,9 +2,9 @@ package com.pryvn.audiophile.ui.pages.ytmusic
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,12 +23,12 @@ import com.pryvn.audiophile.data.libraries.SettingsLibrary
 import com.pryvn.audiophile.data.objects.LibraryObject
 import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.toUI
+import com.pryvn.audiophile.ui.widgets.basic.Title
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YTMusicPlaylistsScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
@@ -75,73 +75,66 @@ fun YTMusicPlaylistsScreen(navController: NavController) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.ytmusic_playlists)) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(painterResource(R.drawable.ic_back), contentDescription = null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        isRefreshing = true
-                        loadPlaylists()
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.ic_refresh),
-                            contentDescription = stringResource(R.string.ytmusic_sync),
-                        )
-                    }
-                }
-            )
+    Title(
+        title = stringResource(R.string.ytmusic_playlists),
+        onBack = { navController.popBackStack() },
+        rightBarIcon = {
+            androidx.compose.material3.IconButton(onClick = {
+                isRefreshing = true
+                loadPlaylists()
+            }) {
+                androidx.compose.material3.Icon(
+                    painterResource(R.drawable.ic_refresh),
+                    contentDescription = stringResource(R.string.ytmusic_sync),
+                )
+            }
         }
-    ) { padding ->
+    ) {
         if (!isLoggedIn) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.ytmusic_not_logged_in))
+            item("not_logged_in") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.ytmusic_not_logged_in))
+                }
             }
         } else if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                AppleLoadingSpinner()
+            item("loading") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                    AppleLoadingSpinner()
+                }
             }
         } else if (playlists.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.tip_no_lyrics))
+            item("empty") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 60.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.tip_no_lyrics))
+                }
             }
         } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(padding).padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                if (lastSyncTime > 0) {
-                    item("sync_info") {
-                        val minutes = (System.currentTimeMillis() - lastSyncTime) / 60000
-                        val label = if (minutes < 1) "Just now"
-                            else if (minutes < 60) "${minutes}m ago"
-                            else "${minutes / 60}h ${minutes % 60}m ago"
-                        Text(
-                            text = "Synced $label",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
-                        )
+            if (lastSyncTime > 0) {
+                item("sync_info") {
+                    val minutes = (System.currentTimeMillis() - lastSyncTime) / 60000
+                    val label = if (minutes < 1) "Just now"
+                        else if (minutes < 60) "${minutes}m ago"
+                        else "${minutes / 60}h ${minutes % 60}m ago"
+                    Text(
+                        text = "Synced $label",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            if (isRefreshing) {
+                item("refresh_indicator") {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        AppleLoadingSpinner()
                     }
                 }
-                if (isRefreshing) {
-                    item("refresh_indicator") {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            AppleLoadingSpinner()
-                        }
-                    }
-                }
-                items(playlists) { playlist ->
-                    PlaylistRow(playlist = playlist, onClick = {
-                        LibraryObject.setTargetPlaylistId(playlist.id)
-                        navController.toUI(UI.OnlinePlaylist)
-                    })
-                }
+            }
+            items(playlists, key = { it.id }) { playlist ->
+                PlaylistRow(playlist = playlist, onClick = {
+                    LibraryObject.setTargetPlaylistId(playlist.id)
+                    navController.toUI(UI.OnlinePlaylist)
+                })
             }
         }
     }
@@ -154,7 +147,7 @@ private fun PlaylistRow(playlist: YTPlaylist, onClick: () -> Unit) {
             .fillMaxWidth()
             .height(64.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CachedArtworkImage(

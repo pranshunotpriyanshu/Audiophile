@@ -40,13 +40,11 @@ class YosBasicApplication : Application() {
             }
         }
 
-        // Initialize MMKV
         MMKV.initialize(this)
 
         // Initialize ArchiveTune DataStore memory cache (idempotent, starts once)
         PreferenceStore.start(applicationContext)
 
-        // Initialize lyrics provider modules
         runCatching {
             PaxsenixLyrics.setUserAgent("Audiophile", BuildConfig.VERSION_NAME)
         }
@@ -70,8 +68,6 @@ class YosBasicApplication : Application() {
 
         val gson =
             GsonBuilder()
-            //.registerTypeAdapter(Uri::class.java, UriSerializer())
-            //registerTypeAdapter(Uri::class.java, UriDeserializer())
             .registerTypeAdapter(Uri::class.java, UriTypeAdapter())
             .create()
 
@@ -110,7 +106,6 @@ class YosBasicApplication : Application() {
             restore = { str -> gson.fromJson(str, YosStringWrapper::class.java) }
         )
 
-        // Initialize media controller
         val sessionToken = SessionToken(this, ComponentName(this, YosPlaybackService::class.java))
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture.addListener(

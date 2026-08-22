@@ -13,11 +13,6 @@ import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointCo
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_AUDIOBOOK
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
-/**
- * Two row: a big thumbnail, a title, and a subtitle
- * Used in [GridRenderer] and [MusicCarouselShelfRenderer]
- * Item type: song, video, album, playlist, artist
- */
 @Serializable
 data class MusicTwoRowItemRenderer(
     val title: Runs,

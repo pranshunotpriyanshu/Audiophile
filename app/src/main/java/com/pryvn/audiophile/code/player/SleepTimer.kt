@@ -15,31 +15,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/**
- * Sleep timer for the Now Playing overflow menu. Singleton; in-memory only
- * (no MMKV persistence, no AlarmManager). Process death cancels the timer.
- *
- * Three timer modes:
- * - [SleepTimerOption.Duration] — fires after a wall-clock delay
- * - [SleepTimerOption.EndOfTrack] — fires on the next media item transition
- * - [SleepTimerOption.EndOfQueue] — fires on the next transition after which
- *   the player no longer has a successor item.
- *
- * The playback service calls [onMediaItemTransition] from its Player.Listener.
- * Compose UI reads [state] and [remainingMs] directly — both are
- * MutableState-backed.
- */
 @Stable
 object SleepTimer {
 
     /** Current state — Inactive or Active. Compose-observable. */
     val state = mutableStateOf<SleepTimerState>(SleepTimerState.Inactive)
 
-    /**
-     * Live remaining time in ms for [SleepTimerOption.Duration] timers.
-     * Updated every 1s while the timer is active. Returns 0 when no timer
-     * is running.
-     */
     val remainingMs = mutableLongStateOf(0L)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

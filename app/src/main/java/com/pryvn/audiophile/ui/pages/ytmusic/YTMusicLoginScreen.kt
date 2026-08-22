@@ -67,11 +67,6 @@ private val YOUTUBE_COOKIE_URLS = listOf(
     "https://youtube.com",
 )
 
-/**
- * Global open state for the YT Music login bottom sheet. The sheet is rendered
- * by MainActivity (so it can apply the Apple-style depth effect on the whole
- * background) and opened from Settings.
- */
 object YtMusicLoginSheet {
     var isOpen by mutableStateOf(false)
 
@@ -101,8 +96,6 @@ fun YTMusicLoginScreen(
     }
     val dismissThresholdPx = with(density) { 150.dp.toPx() }
 
-    // Backdrop taps (signalled by MainActivity's scrim) also require
-    // confirmation before the login sheet actually closes.
     LaunchedEffect(YtMusicLoginSheet.confirmCloseRequest) {
         if (YtMusicLoginSheet.confirmCloseRequest) {
             YtMusicLoginSheet.confirmCloseRequest = false
@@ -115,32 +108,23 @@ fun YTMusicLoginScreen(
         hasLoggedIn = true
 
         scope.launch(Dispatchers.IO) {
-            // Fetch and save account info
             YouTubeApi.fetchAccountInfo().onSuccess { accountInfo ->
                 SettingsLibrary.YtMusicAccountName = accountInfo.name
                 SettingsLibrary.YtMusicAccountEmail = accountInfo.email ?: ""
                 SettingsLibrary.YtMusicAvatarUrl = accountInfo.avatarUrl ?: ""
                 SettingsLibrary.YtMusicChannelHandle = accountInfo.channelHandle ?: ""
             }.onFailure {
-                // Account info failure is not critical for login
             }
 
-            // Sync playlists from YouTube Music library
             YouTubeApi.library().onSuccess { json ->
                 val parsedPlaylists = YouTubeApi.parseLibraryPlaylists(json)
                 parsedPlaylists.forEach { pl ->
                     PlayListLibrary.create(pl.title)
                 }
             }.onFailure {
-                // Playlist sync failure - we still consider login successful
-                // but could show a warning if needed
             }
 
             withContext(Dispatchers.Main) {
-                // Auto-close after a successful login: the sheet is closing on
-                // its own, never as a user dismissal, so any pending cancel
-                // confirmation (scrim tap / header drag / back press) must be
-                // cancelled — it can never appear once login has succeeded.
                 showCancelConfirm = false
                 YtMusicLoginSheet.confirmCloseRequest = false
                 val name = SettingsLibrary.YtMusicAccountName
@@ -156,9 +140,6 @@ fun YTMusicLoginScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        // Apple-style sheet header: grabber + title + cancel button.
-        // Dragging down on the header dismisses the sheet (WebView scrolls are
-        // untouched because the gesture is scoped to the header only).
         Column(
             modifier = Modifier
                 .fillMaxWidth()

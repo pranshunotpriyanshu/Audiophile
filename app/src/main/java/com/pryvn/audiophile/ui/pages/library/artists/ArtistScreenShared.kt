@@ -69,11 +69,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Centered, all-caps artist name that shrinks to fit. Uses the app's existing
- * SF Pro heading weight, starting at 44sp and stepping down (multiline allowed,
- * up to two lines) whenever the name is too wide.
- */
 @Composable
 internal fun ArtistHeroNameText(artistName: String) {
     val textMeasurer = rememberTextMeasurer()

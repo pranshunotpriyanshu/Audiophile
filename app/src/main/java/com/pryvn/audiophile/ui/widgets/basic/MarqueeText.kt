@@ -145,8 +145,6 @@ private fun MarqueeContent(
     val scrollState = rememberScrollState()
     val maxScroll = (textWidth - containerWidth).coerceAtLeast(0)
 
-    // Pause the marquee while the app is not in the foreground so a backgrounded
-    // player screen never keeps animating frames.
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
 
@@ -164,7 +162,6 @@ private fun MarqueeContent(
             scrollState.scrollTo(0)
             delay(initialDelayMillis)
 
-            // Smooth scroll forward to end
             scrollState.animateScrollTo(
                 value = maxScroll,
                 animationSpec = tween(durationMillis = durationMillis, easing = LinearEasing)
@@ -172,7 +169,6 @@ private fun MarqueeContent(
 
             delay(endDelayMillis)
 
-            // Smooth quick reset back to start
             scrollState.animateScrollTo(
                 value = 0,
                 animationSpec = tween(durationMillis = 500, easing = LinearEasing)
@@ -193,7 +189,6 @@ private fun MarqueeContent(
                 val isScrolledFromStart = currentScroll > 4
                 val isScrolledBeforeEnd = currentScroll < (maxScroll - 4)
 
-                // Left Edge Fade Gradient Mask
                 if (isScrolledFromStart && edgeGradientPx > 0f) {
                     drawRect(
                         brush = Brush.horizontalGradient(
@@ -205,7 +200,6 @@ private fun MarqueeContent(
                     )
                 }
 
-                // Right Edge Fade Gradient Mask
                 if (isScrolledBeforeEnd && edgeGradientPx > 0f) {
                     drawRect(
                         brush = Brush.horizontalGradient(

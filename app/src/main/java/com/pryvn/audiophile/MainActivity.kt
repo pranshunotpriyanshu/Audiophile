@@ -137,6 +137,7 @@ import com.pryvn.audiophile.ui.UI
 import com.pryvn.audiophile.ui.UI.Settings.Companion.ExoplayerSetting
 import com.pryvn.audiophile.ui.animation.MotionTokens
 import com.pryvn.audiophile.ui.pages.HomeNav
+import com.pryvn.audiophile.ui.pages.RecentlyPlayed
 
 import com.pryvn.audiophile.ui.pages.NowPlaying
 import com.pryvn.audiophile.ui.pages.NowPlayingPage.Album
@@ -288,7 +289,6 @@ class MainActivity : ComponentActivity() {
                                 height.intValue.toDp().plus(miniPlayerHeight)
                             }
                         }
-                        // Logic initialization area
                         val navController = rememberNavController()
                         val navSpec = spring(
                             stiffness = 380f,
@@ -299,7 +299,6 @@ class MainActivity : ComponentActivity() {
                         val route = rememberSaveable(key = "MainActivity_route") {
                             mutableStateOf(UI.HomePage)
                         }
-                        // Record current route
 
                         YosWrapper {
                             val backstackEntry =
@@ -313,7 +312,6 @@ class MainActivity : ComponentActivity() {
                             UI.HomePage,
                         )
 
-                        // Show control area
                         val yosBottomSheetConfig = object {
                             val progress
                                 get() = if (parentHeight.intValue == 0) 0f else abs(offsetY.value / parentHeight.intValue).coerceIn(
@@ -345,8 +343,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // YT Music login bottom sheet — Apple-style depth effect:
-                        // the background scales down while the sheet covers 80%.
                         val loginSheetProgress = remember("MainActivity_loginSheetProgress") {
                             Animatable(0f)
                         }
@@ -404,7 +400,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // Navigation area
                         val defaultHome = stringResource(id = R.string.page_home_title)
 
                         val nowLabel = rememberSaveable(key = "MainActivity_nowLabel") {
@@ -413,9 +408,7 @@ class MainActivity : ComponentActivity() {
 
                         val pagerState = rememberPagerState(pageCount = { 3 })
 
-                        // Actual display below
 
-// Main interface
                         YosWrapper {
                             Surface(
                                 modifier = Modifier
@@ -428,8 +421,6 @@ class MainActivity : ComponentActivity() {
                                         scaleY = thisMainContainerCardScale * loginScale
                                     }
                                     .graphicsLayer {
-                                        //compositingStrategy = CompositingStrategy.Offscreen
-                                        //transformOrigin = TransformOrigin(0.5f, 1f)
 
                                         if ((yosBottomSheetConfig.thisShowCorner || loginSheetConfig.thisShowCorner) && !yosBottomSheetConfig.RTCorner) {
                                             compositingStrategy = CompositingStrategy.Offscreen
@@ -449,7 +440,6 @@ class MainActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.background,
                                 contentColor = MaterialTheme.colorScheme.onBackground
                             ) {
-                                // Main interface body
                                 SharedTransitionLayout {
                                     YosWrapper {
                                         BackHandler(showNowPlaying.value) {
@@ -561,6 +551,9 @@ class MainActivity : ComponentActivity() {
                                                 Library(
                                                     navController
                                                 )
+                                            }
+                                            composable(UI.RecentlyPlayed) {
+                                                RecentlyPlayed(navController)
                                             }
 
                                             composable(UI.PlayLists) {
@@ -708,12 +701,10 @@ class MainActivity : ComponentActivity() {
 
                                 }
 
-                                // Playlist deletion undo snackbar
                                 YosWrapper {
                                     UndoSnackbarHost(bottomOffset = 62.dp)
                                 }
 
-                                // Bottom navigation bar
                                 YosWrapper {
                                     if (showNavBar) {
                                         val color =
@@ -724,7 +715,6 @@ class MainActivity : ComponentActivity() {
                                             contentAlignment = Alignment.BottomCenter
                                         ) {
                                             val navBarHeight128 = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() + 128.dp }
-                                            // Background
                                             if (!showNowPlaying.value && SettingsLibrary.BarBlurEffect) {
                                                 Spacer(
                                                     modifier = Modifier
@@ -849,7 +839,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // Dialog
                             YosWrapper {
                                 val showCornerSetDialog =
                                     remember("MainActivity_showCornerSetDialog") {
@@ -869,16 +858,12 @@ class MainActivity : ComponentActivity() {
                             }
 
 
-                            // Playback bar & NowPlaying
                         YosWrapper {
                             if (height.intValue == 0) return@YosWrapper
                             if (!hasMusic.value) return@YosWrapper
 
                                 val navInsetPx = WindowInsets.navigationBars.getBottom(density).toFloat()
 
-                                // Resting dock offset for the mini player: above the bottom nav bar
-                                // when it is visible, above the system navigation inset otherwise.
-                                // Animated so the bar glides between the two docks on route change.
                                 val dockOffsetPx = remember("MainActivity_dockOffsetPx") {
                                     Animatable(if (showNavBar) (height.intValue + 10).toFloat() else navInsetPx)
                                 }
@@ -921,10 +906,6 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     val color = Color.White withNight Color(0xFF1C1C1E)
-                                    // One coroutine per drag delta would queue up on a
-                                    // fast swipe and race the settle animation, making
-                                    // the sheet jump — so every new delta cancels the
-                                    // previous one before applying itself.
                                     val dragJob = remember("MainActivity_dragJob") {
                                         mutableStateOf<Job?>(null)
                                     }
@@ -982,11 +963,6 @@ class MainActivity : ComponentActivity() {
                                                     dragJob.value?.cancel()
                                                     dragJob.value = null
                                                     offsetY.updateBounds(0f, parentHeight.intValue.toFloat())
-                                                    // A violent flick (e.g. a hard swipe on the
-                                                    // 3-dot menu) can carry an enormous fling
-                                                    // velocity that would spring the page past
-                                                    // its bounds — clamp it and snap back into
-                                                    // range first.
                                                     val clampedVelocity =
                                                         velocity.coerceIn(-6000f, 6000f)
                                                     scope.launch {
@@ -1026,11 +1002,8 @@ class MainActivity : ComponentActivity() {
                                             },
                                         color = Color.Transparent
                                     ) {
-                                        // Read directly from MediaViewModelObject.isPlaying
-                                        // (no rememberSaveable — it creates a stale copy)
                                         val isPlaying = MediaViewModelObject.isPlaying
 
-                                        // NowPlaying
                                         YosWrapper {
                                             NowPlaying(
                                                     mainViewModel = mainViewModel,
@@ -1051,7 +1024,6 @@ class MainActivity : ComponentActivity() {
                                                 }
                                         }
 
-                                        // Mini player state
                                         YosWrapper {
                                             //println("transform: menu alpha $menuAlpha")
                                             if (yosBottomSheetConfig.showMenu) {
@@ -1300,16 +1272,12 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        // YT Music login bottom sheet (Apple-style: covers 83% of the
-                        // screen from the bottom, dims and scales the background).
                         YosWrapper {
                             if (YtMusicLoginSheet.isOpen || loginSheetProgress.value > 0f) {
                                 BoxWithConstraints(Modifier.fillMaxSize()) {
                                     val sheetOffsetPx = with(density) {
                                         (maxHeight * (1f - loginSheetConfig.progress)).toPx()
                                     }
-                                    // Follows the header's drag gesture while dragging and
-                                    // springs back to 0 on release (unless dismissed).
                                     val animatedSheetDrag by animateFloatAsState(
                                         targetValue = if (YtMusicLoginSheet.isDragging) {
                                             YtMusicLoginSheet.dragOffsetPx
@@ -1323,8 +1291,6 @@ class MainActivity : ComponentActivity() {
                                         },
                                         label = "loginSheetDrag",
                                     )
-                                    // Drag progress in 0..1 (drag capped at 83% of the screen,
-                                    // matching the header's drag constraint in YTMusicLoginScreen).
                                     val maxDragPx = with(density) {
                                         (maxHeight * 0.83f).toPx()
                                     }
@@ -1333,9 +1299,6 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         0f
                                     }
-                                    // Scrim blur radius follows the drag: while the sheet is
-                                    // dragged down the blur shrinks (and the dim fades), then
-                                    // springs back on release.
                                     val scrimBlurRadius by animateDpAsState(
                                         targetValue = 24.dp * (1f - dragFraction),
                                         animationSpec = if (YtMusicLoginSheet.isDragging) {
@@ -1354,8 +1317,6 @@ class MainActivity : ComponentActivity() {
                                         },
                                         label = "loginSheetScrimAlpha",
                                     )
-                                    // Scrim: dims and blurs everything behind the sheet,
-                                    // using the same Haze blur style as the toolbar.
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -1427,11 +1388,9 @@ class MainActivity : ComponentActivity() {
         ) { permissions ->
             val isGranted = permissions.entries.all { it.value }
             if (isGranted) {
-                // Load music list here
                 loadMusic(context, enforce = true)
                 sendBroadcast(Intent("com.pryvn.audiophile.BLUETOOTH_STATUS_REFRESH"))
             } else {
-                // Set music list to empty if permission is denied
                 // mainMusicList.value = mutableListOf()
             }
         }
@@ -1563,8 +1522,6 @@ class MainActivity : ComponentActivity() {
         val needRefresh = SettingsLibrary.RefreshEveryTime || MediaController.mainMusicList.isEmpty()
         if (needRefresh || enforce) {
             mediaViewModel.viewModelScope.launch(Dispatchers.IO) {
-                // Already restored in Application, this is background scan
-                // mainMusicList.value = MusicScanner(context).getMusicList()
                 MusicLibrary.scanMedia(context)
                 println("Refreshing music library")
             }

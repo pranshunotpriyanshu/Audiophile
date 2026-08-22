@@ -1,5 +1,7 @@
 package com.pryvn.audiophile.ui.widgets
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,11 +14,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -34,19 +38,6 @@ import com.pryvn.audiophile.ui.widgets.basic.AppleLoadingSpinner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
-/**
- * Bridge composable that adapts the current project's raw lyrics data
- * into AMLL's SyncedLyrics model and renders with KaraokeLyricsView.
- *
- * Consumes [MediaViewModelObject.parsedSyncedLyrics] which is pre-parsed
- * by AutoParser in [com.pryvn.audiophile.code.utils.lrc.LyricsProcessor.applyLyrics]
- * and cached — avoids reparsing on every recomposition.
- *
- * User-configurable style options are read from [SettingsLibrary]:
- * - LyricFontSize / LyricFontWeight → text styles
- * - LyricBlurEffect → useBlurEffect
- * - LyricBlendMode → blendMode
- */
 @Composable
 fun AmlLyricsView(
     player: PlayerAdapter,
@@ -57,24 +48,54 @@ fun AmlLyricsView(
 ) {
     val listState = rememberLazyListState()
 
-    // Consume pre-parsed SyncedLyrics from the cache (parsed in LyricsProcessor)
     val syncedLyrics by MediaViewModelObject.parsedSyncedLyrics
-
-    // Show loading spinner while lyrics are being fetched from online sources
     val isLoadingLyrics by MediaViewModelObject.isLoadingLyrics
+
+    // Track transition state: 0 = showing spinner, 1 = showing lyrics
+    val transitionProgress = remember { Animatable(0f) }
+    var wasLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(isLoadingLyrics, syncedLyrics) {
+        if (syncedLyrics == null && isLoadingLyrics) {
+            wasLoading = true
+            transitionProgress.snapTo(0f)
+        } else if (syncedLyrics != null && wasLoading) {
+            wasLoading = false
+            transitionProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.6f,
+                    stiffness = 200f,
+                ),
+            )
+        } else if (syncedLyrics != null) {
+            wasLoading = false
+            transitionProgress.snapTo(1f)
+        }
+    }
 
     if (syncedLyrics == null) {
         if (isLoadingLyrics) {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                AppleLoadingSpinner()
+            Box(modifier = modifier.fillMaxSize()) {
+                val alpha = 1f - transitionProgress.value
+                val scale = 1f - transitionProgress.value * 0.5f
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            this.alpha = alpha
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                ) {
+                    AppleLoadingSpinner()
+                }
             }
         }
-        // No synced lyrics available — caller handles empty state
         return
     }
 
-    // Current playback position in ms — polled because player.currentPosition
-    // is a plain getter (not Compose State), so snapshotFlow never re-emits.
     var currentPositionMs by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
@@ -86,9 +107,20 @@ fun AmlLyricsView(
         }
     }
 
-    // Read user-configurable style options from SettingsLibrary
-    val fontSize = SettingsLibrary.LyricFontSize
-    val fontWeightStr = SettingsLibrary.LyricFontWeight
+    // Poll settings for instant reactivity (SettingsLibrary uses DataSaver, not Compose snapshot)
+    var fontSize by remember { mutableStateOf(SettingsLibrary.LyricFontSize) }
+    var fontWeightStr by remember { mutableStateOf(SettingsLibrary.LyricFontWeight) }
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            val newFontSize = SettingsLibrary.LyricFontSize
+            val newWeight = SettingsLibrary.LyricFontWeight
+            if (newFontSize != fontSize) fontSize = newFontSize
+            if (newWeight != fontWeightStr) fontWeightStr = newWeight
+            delay(100)
+        }
+    }
+
     val fontWeight = when (fontWeightStr) {
         "Thin" -> FontWeight.Thin
         "ExtraLight" -> FontWeight.ExtraLight
@@ -123,52 +155,64 @@ fun AmlLyricsView(
         textMotion = TextMotion.Animated,
     )
 
-    // ---- Swipe-down to show player controls ----
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
     val swipeThreshold = 40f
 
-    // ---- Instant refresh on song change ----
     LaunchedEffect(syncedLyrics) {
         listState.scrollToItem(0)
     }
 
-    KaraokeLyricsView(
-        listState = listState,
-        lyrics = syncedLyrics!!,
-        currentPosition = { currentPositionMs },
-        onLineClicked = { line: ISyncedLine ->
-            player.seekTo(line.start.toLong())
-        },
-        onLinePressed = { /* Long press - no-op for now */ },
+    // Lyrics: fade in + scale up on transition, fully visible otherwise
+    val lyricsAlpha = transitionProgress.value
+    val lyricsScale = 0.85f + transitionProgress.value * 0.15f
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onBackgroundClick,
-            )
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = {
-                        if (dragAccumulator > swipeThreshold) onBackgroundClick()
-                        dragAccumulator = 0f
-                    },
-                    onDragCancel = { dragAccumulator = 0f },
-                    onVerticalDrag = { _, dragAmount ->
-                        if (dragAmount > 0f) dragAccumulator += dragAmount
-                        else dragAccumulator = 0f
-                    },
-                )
+            .graphicsLayer {
+                alpha = lyricsAlpha
+                scaleX = lyricsScale
+                scaleY = lyricsScale
             }
-            .padding(horizontal = 12.dp),
-        normalLineTextStyle = textBaseStyle,
-        accompanimentLineTextStyle = accompanimentStyle,
-        textColor = textColor,
-        breathingDotsDefaults = KaraokeBreathingDotsDefaults(
-            breathingDotsColor = textColor,
-        ),
-        blendMode = blendMode,
-        useBlurEffect = SettingsLibrary.LyricBlurEffect,
-        offset = 32.dp,
-    )
+    ) {
+        KaraokeLyricsView(
+            listState = listState,
+            lyrics = syncedLyrics!!,
+            currentPosition = { currentPositionMs },
+            onLineClicked = { line: ISyncedLine ->
+                player.seekTo(line.start.toLong())
+            },
+            onLinePressed = { },
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = onBackgroundClick,
+                )
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (dragAccumulator > swipeThreshold) onBackgroundClick()
+                            dragAccumulator = 0f
+                        },
+                        onDragCancel = { dragAccumulator = 0f },
+                        onVerticalDrag = { _, dragAmount ->
+                            if (dragAmount > 0f) dragAccumulator += dragAmount
+                            else dragAccumulator = 0f
+                        },
+                    )
+                }
+                .padding(horizontal = 12.dp),
+            normalLineTextStyle = textBaseStyle,
+            accompanimentLineTextStyle = accompanimentStyle,
+            textColor = textColor,
+            breathingDotsDefaults = KaraokeBreathingDotsDefaults(
+                breathingDotsColor = textColor,
+            ),
+            blendMode = blendMode,
+            useBlurEffect = SettingsLibrary.LyricBlurEffect,
+            offset = 32.dp,
+        )
+    }
 }

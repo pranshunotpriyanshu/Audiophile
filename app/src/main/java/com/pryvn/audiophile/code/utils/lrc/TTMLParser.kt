@@ -35,12 +35,6 @@ object TTMLParser {
         return timeRegex.containsMatchIn(lyrics)
     }
 
-    /**
-     * Detects word-synced LRC variants that carry word timing outside of TTML:
-     * enhanced LRC with inline `<mm:ss.xx>` markers (Apple Music / QQ Music /
-     * paxsenix "v1:<time>word" lines) or NetEase klyric, where every word is
-     * prefixed by its own `[mm:ss.xx]` bracket inside the line.
-     */
     fun isKaraokeSyncedLrc(lyrics: String): Boolean {
         val inlineWordRegex = Regex("""<\d{2}:\d{2}(?:\.\d{2,3})?>""")
         if (inlineWordRegex.containsMatchIn(lyrics)) return true
@@ -120,9 +114,6 @@ object TTMLParser {
                         if (text.isNotBlank()) {
                             plainText = text
                         } else if (rawText.isNotEmpty() && !rawText.contains('\n')) {
-                            // Whitespace-only text node between spans marks a WORD boundary:
-                            // attach the space to the previous word so syllables within a
-                            // word stay glued together while real words get separated.
                             if (words.isNotEmpty() && !words.last().text.endsWith(" ")) {
                                 val last = words.last()
                                 words[words.lastIndex] = last.copy(text = last.text + " ")
@@ -238,12 +229,6 @@ object TTMLParser {
         return lines.sortedBy { it.startTime }
     }
 
-    /**
-     * Builds word-level segments from a plain line of text by splitting on
-     * whitespace and distributing the line's timing across the words. Without this,
-     * a line that carries no span timing would render as one animated segment per
-     * letter ("h e l l o") instead of proper words ("hello world").
-     */
     private fun syntheticWordsBySpace(
         text: String,
         startTime: Double,
@@ -259,11 +244,6 @@ object TTMLParser {
         charList.forEachIndexed { idx, c ->
             if (c.isWhitespace()) {
                 if (word.isNotEmpty()) {
-                    // Bake the boundary whitespace into the word text: the renderer
-                    // never inserts spaces between words, so without this the words
-                    // would render glued together ("helloworld"). The trailing space
-                    // also extends the word's timing span to cover the gap, which
-                    // keeps the next word's start time exactly aligned.
                     word.append(' ')
                     result.add(
                         ParsedWord(
@@ -378,9 +358,6 @@ object TTMLParser {
     fun parseSyncedLrc(lrcText: String): List<ParsedLine> {
         val lines = mutableListOf<ParsedLine>()
         val rawLines = lrcText.lines().filter { it.isNotBlank() }
-        // Apple Music / QQ Music enhanced LRC carries a vocal-agent marker right after
-        // the line timestamp, e.g. "[00:06.118]v1:<00:06.118>Yeah, ..." or "v2000:"/"bg:".
-        // Strip it so it does not leak into the rendered lyric text.
         val voicePrefixRegex = Regex("""^(v\d+|bg):\s*""")
         for (rawLine in rawLines) {
             val timeMatches = lrcTimeRegex.findAll(rawLine)
@@ -411,13 +388,9 @@ object TTMLParser {
                 var lastEnd = lineStart
                 var lastIndex = 0
                 for (wm in wordMatches) {
-                    // trimStart only: keep the trailing space so adjacent words render
-                    // with their natural gap (the renderer does not insert spaces).
                     val before = lyricText.substring(lastIndex, wm.range.first).trimStart()
                     if (before.isNotBlank()) {
                         val wordEnd = parseLrcTimeToSec(wm.groupValues[1])
-                        // A "bg:" line marks background vocals: every word in the
-                        // line is background, exactly like TTML x-bg words.
                         words.add(ParsedWord(before, lastEnd, wordEnd, isBackground))
                         lastEnd = wordEnd
                     }

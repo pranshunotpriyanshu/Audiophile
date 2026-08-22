@@ -221,7 +221,6 @@ object YouTubeApi {
         val page = YouTube.artist(browseId).getOrThrow()
         val header = ArtistHeader.fromArtistItem(page.artist)
 
-        // Parse sections
         val topSongs = page.sections
             .firstOrNull { it.title.contains("Top songs", ignoreCase = true) || it.title.contains("Popular", ignoreCase = true) }
             ?.items
@@ -260,19 +259,9 @@ object YouTubeApi {
         )
     }
 
-    /**
-     * The COMPLETE artist song catalogue — not just the top-songs shelf preview.
-     *
-     * The artist browse page only carries an initial batch of songs; the Songs
-     * shelf's browse endpoint ([ArtistSection.moreEndpoint]) plus its
-     * continuation pages contain the full catalogue. This walks the whole
-     * paginated list and returns every song once, preserving catalogue order.
-     */
     suspend fun allArtistSongs(browseId: String): Result<List<SongItem>> = runCatching {
         val page = YouTube.artist(browseId).getOrThrow()
 
-        // Prefer a songs section that carries a paginated "see all" endpoint;
-        // fall back to any songs section (whose shelf items remain usable).
         val songsSection =
             page.sections.firstOrNull { section ->
                 section.moreEndpoint != null &&
@@ -292,13 +281,8 @@ object YouTubeApi {
 
         val allSongs = linkedMapOf<String, SongItem>()
 
-        // Baseline: every song the artist page already surfaced (the preview
-        // head). Kept unconditionally so the catalogue is always a SUPERSET of
-        // the preview — never smaller than what the overview shows.
         songsSection?.items?.filterIsInstance<SongItem>()?.forEach { allSongs[it.id] = it }
 
-        // Overlay the complete paginated catalogue; same-id entries replace the
-        // shelf copies (which lack duration), extras append in catalogue order.
         firstPage?.items?.filterIsInstance<SongItem>()?.forEach { allSongs[it.id] = it }
 
         var continuation = firstPage?.continuation

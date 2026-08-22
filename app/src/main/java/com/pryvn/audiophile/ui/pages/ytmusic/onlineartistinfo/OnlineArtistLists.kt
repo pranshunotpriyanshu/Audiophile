@@ -80,8 +80,6 @@ fun OnlineArtistSongs(navController: NavController, browseId: String) {
             val result = YouTubeApi.allArtistSongs(browseId)
             result.fold(
                 onSuccess = { songs ->
-                    // Complete catalogue, ranked by listening history (recency);
-                    // songs without history stay at the end in catalogue order.
                     songsState.value = ListeningHistory.rankByListeningHistory(songs) { it.id }
                 },
                 onFailure = { songsState.value = emptyList() },

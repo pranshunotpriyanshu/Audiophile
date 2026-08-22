@@ -36,7 +36,6 @@ object PersistentStreamCache {
     fun initialize(context: Context) {
         cacheDir = File(context.filesDir, CACHE_DIR_NAME)
         cacheDir?.mkdirs()
-        // Clean up expired entries on startup
         cleanupExpired()
     }
 

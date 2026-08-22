@@ -348,8 +348,6 @@ private fun ArtistHero(
             .fillMaxWidth()
             .height(heroHeight),
     ) {
-        // The artwork bleeds across the whole hero so it feels like it naturally
-        // extends behind the text and controls instead of a separate rectangle.
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(heroArtwork)
@@ -364,9 +362,6 @@ private fun ArtistHero(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Light artwork-derived scrim: the selfie stays visible through the hero,
-        // fading gently into the dynamic page background only near the bottom so
-        // the name and action buttons stay readable with no dark empty void.
         Box(
             modifier = Modifier
                 .fillMaxSize()

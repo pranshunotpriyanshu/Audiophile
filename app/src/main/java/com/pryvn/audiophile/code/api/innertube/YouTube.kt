@@ -100,10 +100,6 @@ import okhttp3.Dns
 import java.net.Proxy
 import kotlin.random.Random
 
-/**
- * Parse useful data with [InnerTube] sending requests.
- * Modified from [ViMusic](https://github.com/vfsfitvnm/ViMusic)
- */
 object YouTube {
     private const val BROWSE_ID_EXPLORE = "FEmusic_explore"
     private const val BROWSE_ID_NEW_RELEASE_ALBUMS = "FEmusic_new_releases_albums"
@@ -470,11 +466,6 @@ object YouTube {
             parseAlbumPage(response, browseId, withSongs = withSongs, fetchAllSongs = true)
         }
 
-    /**
-     * First album page only: metadata plus the initial inline song batch and its
-     * continuation token. Lets the UI render immediately and load songs
-     * progressively via [albumSongsNext] instead of blocking on the full album.
-     */
     suspend fun albumFirstPage(browseId: String): Result<AlbumPage> =
         runCatching {
             val response = innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>()
@@ -499,11 +490,6 @@ object YouTube {
             )
         }
 
-    /**
-     * First page of an album's VL playlist browse: used as a lazy fallback when
-     * the album browse response itself carries no inline song shelf. Returns the
-     * first batch plus its continuation token — never the whole album.
-     */
     suspend fun albumSongsFirstPage(
         playlistId: String,
         album: AlbumItem? = null,
@@ -2581,7 +2567,7 @@ suspend fun fetchSignatureTimestamp(): Int {
                     ?.get("twoColumnBrowseResultsRenderer")?.jsonObject
                     ?.get("tabs")?.jsonArray
                 ?: return@runCatching 24007
-            
+
             val ts = tabs.firstOrNull()?.jsonObject
                 ?.get("tabRenderer")?.jsonObject
                 ?.get("content")?.jsonObject
@@ -2596,7 +2582,7 @@ suspend fun fetchSignatureTimestamp(): Int {
                 ?.get("browseEndpoint")?.jsonObject
                 ?.get("signatureTimestamp")?.jsonPrimitive?.contentOrNull
                 ?.toIntOrNull()
-            
+
             if (ts != null) ts else 24007
         }.getOrElse { 24007 }
     }

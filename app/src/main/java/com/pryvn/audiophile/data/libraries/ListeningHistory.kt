@@ -64,11 +64,6 @@ object ListeningHistory {
         mmkv.removeValueForKey(historyKey)
     }
 
-    /**
-     * Stable ranking for a song catalogue using the existing listening history:
-     * songs with history come first (most recently played first); songs without
-     * history keep their catalogue order at the end.
-     */
     fun <T> rankByListeningHistory(
         items: List<T>,
         key: (T) -> String?,

@@ -5,14 +5,7 @@ import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.util.fastJoinToString
 import com.pryvn.audiophile.data.objects.MediaViewModelObject
 
-/**
- * LRC lyrics text processing
- */
 class YosLrcFactory(private val formatText: Boolean = true) {
-    /**
-     * LRC lyrics text processing method
-     * @param lrcText LRC format text
-     */
     /*fun formatLrcEntries(lrcText: String): List<Pair<Float, String>> {
         val lrcLines = lrcText.lines()
         return lrcLines.mapNotNull { line ->
@@ -97,15 +90,12 @@ class YosLrcFactory(private val formatText: Boolean = true) {
 
                 val nextTimeIndex = remainingLine.substring(timeAfter + 1).indexOf("[")
 
-                // Line start or word end
                 var lyric = remainingLine.substring(0, timeIndex)
 
                 if (lyric.isEmpty()) {
-                    // Sentence start
                     lyric = ""
                     currentLinePairs.add(time to lyric.replace(Regex("(?!\\n)\\s+"), " "))
                 } else {
-                    // Normal sentence component
                     if (/*lyric.isNotBlank() && */lyric.trim() != "//") {
                         currentLinePairs.add(
                             time to lyric.replace(Regex("(?!\\n)\\s+"), " ")
@@ -143,17 +133,12 @@ class YosLrcFactory(private val formatText: Boolean = true) {
     }
 
     private fun processOtherSide(lrcEntries: List<List<Pair<Float, String>>>): List<List<Pair<Float, String>>> {
-        // Duet handling
         val otherSideResult = mutableStateListOf<Boolean>()
         val backgroundResult = mutableStateListOf<Boolean>()
         var otherSide = false
         var lastSinger: String? = null
         var otherSideFirstTime = false
 
-        // Vocal-agent marker right after the line timestamp, mirroring word-synced
-        // lyrics: "v1:"/"v1000:" = first vocalist (left side), "v2:"/"v2000:" =
-        // second vocalist (right side), "bg:" = background vocal. The marker is
-        // stripped from the rendered text.
         val voicePrefixRegex = Regex("""^(v\d+|bg):\s*""")
         val singerOnlyRegex = Regex(".+\\s*:\\s*")
 
@@ -165,9 +150,6 @@ class YosLrcFactory(private val formatText: Boolean = true) {
             var deleteType = -1
 
             val voiceMatch = voicePrefixRegex.find(lyric)
-            // "bg:" marks a background-vocal line: the line-synced renderer draws
-            // it smaller and dimmer (CArchiveTune background styling). The marker
-            // itself is stripped from the rendered text below.
             val isBackgroundLine = voiceMatch?.groupValues?.get(1)?.equals("bg", ignoreCase = true) == true
             if (voiceMatch != null) {
                 // Deterministic side from the vocal agent.
@@ -185,7 +167,6 @@ class YosLrcFactory(private val formatText: Boolean = true) {
                 if (currentSinger.matches(singerOnlyRegex)) {
                     deleteType = 0
                     if (lastSinger != null && lastSinger == currentSinger) {
-                        // Keep otherSide unchanged
                     } else {
                         if (otherSideFirstTime) {
                             otherSide = !otherSide

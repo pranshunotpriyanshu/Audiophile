@@ -215,7 +215,6 @@ object PaxsenixApiClient {
 
     private fun String.urlEncoded(): String = URLEncoder.encode(this, "UTF-8")
 
-    // Gson JsonObject/JsonElement extensions
     private fun JsonObject.getString(key: String): String? =
         get(key)?.let { if (it.isJsonPrimitive) it.asString else it.toString() }?.takeIf { it.isNotBlank() }
 

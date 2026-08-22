@@ -173,15 +173,10 @@ private fun SongOverflowMenuBody(
     val context = LocalContext.current
     val isFav = FavPlayListLibrary.isFavorite(song)
 
-    // "Play next" is only meaningful for songs that are neither the one currently
-    // playing nor already sitting in the up-next queue.
     val isCurrentSong = song.mediaId != null && song.mediaId == MediaController.musicPlaying.value?.mediaId
     val isInNextQueue = song.mediaId != null &&
         MediaController.nextInQueueMusicList.value.any { it.mediaId == song.mediaId }
 
-    // The song is already offline (private tag / local file) or fully cached, so
-    // the Download button is replaced by a playful status line; a download that
-    // is in flight shows its progress state instead.
     val isLocal = song.isLocalMediaItem()
     val isAlreadyCached = AudioCacheStore.getCachedUri(song.mediaId) != null
     val isDownloading = AudioCacheStore.progressOf(song.mediaId) != null
@@ -258,8 +253,6 @@ private fun SongOverflowMenuBody(
                 },
             )
 
-            // Download / download status: offline media never offers a Download
-            // action — it shows the cheeky status line instead.
             when {
                 isDownloaded -> row(
                     text = stringResource(R.string.song_menu_download_local_already),
@@ -328,8 +321,6 @@ private fun SongOverflowMenuBody(
             }
         }
 
-        // Now Playing-only actions, grouped in their own card like Apple Music
-        // separates utility actions from the main song actions.
         val hasExtras = onPickSleepTimer != null || onRefetchLyrics != null ||
             onPickLyricShare != null || onPickDownloadStatus != null
         if (hasExtras) {
@@ -394,11 +385,6 @@ private fun SongOverflowMenuBody(
     }
 }
 
-/**
- * Routes to the song's album: local media opens the local album screen; online
- * songs resolve the album's browse id (via an album-scoped search) and open the
- * online album page.
- */
 internal fun goToAlbum(song: YosMediaItem, navController: NavController) {
     val albumName = song.album ?: return
     if (song.isLocalMediaItem()) {
@@ -419,14 +405,6 @@ internal fun goToAlbum(song: YosMediaItem, navController: NavController) {
     }
 }
 
-/**
- * Routes to the song's artist page.
- * - Online songs: resolves the artist's browseId via YouTube search and
- *   navigates to the online artist page.
- * - If the song has multiple artists, shows a list screen first so the
- *   user can pick which artist to visit.
- * - Local/offline songs: opens the local artist library page.
- */
 internal fun goToArtist(song: YosMediaItem, navController: NavController) {
     val artists = song.artistsList
     if (song.isLocalMediaItem() || artists == null || artists.isEmpty()) {
@@ -443,8 +421,6 @@ internal fun goToArtist(song: YosMediaItem, navController: NavController) {
         return
     }
 
-    // Multiple artists: show a pick list, then navigate to the selected
-    // artist's online page.
     LibraryObject.setTargetListWithTitle(
         title = "Artists",
         list = artists.map { name ->
@@ -457,11 +433,6 @@ internal fun goToArtist(song: YosMediaItem, navController: NavController) {
     navController.toUI(UI.SongArtistsList)
 }
 
-/**
- * Searches YouTube for [artistName], picks the best-matching artist, and
- * navigates to their online page. Falls back to the local artist page if
- * the search fails or returns no results.
- */
 private fun resolveAndGoToOnlineArtist(artistName: String, navController: NavController) {
     MainScope().launch(Dispatchers.IO) {
         val result = withTimeoutOrNull(10_000L) {

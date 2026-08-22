@@ -112,7 +112,6 @@ data class ArtistItemsPage(
                     )
                 }
 
-                // Video
                 renderer.isSong -> {
                     SongItem(
                         id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,

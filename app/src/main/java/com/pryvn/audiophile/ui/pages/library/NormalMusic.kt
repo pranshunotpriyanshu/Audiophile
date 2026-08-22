@@ -139,9 +139,6 @@ fun NormalMusic(navController: NavController) {
             val useSearch = remember { derivedStateOf { searchText.value.isNotEmpty() } }
             val list: MutableState<List<YosMediaItem>> = remember { mutableStateOf(musicList.sortX()) }
 
-            // Multi-select (entered from the song overflow sheet's "Select"
-            // item, available on every playlist screen). The offline "Cached"
-            // library additionally gets a remove-from-cache action.
             val context = LocalContext.current
             val isCachedLibrary = remember(pageInfo.first) {
                 pageInfo.first == context.getString(R.string.page_library_playlists_cached_title)
@@ -155,8 +152,6 @@ fun NormalMusic(navController: NavController) {
                 if (selectedSongs.isEmpty()) selectionMode.value = false
             }
 
-            // Entered from the song overflow sheet's "Select" item (long-press
-            // the row, then pick Select) — for every playlist screen.
             val enterSelectMode: (YosMediaItem) -> Unit = { music ->
                 Vibrator.longClick(context)
                 if (!selectionMode.value) {
@@ -261,9 +256,6 @@ fun NormalMusic(navController: NavController) {
                     },
                     rightBarIcon = if (selectionMode.value) {
                         {
-                            // Select mode: add the selected songs to a playlist;
-                            // only the offline Cached library can drop them from
-                            // the cache, so that button is exclusive to it.
                             SelectModeBarIcon(
                                 iconRes = R.drawable.ic_action_add,
                                 onClick = { pickerOpen.value = true },

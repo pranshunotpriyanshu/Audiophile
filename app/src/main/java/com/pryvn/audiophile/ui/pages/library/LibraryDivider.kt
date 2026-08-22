@@ -12,9 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.pryvn.audiophile.ui.theme.withNight
 
-/**
- * Library horizontal divider
- */
 @Composable
 fun LibraryDivider(modifier: Modifier = Modifier) =
     Spacer(

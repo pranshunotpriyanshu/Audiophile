@@ -23,19 +23,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 
-/**
- * Permanent on-disk audio cache ("cache forever").
- *
- * Online streams are downloaded once, keyed by videoId (never by the expiring
- * stream URL), into filesDir/audio_cache/ and served from disk on every later
- * play. Because the key is the videoId, a newly resolved URL for an already
- * cached song is never needed — the local file is used directly. Never evicted.
- *
- * The store also keeps a small persisted metadata registry (title/artists/
- * cover per video) so cached songs can be surfaced as an offline library, and
- * exposes live download progress (as Compose snapshot state) so the UI can
- * show which songs are being cached in the background.
- */
 object AudioCacheStore {
 
     private const val DIR_NAME = "audio_cache"
@@ -61,17 +48,12 @@ object AudioCacheStore {
     // Guards against duplicate concurrent downloads of the same video.
     private val downloading = ConcurrentHashMap.newKeySet<String>()
 
-    // VideoIds whose in-flight download was requested to stop. The download
-    // loop checks this alongside coroutine cancellation; entries are removed
-    // when the download actually winds down so a later retry works.
     private val cancelledDownloads = ConcurrentHashMap.newKeySet<String>()
 
     // Bumped by clear(); in-flight downloads abort when it changes.
     @Volatile
     private var clearGeneration = 0
 
-    // Live in-flight downloads (videoId -> progress). Snapshot state, so
-    // composables reading it recompose as bytes stream in.
     val activeDownloads = mutableStateMapOf<String, DownloadProgress>()
 
     private val dir: File
@@ -85,10 +67,6 @@ object AudioCacheStore {
 
     private fun fileFor(videoId: String): File = File(dir, "${safeName(videoId)}.m4a")
 
-    // ── Metadata registry ──────────────────────────────────────────────────
-    // Persisted as a single JSON file in the cache dir (keyed by the safe file
-    // name) so cached songs keep their title/cover/artist info across restarts
-    // and can be browsed as an offline library.
 
     private data class CachedSongRecord(
         val videoId: String,
@@ -149,7 +127,6 @@ object AudioCacheStore {
         }
     }
 
-    // ── Snapshot-backed stats (observed by Compose) ────────────────────────
 
     private data class CacheStats(val count: Int, val bytes: Long)
 
@@ -184,7 +161,6 @@ object AudioCacheStore {
             return stats.value.bytes
         }
 
-    // ── Public cache queries ───────────────────────────────────────────────
 
     /** Local file URI when [videoId] is already cached, else null. */
     fun getCachedUri(videoId: String?): String? {
@@ -212,22 +188,12 @@ object AudioCacheStore {
     fun progressOf(videoId: String?): DownloadProgress? =
         videoId?.let { activeDownloads[it] }
 
-    /**
-     * Requests cancellation of the in-flight download for [videoId]. The row
-     * disappears immediately; the download stops at the next buffer boundary
-     * and only a temp file is left behind (cleaned up by the download loop).
-     * No-op when nothing is downloading.
-     */
     fun cancelDownload(videoId: String?) {
         if (videoId.isNullOrBlank()) return
         cancelledDownloads.add(videoId)
         activeDownloads.remove(videoId)
     }
 
-    /**
-     * Removes [songs] from the cache: cancels any in-flight download, deletes
-     * the audio files (and leftover temp files) and drops their metadata.
-     */
     fun removeSongs(songs: List<YosMediaItem>) {
         val ids = songs.mapNotNull { it.mediaId }.filter { it.isNotBlank() }.toSet()
         if (ids.isEmpty()) return
@@ -256,12 +222,6 @@ object AudioCacheStore {
             ?: knownSongsById()[videoId]?.title
     }
 
-    /**
-     * Every fully downloaded song as a browsable, offline-playable item.
-     * Items carry their original metadata (title/artists/cover) when known and
-     * always point their [YosMediaItem.uri] at the local cached file, so they
-     * play without any network.
-     */
     fun cachedSongs(): List<YosMediaItem> {
         val metadata = loadMetadata()
         val knownById = knownSongsById()
@@ -276,8 +236,6 @@ object AudioCacheStore {
                     item.copy(
                         uri = fileUri,
                         mediaId = record?.videoId ?: key,
-                        // Private tag: identifies this item as already-offline
-                        // media so the UI can hide download actions for it.
                         isLocalMedia = true,
                     )
                 } else {
@@ -325,15 +283,7 @@ object AudioCacheStore {
         return String.format(Locale.US, "%.2f GB", mb / 1024.0)
     }
 
-    // ── Download ───────────────────────────────────────────────────────────
 
-    /**
-     * Downloads [url] into the permanent cache for [videoId]. No-op when the
-     * video is already cached or already being downloaded. Runs on IO and is
-     * cancellation-aware (a cancelled download leaves only a temp file).
-     * [item] carries the song's display metadata, which is recorded so the
-     * song can be surfaced in the offline "Cached" library.
-     */
     suspend fun download(
         videoId: String?,
         url: String?,
@@ -408,12 +358,7 @@ object AudioCacheStore {
         }
     }
 
-    // ── Fallback metadata lookup ───────────────────────────────────────────
 
-    /**
-     * Best-effort metadata for videoIds cached before the registry existed
-     * (or not yet recorded): searches the in-app song collections by mediaId.
-     */
     private fun knownSongsById(): Map<String, YosMediaItem> {
         val songs = buildList {
             addAll(PlayListLibrary.playList.flatMap { it.songDataList })

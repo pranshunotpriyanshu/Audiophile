@@ -40,17 +40,6 @@ data class KaraokeBreathingDotsDefaults(
     val exitDurationMs: Int = 200,
     val breathingDotsColor: Color = Color.White
 )
-/**
- * Displays breathing dots animation during instrumental intros or interludes.
- * The dots breathe/pulse and fade in/out to indicate progress during non-lyrical sections.
- *
- * @param alignment Alignment of the dots (Start or End).
- * @param startTimeMs Start time of the interlude.
- * @param endTimeMs End time of the interlude.
- * @param currentTimeProvider Provider for current playback time.
- * @param modifier Modifier for the layout.
- * @param defaults Configuration defaults for size, count, etc.
- */
 @Composable
 fun KaraokeBreathingDots(
     alignment: KaraokeAlignment,
@@ -111,14 +100,12 @@ fun KaraokeBreathingDots(
             var revealProgress: Float
 
             when {
-                // Stage 1: Intro
                 currentTime < timeline.enterEnd -> {
                     val progress = ((currentTime - startTimeMs) / (timeline.enterEnd - startTimeMs)).coerceIn(0f, 1f)
                     alpha = FastOutSlowInEasing.transform(progress)
                     scale = alpha * 0.8f
                     revealProgress = alpha
                 }
-                // Stage 2: Breathe
                 currentTime < timeline.dipStart -> {
                     alpha = 1f
                     revealProgress = 1f
@@ -126,20 +113,17 @@ fun KaraokeBreathingDots(
                     val angle = (timeInPhase / 3000f) * 2 * PI
                     scale = 0.9f - 0.1f * cos(angle.toFloat())
                 }
-                // Stage 3: Pre-exit
                 currentTime < timeline.stillStart -> {
                     alpha = 1f
                     revealProgress = 1f
                     val progress = (currentTime - timeline.dipStart) / (timeline.stillStart - timeline.dipStart)
                     scale = 0.8f + 0.2f * cos(progress * 2 * PI).toFloat()
                 }
-                // Stage 4: Still
                 currentTime < timeline.exitStart -> {
                     alpha = 1f
                     revealProgress = 1f
                     scale = 1.0f
                 }
-                // Stage 5: Outro
                 else -> {
                     val progress = ((endTimeMs - currentTime) / (endTimeMs - timeline.exitStart)).coerceIn(0f, 1f)
                     val eased = FastOutSlowInEasing.transform(progress)

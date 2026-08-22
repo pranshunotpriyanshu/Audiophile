@@ -45,11 +45,6 @@ import com.pryvn.audiophile.data.libraries.defaultArtistsName
 import com.pryvn.audiophile.data.libraries.defaultTitle
 import com.pryvn.audiophile.ui.theme.withNight
 
-/**
- * Sub-screen of the Now Playing overflow menu: shows the per-song download
- * state of the current song plus every song currently being cached in the
- * background, with live progress bars.
- */
 @Composable
 fun DownloadStatusScreen(
     song: YosMediaItem?,
@@ -57,7 +52,6 @@ fun DownloadStatusScreen(
 ) {
     val context = LocalContext.current
     val accent = Color(0xFF1E88E5)
-    // Snapshot read: recomposes while downloads stream in or finish.
     val activeDownloads = AudioCacheStore.activeDownloads
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -98,8 +92,6 @@ fun DownloadStatusScreen(
 
         DownloadStatusDivider()
 
-        // Current song: per-song Download indicator. Already-offline media
-        // (cached songs and device-local files) counts as downloaded.
         if (song != null) {
             DownloadProgressRow(
                 title = song.title ?: defaultTitle,
@@ -116,8 +108,6 @@ fun DownloadStatusScreen(
             DownloadStatusDivider()
         }
 
-        // Background downloads EXCLUDING the current song, which is already
-        // shown in its own row above (otherwise it would be duplicated).
         val currentVideoId = song?.mediaId
         val otherDownloads = activeDownloads.filterKeys { it != currentVideoId }
         if (otherDownloads.isEmpty()) {
@@ -222,8 +212,6 @@ private fun DownloadProgressRow(
                     (Color.Black withNight Color.White).copy(alpha = 0.4f)
                 },
             )
-            // 3-dot menu: only shown when a force download is actually possible
-            // (song known, not already cached, and no download in flight).
             if (song != null && progress == null && !downloaded) {
                 val menuOpen = remember(song.mediaId) { mutableStateOf(false) }
                 Spacer(modifier = Modifier.width(6.dp))
@@ -275,8 +263,6 @@ private fun DownloadProgressRow(
         if (progress != null) {
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Cancel: an 'x' sitting in front of the progress bar stops
-                // the in-flight download for this song.
                 Box(
                     modifier = Modifier
                         .size(24.dp)

@@ -13,11 +13,6 @@ import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpo
 import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_AUDIOBOOK
 import com.pryvn.audiophile.code.api.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
-/**
- * Two row: a big thumbnail, a title, and a subtitle
- * Used in [GridRenderer] and [MusicCarouselShelfRenderer]
- * Item type: song, video, album, playlist, artist
- */
 @Serializable
 data class MusicTwoRowItemRenderer(
     val title: Runs,

@@ -8,9 +8,6 @@ import com.pryvn.audiophile.data.SettingsSaver
 @Stable
 object SettingsLibrary {
 
-    /**
-     * Followed artist list
-     */
     @Stable
     var FollowedArtists by mutableDataSaverListStateOf(
         dataSaverInterface = SettingsSaver,
@@ -50,9 +47,6 @@ object SettingsLibrary {
         initialValue = ""
     )
 
-    /**
-     * Whether to show volume slider
-     */
     @Stable
     var NowPlayingShowVolumeBar by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -60,9 +54,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * App theme
-     */
     @Stable
     var CustomTheme by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -70,9 +61,6 @@ object SettingsLibrary {
         initialValue = "Auto"
     )
 
-    /**
-     * Whether screen corner radius has been set
-     */
     @Stable
     var ScreenCornerSet by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -80,9 +68,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Screen corner radius
-     */
     @Stable
     var ScreenCorner by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -90,9 +75,6 @@ object SettingsLibrary {
         initialValue = "30"
     )
 
-    /**
-     * Song sort order
-     */
     @Stable
     var SongSort by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -105,9 +87,6 @@ object SettingsLibrary {
         MUSIC_TITLE, MUSIC_DURATION, ARTIST_NAME, MODIFIED_DATE
     }
 
-    /**
-     * Enable descending order
-     */
     @Stable
     var EnableDescending by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -115,9 +94,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * Lyrics screen - translation
-     */
     @Stable
     var NowPlayingTranslation by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -125,9 +101,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Refresh media library on every launch
-     */
     @Stable
     var RefreshEveryTime by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -135,9 +108,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Lyrics font weight
-     */
     @Stable
     var LyricFontWeight by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -145,9 +115,6 @@ object SettingsLibrary {
         initialValue = "ExtraBold"
     )
 
-    /**
-     * Lyrics font size (sp)
-     */
     @Stable
     var LyricFontSize by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -155,9 +122,6 @@ object SettingsLibrary {
         initialValue = 30.5f
     )
 
-    /**
-     * Lyrics line balance mode
-     */
     @Stable
     var LyricLineBalance by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -165,9 +129,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Lyrics blur effect
-     */
     @Stable
     var LyricBlurEffect by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -175,9 +136,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Word glow amount (0x..1.3x) for word-synced lyrics
-     */
     @Stable
     var LyricGlowAmount by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -185,9 +143,6 @@ object SettingsLibrary {
         initialValue = 0.2f
     )
 
-    /**
-     * Word bounce amount (0x..1.0x) for word-synced lyrics
-     */
     @Stable
     var LyricBounceAmount by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -195,9 +150,6 @@ object SettingsLibrary {
         initialValue = 0.22f
     )
 
-    /**
-     * Smart word-by-word lyrics: animate a linear gradient over non word-synced lines
-     */
     @Stable
     var LyricSmartWbw by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -205,10 +157,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * AMLL blend mode for karaoke text rendering.
-     * "Plus" = glow effect, "Multiply" = darkened, "Screen" = lightened.
-     */
     @Stable
     var LyricBlendMode by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -216,9 +164,6 @@ object SettingsLibrary {
         initialValue = "Plus"
     )
 
-    /**
-     * Status bar lyrics enabled
-     */
     @Stable
     var StatusBarLyricEnabled by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -226,9 +171,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * Status bar lyrics hooked
-     */
     @Stable
     var StatusBarLyricHooked by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -236,9 +178,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * Now playing background dynamic effect
-     */
     @Stable
     var NowplayingBackgroundEffect by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -246,9 +185,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * UI toolbar blur effect
-     */
     @Stable
     var BarBlurEffect by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -256,9 +192,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * Media notification - extra media icon
-     */
     @Stable
     var NotificationEnableIcon by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -266,9 +199,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Media notification - smaller icon
-     */
     @Stable
     var NotificationSmallerIcon by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -276,9 +206,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * Fade in/out playback
-     */
     @Stable
     var FadePlay by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -286,9 +213,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * Playback history
-     */
     @Stable
     var ListenHistory by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -296,9 +220,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * ExoPlayer behavior - audio attributes
-     */
     @Stable
     var AudioAttributes by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -306,9 +227,6 @@ object SettingsLibrary {
         initialValue = true
     )
 
-    /**
-     * ExoPlayer decoding - codec
-     */
     @Stable
     var Codec by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -316,9 +234,6 @@ object SettingsLibrary {
         initialValue = "Auto"
     )
 
-    /**
-     * ExoPlayer decoding - hardware audio track playback params
-     */
     @Stable
     var HardwareAudioTrackPlayBackParams by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -326,9 +241,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * ExoPlayer decoding - audio float output
-     */
     @Stable
     var AudioFloatOutput by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -336,10 +248,6 @@ object SettingsLibrary {
         initialValue = false
     )
 
-    /**
-     * NowPlaying background style: Solid (solid color from album art's dominant color) or Blurred (blurred album art).
-     * Immersive artwork is the default behavior; this setting no longer controls full-screen artwork (kept for old references).
-     */
     @Stable
     var NowPlayingBackground by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
@@ -347,9 +255,6 @@ object SettingsLibrary {
         initialValue = "Blurred"
     )
 
-    /**
-     * Exclude songs under one minute
-     */
     @Stable
     var EnableExcludeSongsUnderOneMinute by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,

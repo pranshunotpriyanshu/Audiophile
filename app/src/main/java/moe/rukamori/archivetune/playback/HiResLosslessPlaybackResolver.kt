@@ -25,11 +25,6 @@ private val EXTENSION_TO_MIME_TYPE =
         "webm" to "audio/webm",
     )
 
-/**
- * Best-effort MIME inference from a stream URL. Returns null when the container
- * cannot be determined, so the player can fall back to URI/Content-Type sniffing
- * instead of receiving a guessed/incorrect type.
- */
 fun inferMimeTypeFromUrl(url: String): String? {
     val path = url.substringBefore('?').substringBefore('#')
     val extension = path.substringAfterLast('.', "").lowercase()

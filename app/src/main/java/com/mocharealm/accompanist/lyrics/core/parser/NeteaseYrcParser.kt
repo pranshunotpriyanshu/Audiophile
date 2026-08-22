@@ -7,15 +7,6 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeSyllable
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 
-/**
- * Parser for NetEase Cloud Music YRC lyrics.
- *
- * Typical line format:
- * `[12580,3470](12580,250,0)难(12830,300,0)以...`
- *
- * Some payloads may also prepend JSON credit lines from the newer lyric API.
- * Those lines are ignored here because they are not part of timed karaoke data.
- */
 object NeteaseYrcParser : ILyricsParser {
     private val lineRegex = Regex("""^\[(\d+),\s*(\d+)\](.*)$""")
     private val syllableRegex = Regex("""\((\d+),\s*(\d+),\s*-?\d+\)([^()\r\n]*)""")

@@ -22,8 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pryvn.audiophile.ui.theme.SfProFontFamily
 
-// Apple-style action sheet colors, adaptive to the system theme (iOS uses a
-// near-black sheet in dark mode and a light grey sheet in light mode).
 @Composable
 fun sheetSurface(): Color = if (isSystemInDarkTheme()) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
 
@@ -107,10 +105,6 @@ fun AppleSheetHeader(
     }
 }
 
-/**
- * Rounded, grouped container for a set of [AppleSheetMenuRow]s — the way iOS
- * groups action sheet buttons into one card.
- */
 @Composable
 fun AppleSheetMenuGroup(
     modifier: Modifier = Modifier,

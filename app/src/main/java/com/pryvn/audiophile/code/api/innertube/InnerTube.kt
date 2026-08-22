@@ -40,10 +40,6 @@ import java.util.*
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-/**
- * Provide access to InnerTube endpoints.
- * For making HTTP requests, not parsing response.
- */
 @OptIn(ExperimentalEncodingApi::class)
 class InnerTube {
     private var httpClient = createClient()

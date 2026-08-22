@@ -8,11 +8,6 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.mapper.stripEnclosin
 import com.mocharealm.accompanist.lyrics.core.utils.LrcMetadataHelper
 import com.mocharealm.accompanist.lyrics.core.utils.isDigitsOnly
 
-/**
- * A parser for lyrics in the Lyricify Syllable format.
- *
- * More information about Lyricify Syllable format can be found [here](https://github.com/WXRIW/Lyricify-App/blob/main/docs/Lyricify%204/Lyrics.md#lyricify-syllable-%E6%A0%BC%E5%BC%8F%E8%A7%84%E8%8C%83).
- */
 object LyricifySyllableParser: ILyricsParser {
     override fun canParse(content: String): Boolean {
         val detector = """[a-zA-Z]+\s*\(\d+,\d+\)""".toRegex()
@@ -21,7 +16,6 @@ object LyricifySyllableParser: ILyricsParser {
 
     private val syllableRegex = Regex("(.*?)\\((\\d+),(\\d+)\\)")
     private val attributeRegex = Regex("\\[(\\d+)\\]")
-
 
 
     override fun parse(lines: List<String>): SyncedLyrics {

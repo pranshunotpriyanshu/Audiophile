@@ -31,9 +31,6 @@ class NewtonPolynomialInterpolationEasing(points: List<Pair<Double, Double>>): E
         dividedDifferences = List(n) { i -> table[i][i] }
     }
 
-    /**
-     * Easing 接口的核心方法，将输入的线性进度 (fraction) 转换为缓动后的进度。
-     */
     override fun transform(fraction: Float): Float {
         val x = fraction.toDouble()
         val n = xValues.size - 1

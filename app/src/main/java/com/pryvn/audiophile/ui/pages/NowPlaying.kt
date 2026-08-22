@@ -493,9 +493,6 @@ fun formatTime(seconds: Long): String {
     return "$minutes:${if (secs < 10) "0$secs" else "$secs"}"
 }
 
-// Loads the album artwork and extracts its dominant palette swatches. Returns
-// null when the artwork can't be loaded; individual swatches are null when the
-// image has no such swatch (callers fall back to their previous colors).
 private suspend fun loadAlbumPalette(
     context: Context,
     uri: Uri?,
@@ -524,10 +521,6 @@ private suspend fun loadAlbumPalette(
     }
 }
 
-// The song that will play after the current one, so its background palette can
-// be prepared ahead of time. Walks the active playlist (which already reflects
-// shuffle order); falls back to the auto-queue head, and only wraps to the
-// first song when the player is repeating all.
 private fun nextSongInQueue(): YosMediaItem? {
     val current = MediaController.musicPlaying.value ?: return null
     val list = MediaController.playingMusicList.value ?: return null
@@ -562,8 +555,6 @@ fun NowPlaying(
         contentColor = Color.White,
         color = Color.Transparent
     ) {
-        // Single source of truth for lyrics interactivity:
-        // Only interactive when the user is on the Lyrics page.
         val isLyricsViewOpen = nowPageLambda() == Lyric
         LyricsInteractionController.Provider(isLyricsViewOpen) {
             val context = LocalContext.current
@@ -585,10 +576,6 @@ fun NowPlaying(
         // 全局统一提取专辑主色调（Solid 背景渐变依赖此数据，与是否渲染模糊层解耦）
         val paletteContext = LocalContext.current
 
-        // Extract the current song's palette. When this song's palette was
-        // already prepared ahead of time (see the next-song pre-cache below) it
-        // is promoted instantly, so the background can begin mixing the moment
-        // the song changes — no waiting on an async extraction, no instant jump.
         LaunchedEffect(bitmap.value) {
             if (bitmap.value == null) return@LaunchedEffect
             val key = bitmap.value.toString()
@@ -612,9 +599,6 @@ fun NowPlaying(
                 palette.third ?: MediaViewModelObject.paletteDarkMutedColor.value
         }
 
-        // Pre-cache the palette of the song that will play next so the
-        // background is always prepared with the upcoming colors and shifts
-        // into them smoothly the instant the song changes.
         LaunchedEffect(MediaController.musicPlaying.value) {
             val next = nextSongInQueue()
             val nextUri = next?.thumb ?: return@LaunchedEffect
@@ -686,17 +670,12 @@ fun NowPlaying(
             }
         }
 
-        // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
         val heroAlpha by animateFloatAsState(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
-        // The chosen background mode applies everywhere — even while full
-        // screen static artwork is on — so the user's Now Playing Background
-        // setting is always honored ("Blurred" shows the blurred album artwork,
-        // "Solid" a static dominant color extracted from the artwork).
         val bgMode = SettingsLibrary.NowPlayingBackground
 
         if (bgMode == "Blurred") {
@@ -717,8 +696,6 @@ fun NowPlaying(
                 val darkVibrant = MediaViewModelObject.paletteDarkVibrantColor.value
                 val darkMuted = MediaViewModelObject.paletteDarkMutedColor.value
 
-                // The overlay colors mix slowly into the next song's palette —
-                // the background shifts completely instead of changing instantly.
                 val animatedVibrant = animateColorAsState(
                     targetValue = vibrant,
                     animationSpec = MotionTokens.backgroundMix()
@@ -765,7 +742,6 @@ fun NowPlaying(
             }
         }
 
-        // ── 全屏静态封面：页面级英雄层 ─────────────────
         var contentWrapperTopY by remember { mutableStateOf(Float.MAX_VALUE) }
         var titleRowYPx by remember { mutableStateOf(Float.MAX_VALUE) }
         val artworkMaxHeightDp = with(density) {
@@ -897,8 +873,6 @@ fun NowPlaying(
                             .statusBarsPadding()
                             .padding(top = 22.dp)
                     ) {
-                        //println("nowPage: ${nowPageLambda()}")
-                        //println("nowPageIt: $it")
                         when (it) {
 Album ->
                                 Column(
@@ -1002,8 +976,6 @@ Lyric ->
                                              onMinimizeNowPlaying = onMinimizeNowPlaying,
                                              isLyricsView = true,
                                              onRefetchLyrics = {
-                                                // Detached scope: the sheet/page scope may be disposed
-                                                // on dismiss, which would cancel the fetch before it starts.
                                                 CoroutineScope(Dispatchers.IO).launch {
                                                     val track = thisMusicPlaying.value ?: return@launch
                                                     LyricsProcessor.refetchLyrics(
@@ -1270,7 +1242,6 @@ PlayingList ->
             } else {
                 val lyricsOn = nowPageLambda() == Lyric
                 Row(Modifier.fillMaxSize()) {
-                    // Left panel
                     Column(
                         Modifier
                             .weight(if (lyricsOn) 0.4f else 0.5f)
@@ -1455,7 +1426,6 @@ PlayingList ->
                         }
                     }
 
-                    // Right panel
                     if (lyricsOn) {
                         Column(
                             modifier = Modifier
@@ -1536,17 +1506,12 @@ PlayingList ->
             }
         }
 
-        // The same Apple Music-style song sheet used everywhere else, with the
-        // Now Playing-only actions (sleep timer, lyrics, download status)
-        // appended as their own group.
         SongOverflowSheet(
             isOpen = overflowSheetOpen,
             song = snapshotSong.value,
             navController = navController,
             onPickSleepTimer = { },
             onRefetchLyrics = {
-                // Detached scope: the sheet is dismissed before this runs, so
-                // its composition scope would be cancelled — fetch on our own.
                 CoroutineScope(Dispatchers.IO).launch {
                     val track = snapshotSong.value ?: return@launch
                     LyricsProcessor.refetchLyrics(
@@ -1595,8 +1560,6 @@ fun ColumnScope.Album(
                     .padding(horizontal = 15.dp)
                     .padding(bottom = 33.dp)
             ),
-        // The artwork is centered in the area between the top pill and the
-        // artists metadata row below it (Apple Music lays it out the same way).
         contentAlignment = if (fsEnabled) Alignment.TopCenter else Alignment.Center
     ) {
         val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
@@ -1723,9 +1686,6 @@ fun HeroArtworkLayer(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val request = ImageRequest.Builder(LocalContext.current)
             .data(url)
-            // The fullscreen artwork crossfades into the next song's artwork at
-            // the same pace as the background colors, so the whole screen shifts
-            // smoothly instead of flashing the new image in.
             .crossfade(MotionTokens.BackgroundMixDurationMs.toInt())
             .size(CoilSize(720, 720))
             .memoryCacheKey(urlString)
@@ -1736,9 +1696,6 @@ fun HeroArtworkLayer(
             contentScale = ContentScale.Crop
         )
 
-        // The artwork (and its overlay) live in one block whose bottom edge
-        // dissolves into the blurred background with a soft alpha fade — no
-        // dark gradient across the lower half of the artwork.
         Box(
             modifier = Modifier
                 .padding(top = topSpacingDp)
@@ -2161,9 +2118,6 @@ fun LazyItemScope.QueueMusicListItem(
     var deleteAnimating by remember(music.uri, music.mediaId) { mutableStateOf(false) }
     var deleteCollapsing by remember(music.uri, music.mediaId) { mutableStateOf(false) }
 
-    // Live download progress for this song (snapshot read: recomposes as bytes
-    // stream in). When present the row grows a little so the bar never
-    // overflows into the neighbouring queue rows.
     val downloadProgress = AudioCacheStore.progressOf(music.mediaId)
     val progressRowHeight = if (downloadProgress != null) QueueRowHeight + 12.dp else QueueRowHeight
 
@@ -2391,9 +2345,6 @@ fun Lyric(
                     else
                         Color.Black
 
-                // AMLL KaraokeLyricsView — replaces the old YosLyricView / LyricsV2 renderers.
-                // Handles word fill, glow, syllable glow, breathing dots, scroll animations,
-                // and all other lyrics display features natively.
                 AmlLyricsView(
                     player = MediaControlPlayerAdapter,
                     textColor = lyricTextColor,

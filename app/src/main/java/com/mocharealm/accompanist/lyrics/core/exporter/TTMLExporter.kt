@@ -96,13 +96,13 @@ object TTMLExporter : ILyricsExporter {
         }
 
         buildContent(line.syllables, line.translation)
-        
+
         line.accompanimentLines?.forEach { bgLine ->
             builder.append("""<span ttm:role="x-bg" begin="${bgLine.start.toTimeFormattedString()}" end="${bgLine.end.toTimeFormattedString()}">""")
             buildContent(bgLine.syllables, bgLine.translation)
             builder.append("""</span>""")
         }
-        
+
         builder.appendLine("</p>")
     }
 
@@ -114,7 +114,7 @@ object TTMLExporter : ILyricsExporter {
             .replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;")
-            
+
         builder.append(escapedContent)
 
         if (line.translation != null) {
@@ -124,7 +124,7 @@ object TTMLExporter : ILyricsExporter {
                 .replace(">", "&gt;")
             builder.append("""<span ttm:role="x-translation" xml:lang="zh-CN">${escapedTranslation.trim()}</span>""")
         }
-        
+
         builder.appendLine("</p>")
     }
 }

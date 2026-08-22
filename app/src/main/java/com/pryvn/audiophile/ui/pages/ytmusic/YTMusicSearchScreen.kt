@@ -265,7 +265,6 @@ data class SearchUiState(
     val recentSearches: List<String> = emptyList()
 )
 
-// ─── Apple Music Search Page ───────────────────────────────────────────────
 
 @Composable
 fun YTMusicSearchScreen(
@@ -312,7 +311,6 @@ fun YTMusicSearchScreen(
         viewModel.clearQuery()
     }
 
-    // Window insets for proper bottom spacing
     val systemBarsBottom = with(density) { WindowInsets.systemBars.getBottom(this).toDp() }
     val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
 
@@ -322,10 +320,6 @@ fun YTMusicSearchScreen(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
-        // ── Content area (crossfade between idle and search) ──
-        // Each state handles its own layout independently — no shared Box padding.
-        // Idle: IdlePage uses its own padding(top = 120.dp) (original behavior).
-        // Active: results get a top padding matching the collapsed search bar (~68dp).
         AnimatedContent(
             targetState = isSearching,
             transitionSpec = {
@@ -391,7 +385,6 @@ fun YTMusicSearchScreen(
             }
         }
 
-        // ── Search bar overlay (animated height) ──
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -407,8 +400,7 @@ fun YTMusicSearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(top = 40.dp, bottom = 12.dp, start = 0.dp, end = 0.dp),
+                            .padding(top = 54.dp, bottom = 12.dp, start = 0.dp, end = 0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (showBackButton || isMoodGenreBrowse) {
@@ -462,7 +454,6 @@ fun YTMusicSearchScreen(
             Spacer(Modifier.height(16.dp))
         }
 
-        // ── Floating mini player ──
         if (!uiState.isFocused) {
             AppleMiniPlayer(
                 modifier = Modifier
@@ -481,7 +472,6 @@ fun YTMusicSearchScreen(
     }
 }
 
-// ─── Apple Search Bar ──────────────────────────────────────────────────────
 
 @Composable
 private fun AppleSearchBar(
@@ -576,7 +566,6 @@ private fun AppleSearchBar(
     }
 }
 
-// ─── Idle Page ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun IdlePage(
@@ -705,7 +694,6 @@ private fun CategoryCard(
     }
 }
 
-// ─── Suggestions ───────────────────────────────────────────────────────────
 
 @Composable
 private fun SuggestionsList(
@@ -754,7 +742,6 @@ private fun SuggestionRow(suggestion: String, onClick: (String) -> Unit) {
     }
 }
 
-// ─── Recent Searches ───────────────────────────────────────────────────────
 
 @Composable
 private fun RecentSearchesContent(
@@ -839,7 +826,6 @@ private fun RecentSearchRow(query: String, onClick: (String) -> Unit) {
     }
 }
 
-// ─── Results ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun ResultsSection(
@@ -1112,7 +1098,6 @@ private fun AppleSearchResultRow(song: YTSongItem, onClick: (YTSongItem) -> Unit
     }
 }
 
-// ─── Apple Mini Player ─────────────────────────────────────────────────────
 
 @Composable
 private fun AppleMiniPlayer(modifier: Modifier = Modifier) {
@@ -1178,7 +1163,6 @@ private fun AppleMiniPlayer(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── Loading & Empty ───────────────────────────────────────────────────────
 
 @Composable
 private fun LoadingView(modifier: Modifier = Modifier) {
@@ -1218,7 +1202,6 @@ private fun EmptyView(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── Helper ────────────────────────────────────────────────────────────────
 
 internal fun AudiophileOnlineTrack.toYTSongItem() = YTSongItem(
     videoId = id,

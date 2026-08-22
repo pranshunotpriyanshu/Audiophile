@@ -13,9 +13,6 @@ import com.pryvn.audiophile.ui.theme.headline
 import com.pryvn.audiophile.ui.theme.headlineDark
 import com.pryvn.audiophile.ui.theme.withNight
 
-/**
- * Settings item horizontal divider
- */
 @Composable
 fun Divider(modifier: Modifier = Modifier) =
     Spacer(
@@ -27,9 +24,6 @@ fun Divider(modifier: Modifier = Modifier) =
             .background(color = headline withNight headlineDark)
     )
 
-/**
- * Settings section padding, usually above ListHeader
- */
 @Composable
 fun GroupSpacer(modifier: Modifier = Modifier) =
     Spacer(
@@ -37,9 +31,6 @@ fun GroupSpacer(modifier: Modifier = Modifier) =
             .height(18.dp)
     )
 
-/**
- * Settings section padding, usually above ListHeader
- */
 @Composable
 fun GroupSpacerMedium(modifier: Modifier = Modifier) =
     Spacer(

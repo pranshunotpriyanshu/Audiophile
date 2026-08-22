@@ -31,7 +31,6 @@ object ArchiveTuneAdapter {
     )
     private val streamCache = ConcurrentHashMap<String, CachedStream>()
 
-    // Signature timestamp cache
     private var cachedSignatureTimestamp: Int? = null
     private var signatureTimestampCachedAt: Long = 0
 
@@ -84,7 +83,6 @@ object ArchiveTuneAdapter {
             return cached
         }
 
-        // Check persistent cache
         val persistent = PersistentStreamCache.getStream(videoId, audioQuality.name)
         if (persistent != null) {
             putCache(videoId, persistent)
@@ -114,7 +112,6 @@ object ArchiveTuneAdapter {
         val connectivityManager =
             YosBasicApplication.instance.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-        // Get cached or fresh signature timestamp
         val signatureTimestamp = getSignatureTimestamp()
         val tSig = System.currentTimeMillis()
         mark("SignatureTimestamp", tVisitor)

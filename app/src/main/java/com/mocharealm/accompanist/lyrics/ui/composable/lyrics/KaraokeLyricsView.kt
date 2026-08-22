@@ -55,6 +55,7 @@ import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
 import com.mocharealm.accompanist.lyrics.core.model.synced.SyncedLine
 import com.mocharealm.accompanist.lyrics.ui.utils.isRtl
 import com.mocharealm.accompanist.lyrics.ui.utils.modifier.springPlacement
+import com.pryvn.audiophile.ui.widgets.LYRIC_ANCHOR_FRACTION
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -68,31 +69,6 @@ internal data class FocusState(
     val activeIntro: Boolean
 )
 
-/**
- * A comprehensive lyrics view that supports Karaoke and Synced lyrics with advanced rendering.
- *
- * This composable handles:
- * - Scrolling and auto-scrolling to the current line
- * - Rendering karaoke lines with syllable-level timing and animations
- * - Rendering synced lines
- * - Displaying breathing dots during instrumental interludes
- * - Determining active and accompaniment lines
- *
- * @param listState The scroll state for the lazy list.
- * @param lyrics The lyrics data to display.
- * @param currentPosition A lambda returning the current playback position in milliseconds.
- * @param onLineClicked Callback when a line is clicked (seek to position).
- * @param onLinePressed Callback when a line is long-pressed (share/menu).
- * @param modifier The modifier to apply to the layout.
- * @param normalLineTextStyle The style for normal text lines.
- * @param accompanimentLineTextStyle The style for accompaniment/background vocals lines.
- * @param textColor The primary text color.
- * @param breathingDotsDefaults Styling defaults for the breathing dots.
- * @param blendMode The blend mode used for rendering text (e.g., [BlendMode.Plus] for glowing effects).
- * @param useBlurEffect Whether to apply blur effect to non-active lines.
- * @param offset The vertical padding/offset at the start and end of the list.
- * @param showDebugRectangles Debug flag to draw bounding boxes around glyphs.
- */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun KaraokeLyricsView(
@@ -119,12 +95,6 @@ fun KaraokeLyricsView(
         fontWeight = FontWeight.Normal,
     ),
 //    TODO: expose it
-//    verticalFadeBrush: Brush = Brush.verticalGradient(
-//        0f to Color.White.copy(0f),
-//        0.05f to Color.White,
-//        0.6f to Color.White,
-//        1f to Color.White.copy(0f)
-//    ),
     blendMode: BlendMode = BlendMode.Plus,
     useBlurEffect: Boolean = true,
     showTranslation: Boolean = true,
@@ -299,8 +269,7 @@ fun KaraokeLyricsView(
         }
     }
 
-    // Anchor fraction: where the current line sits vertically (audgit uses 8%).
-    val anchorFraction = 0.08f
+    val anchorFraction = LYRIC_ANCHOR_FRACTION
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,

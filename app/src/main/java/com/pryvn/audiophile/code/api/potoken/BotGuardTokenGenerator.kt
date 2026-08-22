@@ -36,30 +36,6 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/**
- * Generates cryptographically valid PoTokens by running YouTube's BotGuard
- * challenge inside a headless [WebView].
- *
- * ## Lifecycle
- *
- * 1. [initialize] — called once from `Application.onCreate()` with the app context.
- * 2. [preWarm] — optional, boots the WebView at startup to avoid first-call delay.
- * 3. [mintToken] — suspend function, called per video. Reuses the engine until
- *    it expires (~50 min) or the session changes.
- * 4. [onAppBackgrounded] — releases the WebView to free ~50 MB of memory.
- *
- * ## Optimizations
- *
- * - **Suspend API** — [mintToken] is a suspend function, never blocks the calling thread.
- * - **Pre-warm** — [preWarm] bootstraps the engine at app startup so the first
- *   real mint is instant.
- * - **Player token cache** — Caches per-video tokens (LRU, max 200) to avoid
- *   redundant mints when the same video is played multiple times.
- * - **Session token reuse** — The session token is minted once per engine and
- *   reused for all videos until the engine expires or the session changes.
- * - **Background cleanup** — [onAppBackgrounded] releases the WebView to free memory.
- *   The engine is recreated on the next [mintToken] call.
- */
 object BotGuardTokenGenerator {
     private const val TAG = "BotGuardTokenGen"
     private const val CREATE_URL = "https://www.youtube.com/api/jnn/v1/Create"
@@ -81,7 +57,6 @@ object BotGuardTokenGenerator {
 
     private val httpClient = OkHttpClient()
 
-    // ── state ────────────────────────────────────────────────────────
     private var appContext: Context? = null
     private var permanentlyBroken = false
 
@@ -91,17 +66,11 @@ object BotGuardTokenGenerator {
     private var cachedSessionToken: String? = null
     private var engineReady = false
 
-    /**
-     * LRU cache for per-video player tokens.
-     * Key: videoId, Value: token string.
-     * Avoids redundant mints when the same video is played multiple times.
-     */
     private val playerTokenCache: LinkedHashMap<String, String> =
         object : LinkedHashMap<String, String>(0, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>): Boolean = size > PLAYER_TOKEN_CACHE_SIZE
         }
 
-    // ── public API ───────────────────────────────────────────────────
 
     /** Call once from `Application.onCreate()`. */
     @MainThread
@@ -110,13 +79,6 @@ object BotGuardTokenGenerator {
         PoTokenLog.d("Initialized")
     }
 
-    /**
-     * Pre-warm the BotGuard engine at app startup.
-     * This bootstraps the WebView and generates the session token so that
-     * the first real [mintToken] call is instant.
-     *
-     * Safe to call from a background coroutine. No-op if already warmed.
-     */
     suspend fun preWarm(sessionId: String) {
         val ctx = appContext ?: return
         if (permanentlyBroken) return
@@ -132,18 +94,6 @@ object BotGuardTokenGenerator {
         }
     }
 
-    /**
-     * Mint a PoToken pair for the given [videoId] and [sessionId].
-     *
-     * Returns `null` when:
-     * - [initialize] was never called
-     * - The system has no usable WebView
-     * - BotGuard bootstrap timed out
-     * - The WebView is permanently broken
-     *
-     * This is a **suspend function** — never blocks the calling thread.
-     * Call from a coroutine context (e.g. `Dispatchers.IO`).
-     */
     suspend fun mintToken(
         videoId: String,
         sessionId: String,
@@ -155,7 +105,6 @@ object BotGuardTokenGenerator {
             }
         if (permanentlyBroken) return null
 
-        // Check player token cache first
         mutex.withLock {
             val cachedPlayer = playerTokenCache[videoId]
             if (cachedPlayer != null && cachedSessionToken != null && engineReady) {
@@ -170,7 +119,6 @@ object BotGuardTokenGenerator {
         return try {
             withTimeout(timeout) {
                 val result = mintTokenInternal(ctx, videoId, sessionId, forceNewEngine = false)
-                // Cache the player token
                 mutex.withLock {
                     playerTokenCache[videoId] = result.playerToken
                 }
@@ -190,11 +138,6 @@ object BotGuardTokenGenerator {
         }
     }
 
-    /**
-     * Release the WebView to free memory (~50 MB).
-     * Call from `onTrimMemory(TRIM_MEMORY_UI_HIDDEN)` or similar.
-     * The engine is recreated on the next [mintToken] call.
-     */
     suspend fun onAppBackgrounded() {
         mutex.withLock {
             if (engine != null) {
@@ -204,20 +147,12 @@ object BotGuardTokenGenerator {
         }
     }
 
-    /**
-     * Invalidate the player token cache for a specific video.
-     * Useful when the user's auth state changes.
-     */
     suspend fun invalidatePlayerToken(videoId: String) {
         mutex.withLock {
             playerTokenCache.remove(videoId)
         }
     }
 
-    /**
-     * Invalidate all cached tokens.
-     * Call when the user logs out or auth state changes.
-     */
     suspend fun invalidateAll() {
         mutex.withLock {
             playerTokenCache.clear()
@@ -225,7 +160,6 @@ object BotGuardTokenGenerator {
         }
     }
 
-    // ── internal ─────────────────────────────────────────────────────
 
     private suspend fun ensureEngineReady(
         ctx: Context,
@@ -281,7 +215,6 @@ object BotGuardTokenGenerator {
         engineReady = false
     }
 
-    // ── WebView wrapper ──────────────────────────────────────────────
 
     private class BotGuardEngine private constructor(
         private val webView: WebView,
@@ -514,28 +447,9 @@ object BotGuardTokenGenerator {
         }
     }
 
-    // ── Challenge Parser (inlined from ChallengeParser.kt) ─────────────
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Parses the raw response from YouTube's `api/jnn/v1/Create` endpoint into a JSON object
-     * that can be embedded directly into a JavaScript snippet for `runBotGuard()`.
-     *
-     * The response is a JSON array.  The first element may be:
-     * - a nested JSON array (unscrambled challenge), or
-     * - a base64-encoded string (scrambled challenge) that must be descrambled first.
-     *
-     * The resulting challenge array contains (by index):
-     *   [0]  messageId
-     *   [1]  interpreterJavascript array (or null)
-     *   [2]  interpreterTrustedResourceUrl array (or null)
-     *   [3]  interpreterHash
-     *   [4]  program (base64)
-     *   [5]  globalName
-     *   [6]  (unknown)
-     *   [7]  clientExperimentsStateBlob
-     */
     private fun parseCreateChallenge(rawResponse: String): String {
         val outer = json.parseToJsonElement(rawResponse).jsonArray
 
@@ -581,13 +495,6 @@ object BotGuardTokenGenerator {
         )
     }
 
-    /**
-     * Parses the raw response from YouTube's `api/jnn/v1/GenerateIT` endpoint.
-     *
-     * Returns a pair of:
-     * - A JavaScript `Uint8Array(...)` string representation of the integrity token
-     * - The token's lifetime in seconds
-     */
     private fun parseIntegrityToken(rawResponse: String): Pair<String, Long> {
         val arr = json.parseToJsonElement(rawResponse).jsonArray
         val tokenU8 = base64ToJsUint8Array(arr[0].jsonPrimitive.content)
@@ -595,18 +502,11 @@ object BotGuardTokenGenerator {
         return tokenU8 to lifetimeSeconds
     }
 
-    /**
-     * Converts a plain-string identifier to a JavaScript `Uint8Array(...)` literal.
-     */
     private fun stringToJsUint8Array(identifier: String): String {
         val bytes = identifier.toByteArray(charset = Charsets.UTF_8)
         return "new Uint8Array([${bytes.joinToString(",") { (it.toInt() and 0xFF).toString() }}])"
     }
 
-    /**
-     * Converts a comma-separated byte list (output of `Uint8Array.toString()` in JS)
-     * to the YouTube-specific base64 encoding used for PoTokens.
-     */
     private fun commaSeparatedBytesToBase64(commaBytes: String): String =
         commaBytes
             .split(",")

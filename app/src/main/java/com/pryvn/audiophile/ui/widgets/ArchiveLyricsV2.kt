@@ -111,9 +111,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
-// ──────────────────────────────────────────────────────────────────────
-// Constants
-// ──────────────────────────────────────────────────────────────────────
 
 private const val LRC_LEAD_MS = 300L
 private const val TTML_LEAD_MS = 0L
@@ -140,7 +137,6 @@ private fun isRtlText(text: String): Boolean {
     return false
 }
 
-// ──────────────────────────────────────────────────────────────────────
 // Maps the user's lyric font-weight setting to a Compose FontWeight.
 private fun lyricFontWeight(): FontWeight {
     return when (SettingsLibrary.LyricFontWeight) {
@@ -156,16 +152,12 @@ private fun lyricFontWeight(): FontWeight {
         else -> FontWeight.Bold
     }
 }    // Word-synced lyrics honor the font-weight setting too: active/past lines render
-    // at the configured weight and upcoming lines step one weight class down so the
-    // current line keeps its emphasis while still following the setting.
     private fun lyricActiveFontWeight(): FontWeight = lyricFontWeight()
 
 
 private fun lyricInactiveFontWeight(): FontWeight =
     FontWeight((lyricFontWeight().weight - 200).coerceAtLeast(100))
 
-// Main Composable
-// ──────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -184,12 +176,6 @@ fun LyricsV2(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
-    // ── Reactive settings observers ──
-    // These wrap the data-saver settings to trigger recomposition on change.
-    // The SettingLibrary properties are @Stable, so reading them directly in
-    // composition is not tracked — mirroring them into local state and
-    // observing via snapshotFlow is what makes the effect apply instantly
-    // (instead of only on the next song).
     var lyricFontWeight by remember {
         androidx.compose.runtime.mutableStateOf(SettingsLibrary.LyricFontWeight)
     }
@@ -225,7 +211,6 @@ fun LyricsV2(
             .collect { lyricGlowAmount = it }
     }
 
-    // ── Map setting string to FontWeight ──
     val fontWeight: FontWeight = when (lyricFontWeight) {
         "Thin" -> FontWeight.Thin
         "ExtraLight" -> FontWeight.ExtraLight
@@ -239,30 +224,23 @@ fun LyricsV2(
         else -> FontWeight.Bold
     }
 
-    // ── Preferences ──
     val lyricsClick = true
     val lyricsScroll = true
     val lyricsTextSize = lyricFontSize
     val lyricsLineSpacing = 1.3f
     val lyricsLineBlurPreference = true
-    // Word bounce and glow amounts come from the Lyric Display settings
-    // (bounce 0x..1.0x, glow 0x..1.3x), mirrored reactively above so the
-    // sliders take effect on the current song immediately.
     val bounceFactor = lyricBounceAmount
     val glowFactor = lyricGlowAmount
     val lrcBounceEnabled = true
     val lyricsFontFamily: FontFamily? = SfProFontFamily
 
-    // ── Text colour ──
     val textColor = textColorOverride ?: Color.White
     val lyricsLineBlur = lyricsLineBlurOverride ?: lyricsLineBlurPreference
 
     val inactiveAlpha = 0.35f
 
-    // ── Lyrics data ──
     val lyrics by MediaViewModelObject.onlineLyrics
 
-    // ── Parse lyrics into entries ──
     val isSynced = remember(lyrics) { lyrics != null && (TTMLParser.isLineSyncedLrc(lyrics!!) || TTMLParser.isTtml(lyrics!!)) }
     val isTtmlFormat = remember(lyrics) { lyrics != null && TTMLParser.isTtml(lyrics!!) }
 
@@ -273,8 +251,6 @@ fun LyricsV2(
 
     val entriesWithWords: List<LyricsEntry> = lyricsEntries
 
-    // End timestamp (ms) of each line: last sung word for word-synced, else the
-    // line's own start time. Used to drive the between-lines gap dots.
     val lineEndTimesMs: List<Long> =
         remember(entriesWithWords) {
             entriesWithWords.map { entry ->
@@ -287,16 +263,11 @@ fun LyricsV2(
             }
         }
 
-    // ── Playback position tracking ──
     val leadMs = if (isTtmlFormat) TTML_LEAD_MS else LRC_LEAD_MS
     val lifecycleOwner = LocalLifecycleOwner.current
     var currentPositionMs by remember { mutableLongStateOf(0L) }
     var playbackPositionMs by remember { mutableLongStateOf(0L) }
     var currentLineIndex by remember { mutableIntStateOf(0) }
-    // When the next line has started but earlier lines' words are still being
-    // sung (overlapping timestamps), those lines are "held": every held line
-    // renders as active — 2, 3 or 4 lines can run simultaneously — and the
-    // auto-scroll waits until the last held line finishes before moving on.
     var heldLineIndices by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     val timeSortedLines = remember(entriesWithWords) {
@@ -341,9 +312,6 @@ fun LyricsV2(
                 val firstLineIndex =
                     if (entriesWithWords.firstOrNull() === LyricsEntry.HEAD_LYRICS_ENTRY) 1 else 0
                 val newLineIndex = if (nextIndex < 0) firstLineIndex else nextIndex
-                // Overlap hold: any line before the current one whose last word
-                // is still being sung stays active (2, 3 or 4 lines can run
-                // simultaneously); the scroll defers until the last one ends.
                 val newHeld = mutableSetOf<Int>()
                 val overlapWindowStart = (newLineIndex - 4).coerceAtLeast(0)
                 for (i in overlapWindowStart until newLineIndex) {
@@ -358,7 +326,6 @@ fun LyricsV2(
         }
     }
 
-    // ── Scroll State ──
     val listState = rememberLazyListState()
     var isManualScrolling by remember { mutableStateOf(false) }
     var lastManualScrollTime by remember { mutableLongStateOf(0L) }
@@ -389,15 +356,8 @@ fun LyricsV2(
     LaunchedEffect(currentLineIndex, heldLineIndices, isManualScrolling, lyricsScroll) {
         if (!lyricsScroll || isManualScrolling || !isSynced) return@LaunchedEffect
         if (currentLineIndex < 0 || currentLineIndex >= entriesWithWords.size) return@LaunchedEffect
-        // While held (overlapping) lines are still finishing, defer the scroll —
-        // this effect re-fires when the last hold clears.
         if (heldLineIndices.isNotEmpty()) return@LaunchedEffect
 
-        // Leaving a gap-dots row (an instrumental row or between-lines dots):
-        // that row collapses with a short fixed tween as soon as the line stops
-        // being active, pushing the new current line up. Wait for the collapse
-        // so the measured offset is final — the anchored line lands exactly on
-        // its set level instead of overshooting.
         val prevIndex = currentLineIndex - 1
         val prevIsReal =
             prevIndex >= 0 && entriesWithWords.getOrNull(prevIndex)?.let {
@@ -410,8 +370,6 @@ fun LyricsV2(
                 (lineEndTimesMs.getOrNull(prevIndex) ?: Long.MAX_VALUE) + 5000L <=
                     (entriesWithWords.getOrNull(currentLineIndex)?.time ?: Long.MAX_VALUE)
         if (prevWasInstrumental || prevHadBetweenDots) {
-            // Between-lines dots animate out over GAP_DOTS_HIDE_MS before the
-            // row collapses, so the layout is final only after that + the tween.
             delay(
                 if (prevHadBetweenDots) GAP_DOTS_HIDE_MS + GAP_ROW_ANIM_MS + 30
                 else GAP_ROW_ANIM_MS + 30
@@ -419,27 +377,16 @@ fun LyricsV2(
             if (currentLineIndex != prevIndex + 1) return@LaunchedEffect
         }
 
-        // The next line lights up first (its scale/alpha animations start
-        // immediately) and the list scrolls only after the highlight has
-        // begun — no lag when switching lyrics.
         val curAtScroll = currentLineIndex
         delay(HIGHLIGHT_LEAD_MS)
         if (currentLineIndex != curAtScroll) return@LaunchedEffect
 
-        // Shared anchor logic: the current line sits at 8% of the viewport —
-        // identical to the line-synced renderer, so both views place the
-        // current line at exactly the same height.
         listState.animateCurrentLineToAnchor(
             currentIndex = currentLineIndex,
             viewportHeight = listState.layoutInfo.viewportSize.height,
         )
     }
 
-    // ---- Anchor guard ----
-    // The current line has a fixed anchor level and can never sit above it:
-    // after the scroll settles, if it is still above the level it is pulled
-    // back down exactly onto it with a critically damped spring, so it can
-    // never cross upward again.
     LaunchedEffect(currentLineIndex, isManualScrolling) {
         if (!lyricsScroll || isManualScrolling || !isSynced) return@LaunchedEffect
         val curAtStart = currentLineIndex
@@ -459,7 +406,6 @@ fun LyricsV2(
         }
     }
 
-    // ── Render ──
     BoxWithConstraints(
         contentAlignment = Alignment.TopCenter,
         modifier =
@@ -576,11 +522,6 @@ fun LyricsV2(
                     val endTimeMs = item.time + item.durationMs
                     val isGapActive = playbackPositionMs in startTimeMs until endTimeMs
 
-                    // The instrumental row only occupies its height while the
-                    // gap is actually active; when the gap ends it collapses
-                    // with a short fixed tween so the lyric list stays tight.
-                    // The auto-scroll waits for that collapse before measuring,
-                    // so the anchored line still lands exactly on its set level.
                     val instrAlpha = animateFloatAsState(
                         targetValue = if (isGapActive) 1f else 0f,
                         animationSpec = tween(340, easing = FastOutSlowInEasing),
@@ -648,9 +589,6 @@ fun LyricsV2(
                     return@itemsIndexed
                 }
 
-                // Vocal-agent markers place the lyric: v1/v1000 = first vocalist
-                // (left), v2/v2000 = second vocalist (right); anything else stays
-                // centered.
                 val agentSide =
                     when (item.agent?.lowercase()) {
                         "v1", "v1000", null -> Alignment.Start
@@ -665,10 +603,6 @@ fun LyricsV2(
                     }
                 val horizontalAlignment = agentSide
 
-                // ── Intro gap dots ──
-                // The song starts with silence before the first line: the dots
-                // fill across that intro gap, centered above the first line with
-                // the same reveal/hide motion as the between-lines dots.
                 val isFirstRealLine =
                     index == 0 || (index == 1 && entriesWithWords[0] == HEAD_LYRICS_ENTRY)
                 if (isFirstRealLine && isSynced && item.time >= 3000L) {
@@ -749,9 +683,6 @@ fun LyricsV2(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                        // Same left inset as a lyric line: the text
-                                        // sits 9 (item) + 20 (inner) = 29.dp in, so
-                                        // 24.dp + the dots' own 5.dp = 29.dp.
                                         .padding(horizontal = 24.dp, vertical = 24.dp)
                                         .graphicsLayer {
                                             alpha = introAlpha.value
@@ -762,9 +693,6 @@ fun LyricsV2(
                         }
                     }
 
-                    // When the intro dots collapse (the first line starts), pull
-                    // the first line back onto its anchor level so the intro
-                    // never leaves it drifting off the anchor.
                     LaunchedEffect(introActive, isManualScrolling) {
                         if (introActive || !lyricsScroll || isManualScrolling || !isSynced) {
                             return@LaunchedEffect
@@ -787,10 +715,6 @@ fun LyricsV2(
                     }
                 }
 
-                // A line is "active" when it is the current line or the previous
-                // line is still finishing (overlap hold): both stay fully lit.
-                // The held line is not treated as "past" so its words keep
-                // filling progressively until its last word is done.
                 val isActive = isSynced && (index == currentLineIndex || index in heldLineIndices)
                 val isPast = isSynced && index < currentLineIndex && index !in heldLineIndices
                 val isFuture = isSynced && index > currentLineIndex
@@ -858,15 +782,9 @@ fun LyricsV2(
                         if (lineIsRtl) LayoutDirection.Rtl else baseLayoutDirection
                     }
 
-                // Match Audiophile's native line-lyrics padding
-                // Outer: 9.dp horizontal (item) + 28.dp card (one side) + 20.dp inner (both sides)
                 val cardPadding = if (isRightSide)
                     Modifier.padding(start = 28.dp) else Modifier.padding(end = 28.dp)
 
-                // ---- Bubble bounce ----
-                // When a line settles at the anchor, the surrounding lines wobble
-                // like bubbles — the kick falls off with distance from the current
-                // line and each line springs back smoothly.
                 val bubbleOffset = remember(index) { Animatable(0f) }
                 var bubbleKicked by remember(index) { mutableStateOf(false) }
                 val bubbleDensity = LocalDensity.current.density
@@ -877,8 +795,6 @@ fun LyricsV2(
                         bubbleKicked = true
                         return@LaunchedEffect
                     }
-                    // While held (overlapping) lines are still finishing the scroll
-                    // is deferred — bounce together with the actual scroll.
                     if (heldLineIndices.isNotEmpty()) return@LaunchedEffect
                     val current = currentLineIndex
                     if (index == current) return@LaunchedEffect
@@ -991,9 +907,6 @@ fun LyricsV2(
                                         lyricsFontFamily = lyricsFontFamily,
                                         textAlign = textAlign,
                                         bounceFactor = if (lrcBounceEnabled) bounceFactor else 0f,
-                                        // Line-synced lyrics never glow — only
-                                        // word-synced karaoke words carry the
-                                        // Word Glow setting.
                                         glowFactor = 0f,
                                     )
                                 } else {
@@ -1013,17 +926,6 @@ fun LyricsV2(
                                     )
                                 }
 
-                                // ── Between-lines gap dots ──
-                                // While the current line has finished singing and the
-                                // next line hasn't started yet, a row of dots fills
-                                // left-to-right across the gap. The dots are vertically
-                                // centered in the space between the two lines: they
-                                // slide out of the line above fast and ease into place
-                                // when the gap begins, and when the next line starts
-                                // they linger at the anchor then accelerate into the
-                                // line below while fading. The row keeps its height
-                                // through the hide, so the anchored line never shifts,
-                                // then collapses.
                                 val lineEnd = lineEndTimesMs.getOrElse(index) { item.time }
                                 val nextEntry = entriesWithWords.getOrNull(index + 1)
                                 val gapStart = lineEnd
@@ -1046,8 +948,6 @@ fun LyricsV2(
                                     if (gapActive) {
                                         dotsShown = true
                                         dotsHiding = false
-                                        // Reveal: come out of the line above fast,
-                                        // then ease into the centered position.
                                         dotsOffset.snapTo(-GAP_DOTS_SLIDE_DP)
                                         dotsAlpha.snapTo(0f)
                                         launch {
@@ -1071,8 +971,6 @@ fun LyricsV2(
                                     } else if (dotsShown) {
                                         dotsShown = false
                                         dotsHiding = true
-                                        // Hide: slow near the anchor, then
-                                        // accelerate into the next line.
                                         coroutineScope {
                                             launch {
                                                 dotsOffset.animateTo(
@@ -1098,11 +996,6 @@ fun LyricsV2(
                                 }
                                 val dotsVisible = gapActive || dotsHiding
 
-                                // The dots row only occupies its height while it is
-                                // visible; once hidden it collapses with a short fixed
-                                // tween so the lyric list stays tight. The auto-scroll
-                                // waits for that collapse before measuring, so the next
-                                // line lands exactly on its set level.
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
@@ -1121,11 +1014,6 @@ fun LyricsV2(
                                             modifier =
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    // Vertically centered between the two
-                                                    // lines: below the row sit 9 (bottom
-                                                    // padding) + 4 (gutter) + 9 (next line's
-                                                    // top padding) = 22.dp of fixed space,
-                                                    // so top padding = bottom + 22.
                                                     .padding(top = 31.dp, bottom = 9.dp)
                                                     .graphicsLayer {
                                                         alpha = dotsAlpha.value
@@ -1138,17 +1026,10 @@ fun LyricsV2(
                             }
                         }
 
-                        // ── Small gutter between lyrics lines ──
                         Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
 
-                // ---- Pull spacer (the "specanim" inertia effect) ----
-                // Mirrors the line-synced renderer: when the current line
-                // advances, every spacer below it stretches like a rubber band —
-                // the pull grows with distance, so the lower lyrics feel dragged
-                // by inertia — then releases in a wave from the top down and the
-                // block springs onto the anchor.
                 val pullTargetHeight = remember(index) { mutableStateOf(0.dp) }
                 val pullDensity = LocalDensity.current.density
                 LaunchedEffect(currentLineIndex, isManualScrolling) {
@@ -1176,7 +1057,6 @@ fun LyricsV2(
                 }
                 val pullOffset = animateDpAsState(
                     targetValue = pullTargetHeight.value,
-                    // Critical damping on the release so the anchored line can
                     // never be flung past its set level.
                     animationSpec = if (pullTargetHeight.value == 0.dp) {
                         spring(stiffness = 170f, dampingRatio = 1f, visibilityThreshold = 0.01.dp)
@@ -1196,11 +1076,7 @@ fun LyricsV2(
 }
 
 
-
-
-// -----------------------------------------------------------------
 // Line-level composable: renders words with fluid fill animation
-// -----------------------------------------------------------------
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1250,9 +1126,6 @@ private fun LyricsLineV2(
         }
     }
 
-    // One entry per ORIGINAL word (CJK words expand to their syllable chars).
-    // Each word renders as a single Row — one flow item — so its syllables can
-    // never wrap apart and a word is never broken across lines.
     val expandedMain = remember(mainWords, isCjk) { mainWords.map { expandWord(it) } }
     val expandedBg = remember(bgWords, isCjk) { bgWords.map { expandWord(it) } }
 
@@ -1281,9 +1154,6 @@ private fun LyricsLineV2(
                     return@forEachIndexed
                 }
 
-                // The whole word is one unbreakable flow item: its syllable
-                // chars stay glued together while real words keep their gap
-                // (word-boundary whitespace is baked into each word's text).
                 Row {
                     unit.forEach { word ->
                         AnimatedWordV2(
@@ -1368,10 +1238,6 @@ private fun isCjkChar(c: Char): Boolean {
         code in 0x1100..0x11FF
 }
 
-// -----------------------------------------------------------------
-// Between-lines gap dots: a row of dots that fill left-to-right across
-// the duration of the pause between two lyric lines.
-// -----------------------------------------------------------------
 
 @Composable
 fun GapDots(
@@ -1411,10 +1277,7 @@ fun GapDots(
     }
 }
 
-// -----------------------------------------------------------------
-// ──────────────────────────────────────────────────────────────────────
 // Word-level composable: karaoke fill + glow + bounce
-// ──────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun AnimatedWordV2(
@@ -1494,7 +1357,6 @@ private fun AnimatedWordV2(
                     scaleY = wordScale
                 },
     ) {
-        // Layer 1: Base text (always dimmed)
         Text(
             text = word.text,
             style =
@@ -1509,7 +1371,6 @@ private fun AnimatedWordV2(
             modifier = Modifier.padding(glowPadding),
         )
 
-        // Layer 2: Filled overlay with liquid sweep mask + glow
         if (isWordComplete || isWordActive || isLinePast) {
             Text(
                 text = word.text,
@@ -1569,9 +1430,7 @@ private fun AnimatedWordV2(
     }
 }
 
-// -----------------------------------------------------------------
 // LRC bounce: word-by-word spring bounce for line-synced lyrics
-// -----------------------------------------------------------------
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1592,7 +1451,6 @@ private fun LyricsLineLrcBounce(
     val fontWeight = if (isActive) lyricActiveFontWeight() else lyricInactiveFontWeight()
     val fontStyle = if (isAllBackground) FontStyle.Italic else FontStyle.Normal
 
-    // Single spring animation for the entire line instead of per-word Animatables
     val bounceProgress by animateFloatAsState(
         targetValue = if (isActive) 1f else 0f,
         animationSpec = spring(
@@ -1648,12 +1506,10 @@ private fun LrcBouncingWord(
     // Staggered animation using progress with word-index delay
     val staggeredProgress = (progress - wordIndex * 0.05f).coerceIn(0f, 1f)
     val easedProgress = (1f - (1f - staggeredProgress) * (1f - staggeredProgress)) * staggeredProgress // easeOutCubic
-    
+
     val scale = 1f + 0.045f * bounceFactor * easedProgress
     val transY = -5f * bounceFactor * easedProgress
 
-    // Glow ramps up twice as fast as the bounce, then stays lit while the
-    // line is active — same curve the word-synced karaoke words use.
     val glowProgress = (staggeredProgress * 2f).coerceAtMost(1f)
     val glowAlpha = if (isActive) 0.45f * glowFactor * glowProgress else 0f
     val glowRadius = if (isActive) (12f * glowFactor * glowProgress).coerceAtLeast(1f) else 0f

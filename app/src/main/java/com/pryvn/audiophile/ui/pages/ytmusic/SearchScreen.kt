@@ -312,7 +312,7 @@ fun SearchPage(navController: NavController) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, top = 54.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -329,7 +329,6 @@ fun SearchPage(navController: NavController) {
             )
         }
 
-        // Apple Search Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -553,7 +552,6 @@ fun SearchPage(navController: NavController) {
                         }
                     }
                     else -> {
-                        // TopResults / Songs
                         if (filteredLibraryResults.isEmpty()) {
                             item { EmptyView(Modifier.fillMaxWidth()) }
                         } else {
@@ -610,7 +608,6 @@ fun SearchPage(navController: NavController) {
                     }
                 }
 
-                // Quick Shortcuts
                 item("SearchCategories") {
                     Text(
                         text = "Browse Categories",
@@ -666,7 +663,6 @@ fun SearchPage(navController: NavController) {
                     }
                 }
 
-                // Genre Cards Section
                 if (SettingsLibrary.LocalMusicEnabled && genreCategories.isNotEmpty()) {
                     item("GenreCategoriesHeader") {
                         Text(
@@ -714,7 +710,6 @@ fun SearchPage(navController: NavController) {
                     }
                 }
 
-                // Recently Played Section
                 if (recentRows.isNotEmpty()) {
                     item("RecentlyPlayedHeader") {
                         Row(
@@ -768,7 +763,6 @@ fun SearchPage(navController: NavController) {
                     }
                 }
             } else {
-                // Search Content View
                 when (activeContentState) {
                     SearchContentState.Loading -> {
                         item { LoadingView(Modifier.fillMaxWidth().padding(vertical = 60.dp)) }
@@ -896,8 +890,6 @@ private fun SearchSongRow(
             MediaController.musicPlaying.value?.uri == song.uri
         }
     }
-    // Only scroll the marquee while the song is actually playing — when paused or
-    // idle the row must stay static so the UI stops producing frames.
     val isPlaying = MediaViewModelObject.isPlaying
     Row(
         modifier = Modifier
@@ -1057,7 +1049,6 @@ private fun SearchShortcutPill(
     }
 }
 
-// ─── Suggestions ───────────────────────────────────────────────────────────
 
 @Composable
 private fun SuggestionsList(
@@ -1106,7 +1097,6 @@ private fun SuggestionRow(suggestion: String, onClick: (String) -> Unit) {
     }
 }
 
-// ─── Recent Searches ───────────────────────────────────────────────────────
 
 @Composable
 private fun RecentSearchesContent(
@@ -1190,7 +1180,6 @@ private fun RecentSearchRow(query: String, onClick: (String) -> Unit) {
     }
 }
 
-// ─── Results ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun ResultsSection(
@@ -1490,7 +1479,6 @@ private fun AppleSearchResultRow(
     }
 }
 
-// ─── Category-First Result Rows (for Top Results) ──────────────────────────
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
@@ -1767,7 +1755,6 @@ private fun PlaylistResultRowWithCategory(
     }
 }
 
-// ─── Loading & Empty ───────────────────────────────────────────────────────
 
 @Composable
 private fun LoadingView(modifier: Modifier = Modifier) {
@@ -1807,7 +1794,6 @@ private fun EmptyView(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
 
 private fun buildGenreCategories(allSongs: List<YosMediaItem>): List<GenreCategory> {
     val genrePalette = listOf(

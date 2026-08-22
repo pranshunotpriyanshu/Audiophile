@@ -58,18 +58,6 @@ object LyricsHelper {
     private const val PER_PROVIDER_TIMEOUT_MS = 10_000L
     private const val TOTAL_TIMEOUT_MS = 15_000L
 
-    /**
-     * Fetches lyrics for a song by running every provider in [baseProviders]
-     * in parallel, collecting all results within 15s, and returning the
-     * highest-scored one (TTML > synced LRC > plain text).
-     *
-     * Runs on [NonCancellable] so the fetch is not interrupted when the
-     * calling UI scope cancels (e.g. user exits NowPlaying). The best
-     * result is cached in [MediaViewModelObject.lyricsCache] by the caller.
-     *
-     * @return the best [AudiophileLyrics], or null if every provider failed
-     * or timed out.
-     */
     suspend fun getLyrics(
         title: String,
         artist: String,
@@ -81,11 +69,6 @@ object LyricsHelper {
         fetchAllWithScoring(baseProviders, videoId, title, artist, album, durationSeconds)
     }
 
-    /**
-     * Launches every provider as a separate async (10s per-provider timeout),
-     * collects results with a 15s total ceiling, then returns the winner
-     * via [score].
-     */
     private suspend fun fetchAllWithScoring(
         providers: List<LyricsProvider>,
         videoId: String?,
@@ -130,19 +113,8 @@ object LyricsHelper {
         allResults.maxByOrNull { score(it) }
     }
 
-    /**
-     * Public scoring used by "Refetch lyrics" to decide whether a freshly fetched
-     * result is better than the currently displayed lyrics.
-     */
     fun scoreLyrics(lyrics: AudiophileLyrics?): Int = score(lyrics)
 
-    /**
-     * Scoring:
-     * 100  — TTML / word-synced (either flagged by provider or detected)
-     *  50  — line-synced LRC (has [mm:ss.xx] timestamps)
-     *  10  — plain text (no timestamps, no XML)
-     *   0  — null / blank
-     */
     private fun score(lyrics: AudiophileLyrics?): Int {
         if (lyrics == null || lyrics.text.isBlank()) return 0
         return when {

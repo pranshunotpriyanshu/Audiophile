@@ -12,24 +12,6 @@ import com.mocharealm.accompanist.lyrics.core.utils.LrcMetadataHelper
 import com.mocharealm.accompanist.lyrics.core.utils.parseAsTime
 import kotlin.math.abs
 
-/**
- * A parser for Enhanced LRC files.
- *
- * Enhanced LRC extends the standard LRC format with support for syllable-level timing (Karaoke),
- * multiple singers/voices, and background vocals.
- *
- * Recommended format:
- * ```
- * [00:12.34]<00:12.34>Hel<00:12.60>lo <00:12.90>World
- * [bg:<00:12.34>Back<00:12.60>ground<00:12.90>]
- * ```
- *
- * Also supports bad karaoke format with [] brackets:
- * ```
- * [00:12.34][00:12.34]Hel[00:12.60]lo [00:12.90]World
- * [bg:[00:12.34]Back[00:12.60]ground[00:12.90]]
- * ```
- */
 object EnhancedLrcParser : ILyricsParser {
     override fun canParse(content: String): Boolean {
         val hasLineTimestamp = content.contains("""\[\d{2}:\d{2}\.\d{2,3}\]""".toRegex())
@@ -179,7 +161,6 @@ object EnhancedLrcParser : ILyricsParser {
                         end = shifted.last().end
                     ))
                 } else if (textContent.isNotBlank()) {
-                    // For typical lines without enhanced syllable parts
                     results.add(SyncedLine(
                         content = textContent,
                         translation = null,
@@ -213,9 +194,6 @@ object EnhancedLrcParser : ILyricsParser {
         return results
     }
 
-    /**
-     * 检测内容中使用的括号类型
-     */
     private fun detectBracketType(content: String?, bgTag: String?): BracketType {
         // 检查主内容
         if (content != null) {

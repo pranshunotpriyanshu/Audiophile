@@ -176,21 +176,21 @@ object PaxsenixLyricsParser {
     fun parsePaxsenixWordSynced(raw: String): List<ParsedWordSyncedLine> {
         val lines = mutableListOf<ParsedWordSyncedLine>()
         val lineRegex = Regex("""\[(\d{2}:\d{2}\.\d{2,3})\]\s*(\w+):\s*(.*)""")
-        
+
         for (line in raw.lines()) {
             val match = lineRegex.find(line) ?: continue
             val timestamp = match.groupValues[1]
             val voice = match.groupValues[2]
             val content = match.groupValues[3]
-            
+
             val lineStartMs = parseLrcTimestamp(timestamp)
             // "bg" is a background-vocal voice: every word in the line is background.
             val isBg = voice.equals("bg", ignoreCase = true)
             val wordRegex = Regex("""<(\d{2}:\d{2}\.\d{2,3})>([^<]+)""")
             val wordMatches = wordRegex.findAll(content).toList()
-            
+
             if (wordMatches.isEmpty()) continue
-            
+
             val words = mutableListOf<ParsedWord>()
             var lastEndMs = lineStartMs
             for (wm in wordMatches) {
@@ -202,10 +202,10 @@ object PaxsenixLyricsParser {
                     lastEndMs = wordTime
                 }
             }
-            
+
             val lineText = words.joinToString("") { it.text }
             val lineEndMs = words.lastOrNull()?.endTimeMs ?: lineStartMs + 3000
-            
+
             lines.add(ParsedWordSyncedLine(
                 text = lineText,
                 startTimeMs = lineStartMs,
@@ -220,20 +220,20 @@ object PaxsenixLyricsParser {
     fun parseLrc(lrc: String): List<ParsedLineSynced> {
         val lines = mutableListOf<ParsedLineSynced>()
         val timeRegex = Regex("""\[(\d{2}):(\d{2}(?:\.\d{2,3})?)\]""")
-        
+
         for (rawLine in lrc.lines()) {
             val timeMatches = timeRegex.findAll(rawLine).toList()
             if (timeMatches.isEmpty()) continue
-            
+
             val textPart = rawLine.replace(timeRegex, "").trim()
             if (textPart.isBlank()) continue
-            
+
             val lineStartSec = timeMatches.map { match ->
                 val mins = match.groupValues[1].toIntOrNull() ?: 0
                 val secs = match.groupValues[2].toFloatOrNull() ?: 0f
                 mins * 60.0 + secs
             }.first()
-            
+
             lines.add(ParsedLineSynced(
                 startTimeMs = (lineStartSec * 1000).toLong(),
                 text = textPart,

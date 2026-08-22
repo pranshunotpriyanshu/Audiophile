@@ -7,18 +7,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 
-/**
- * Implements Add blend effect in Compose.
- *
- * Note: if using .alpha() for transparency, it must be placed after this Modifier, or use .graphicLayer { this.alpha = 0.5f } instead.
- *
- * saveLayer is only used for small nodes (icons/buttons) where an offscreen render is cheap.
- * Large nodes (full-width rows, big artwork) draw their content directly instead of through an
- * offscreen layer, which removes a full-rect render pass per redraw (e.g. the seekbar redraws
- * every second during playback).
- *
- * -- By pryvn
- */
 private const val MAX_LAYER_SIDE_PX = 440f
 
 @Composable

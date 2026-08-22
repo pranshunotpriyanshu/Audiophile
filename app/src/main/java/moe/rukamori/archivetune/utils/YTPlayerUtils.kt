@@ -129,20 +129,8 @@ object YTPlayerUtils {
         return client
     }
 
-    /**
-     * The main client is used for metadata and initial streams.
-     * Do not use other clients for this because it can result in inconsistent metadata.
-     * For example other clients can have different normalization targets (loudnessDb).
-     *
-     * [moe.rukamori.archivetune.innertube.models.YouTubeClient.WEB_REMIX] should be preferred here because currently it is the only client which provides:
-     * - the correct metadata (like loudnessDb)
-     * - premium formats
-     */
     private val MAIN_CLIENT: YouTubeClient = WEB_REMIX
 
-    /**
-     * Clients used for fallback streams in case the streams of the main client do not work.
-     */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> =
         arrayOf(
             IOS,
@@ -454,11 +442,6 @@ object YTPlayerUtils {
         val authFingerprint: String,
     )
 
-    /**
-     * Custom player response intended to use for playback.
-     * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT].
-     * Format & stream can be from [MAIN_CLIENT] or [STREAM_FALLBACK_CLIENTS].
-     */
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
@@ -1044,10 +1027,6 @@ object YTPlayerUtils {
         )
     }
 
-    /**
-     * Simple player response intended to use for metadata only.
-     * Stream URLs of this response might not work so don't use them.
-     */
     suspend fun playerResponseForMetadata(
         videoId: String,
         playlistId: String? = null,
@@ -1248,11 +1227,6 @@ object YTPlayerUtils {
         return approx in 1L..(minOf(90_000L, (expectedDurationMs * 9L) / 10L))
     }
 
-    /**
-     * Checks if the stream url returns a successful status.
-     * If this returns true the url is likely to work.
-     * If this returns false the url might cause an error during playback.
-     */
     private fun validateStatus(url: String): Boolean {
         Timber.tag(logTag).v("Validating stream URL status")
         try {
@@ -1334,10 +1308,6 @@ object YTPlayerUtils {
             }.getOrNull()
     }
 
-    /**
-     * Wrapper around the [NewPipeUtils.getStreamUrl] function which reports exceptions.
-     * Also patches cver to match the client version.
-     */
     private fun findUrlOrNull(
         format: PlayerResponse.StreamingData.Format,
         videoId: String,

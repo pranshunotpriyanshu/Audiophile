@@ -18,11 +18,6 @@ import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointCo
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_LIBRARY_ARTIST
 import moe.rukamori.archivetune.innertube.models.BrowseEndpoint.BrowseEndpointContextSupportedConfigs.BrowseEndpointContextMusicConfig.Companion.MUSIC_PAGE_TYPE_PLAYLIST
 
-/**
- * Typical list item
- * Used in [MusicCarouselShelfRenderer], [MusicShelfRenderer]
- * Appears in quick picks, search results, table items, etc.
- */
 @Serializable
 data class MusicResponsiveListItemRenderer(
     val badges: List<Badges>?,

@@ -79,8 +79,6 @@ fun SelectItem(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    //.clip(RoundedCornerShape(16.dp))
-                    //.background(Color(0x0D333333) withNight Color(0x0DF1F1F1))
                     .padding(vertical = 10.dp)
             ) {
                 items.forEach {

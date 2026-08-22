@@ -74,9 +74,6 @@ fun YosFloatingLight(
         mutableStateOf<Drawable?>(null)
     }
 
-    // Outgoing artwork kept on top and slowly faded out when the song changes,
-    // so the blurred background mixes into the next song instead of swapping
-    // instantly.
     val scope = rememberCoroutineScope()
     val transitionOverlay = remember { mutableStateOf<Drawable?>(null) }
     val transitionAlpha = remember { Animatable(1f) }
@@ -87,8 +84,6 @@ fun YosFloatingLight(
         LaunchedEffect(album()) {
             if (album() == null) return@LaunchedEffect
             withContext(Dispatchers.IO) {
-                // Use the shared Coil loader so artwork hits the app-wide memory + disk
-                // caches instead of being re-downloaded/re-decoded on every visit.
                 val imageLoader = context.imageLoader
                 try {
                     val request = ImageRequest.Builder(context)
@@ -103,9 +98,6 @@ fun YosFloatingLight(
                             thisBitmap
                         ).toDrawable(context.resources)
                         thisBitmap.recycle()
-                        // If artwork is already on screen, keep the outgoing one
-                        // on top and fade it out over the incoming one — a slow
-                        // mix into the next song's colors.
                         val outgoing = drawable.value
                         drawable.value = loaded
                         if (outgoing != null) {
@@ -170,10 +162,6 @@ fun YosFloatingLight(
                 }) {
                     if (drawable.value != null) {
                         if (it.drawable != drawable.value) {
-                            // Update whenever the view is not already showing the
-                            // current artwork — the instance check alone guards
-                            // against redundant re-sets on recomposition, so the
-                            // blurred background actually advances with the song.
                             it.setImageDrawable(drawable.value!!)
                             lastOption.value = Option.Set.name
                         } else if (!isPlaying() || !active) {
@@ -230,12 +218,6 @@ fun YosFloatingLight(
             )
         }
 
-        // Topmost layer: the outgoing artwork fades out over everything else,
-        // so the new song's blurred background is revealed gradually — a slow
-        // mix instead of an instant color/artwork change. Rendered with a plain
-        // ImageView so the outgoing drawable shows synchronously — an async
-        // image load would leave a one-frame gap that flashes the new artwork
-        // through before the fade starts.
         YosWrapper {
             val overlay = transitionOverlay.value
             if (overlay != null) {

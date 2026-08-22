@@ -62,7 +62,6 @@ val SeekExtraSeconds = booleanPreferencesKey("seekExtraSeconds")
 val DisableBlurKey = booleanPreferencesKey("disableBlur")
 val BlurRadiusKey = floatPreferencesKey("blurRadius")
 
-// Backdrop blur for detail pages
 val BackdropEnabledKey = booleanPreferencesKey("backdropEnabled")
 val BackdropBlurAmountKey = intPreferencesKey("backdropBlurAmount")
 val MiniPlayerLastAnchorKey = intPreferencesKey("miniPlayerLastAnchor")
@@ -186,7 +185,6 @@ val TogetherRequireHostApprovalToJoinKey = booleanPreferencesKey("together_requi
 val TogetherLastJoinLinkKey = stringPreferencesKey("together_last_join_link")
 val TogetherWelcomeShownKey = booleanPreferencesKey("together_welcome_shown")
 
-// ListenBrainz scrobbling
 val ListenBrainzEnabledKey = booleanPreferencesKey("listenbrainz_enabled")
 val ListenBrainzTokenKey = stringPreferencesKey("listenbrainz_token")
 
@@ -310,7 +308,6 @@ val DiscordNameKey = stringPreferencesKey("discordName")
 val DiscordAvatarUrlKey = stringPreferencesKey("discordAvatarUrl")
 val EnableDiscordRPCKey = booleanPreferencesKey("discordRPCEnable")
 
-// Discord activity customization keys
 val DiscordActivityNameKey = stringPreferencesKey("discordActivityName")
 val DiscordActivityDetailsKey = stringPreferencesKey("discordActivityDetails")
 val DiscordActivityStateKey = stringPreferencesKey("discordActivityState")
@@ -330,7 +327,6 @@ val DiscordShowWhenPausedKey = booleanPreferencesKey("discordShowWhenPaused")
 val DiscordActivityTypeKey = stringPreferencesKey("discordActivityType")
 val DiscordPresenceStatusKey = stringPreferencesKey("discordPresenceStatus") // "ONLINE", "IDLE", "DND", "INVISIBLE"
 
-// Discord image selection keys
 // Values for type keys: "thumbnail", "artist", "appicon", "custom"
 val DiscordLargeImageTypeKey = stringPreferencesKey("discordLargeImageType")
 val DiscordLargeTextSourceKey = stringPreferencesKey("discordLargeTextSource")
@@ -339,7 +335,6 @@ val DiscordLargeImageCustomUrlKey = stringPreferencesKey("discordLargeImageCusto
 val DiscordSmallImageTypeKey = stringPreferencesKey("discordSmallImageType")
 val DiscordSmallImageCustomUrlKey = stringPreferencesKey("discordSmallImageCustomUrl")
 
-// Activity platform (discord client platform) selection
 val DiscordActivityPlatformKey = stringPreferencesKey("discordActivityPlatform")
 
 val TranslatorContextsKey = stringPreferencesKey("translatorContexts")
@@ -629,7 +624,6 @@ enum class MiniPlayerBackgroundStyle {
     GLOW,
 }
 
-// Keys for customized background
 val PlayerCustomImageUriKey = stringPreferencesKey("playerCustomImageUri")
 val PlayerCustomBlurKey = floatPreferencesKey("playerCustomBlur")
 val PlayerCustomContrastKey = floatPreferencesKey("playerCustomContrast")
@@ -815,13 +809,11 @@ val CountryCodeToName =
         "AE" to "United Arab Emirates",
     )
 
-// App rating / star prompt preferences
 val LaunchCountKey = intPreferencesKey("launch_count")
 val OnboardingCompletedKey = booleanPreferencesKey("onboarding_completed")
 val HasPressedStarKey = booleanPreferencesKey("has_pressed_star")
 val RemindAfterKey = intPreferencesKey("remind_after")
 
-// Update settings
 val EnableUpdateNotificationKey = booleanPreferencesKey("enableUpdateNotification")
 val UpdateChannelKey = stringPreferencesKey("updateChannel")
 val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")

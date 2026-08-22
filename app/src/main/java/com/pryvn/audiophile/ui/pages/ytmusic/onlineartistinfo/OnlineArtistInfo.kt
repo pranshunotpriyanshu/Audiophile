@@ -119,20 +119,12 @@ fun OnlineArtistInfo(navController: NavController) {
         lerp(heroColor, Color.White, 0.87f)
     }
 
-    // The artist browse page's Songs shelf is only a preview head of the
-    // catalogue. Load the COMPLETE paginated catalogue in the background so the
-    // preview rows, Play and Shuffle all use the same full dataset.
     val fullSongItemsState = remember { mutableStateOf<List<SongItem>?>(null) }
 
-    // Until the full catalogue arrives, the shelf preview stands in for it;
-    // both are ranked by listening history so the swap is seamless.
     val shelfSongs = remember(topSongs) {
         ListeningHistory.rankByListeningHistory(topSongs.orEmpty()) { it.id }
     }
 
-    // Memoized loader for the COMPLETE artist song catalogue. Play/Shuffle call
-    // this so they ALWAYS queue every song — even if tapped before the
-    // background preload below has finished.
     suspend fun fullCatalogueSongs(): List<SongItem> {
         fullSongItemsState.value?.let { return it }
         val ranked = ListeningHistory.rankByListeningHistory(
@@ -357,8 +349,6 @@ private fun OnlineArtistHero(
             .fillMaxWidth()
             .height(heroHeight),
     ) {
-        // The artist photo bleeds across the whole hero so it feels like it
-        // naturally extends behind the text and controls.
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(heroArtwork)
@@ -373,9 +363,6 @@ private fun OnlineArtistHero(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Light artwork-derived scrim: the selfie stays visible through the hero,
-        // fading gently into the dynamic page background only near the bottom so
-        // the name and action buttons stay readable with no dark empty void.
         Box(
             modifier = Modifier
                 .fillMaxSize()

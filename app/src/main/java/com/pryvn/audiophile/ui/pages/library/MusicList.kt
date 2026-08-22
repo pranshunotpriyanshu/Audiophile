@@ -152,8 +152,6 @@ LaunchedEffect(Unit) {
                 imageQuality = ImageQuality.LOW
             )
             if (selectionMode && selected) {
-                // Dim the cover and overlay a check so the user can see the
-                // selection state at a glance.
                 Box(
                     modifier = Modifier
                         .matchParentSize()
