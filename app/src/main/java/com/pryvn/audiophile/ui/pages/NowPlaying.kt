@@ -134,8 +134,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.lerp
-import kotlin.math.lerp as floatLerp
+import androidx.compose.ui.geometry.lerp as geometryLerp
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -262,6 +261,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.IconButton
 
+// Simple Float lerp to avoid import conflicts between kotlin.math and geometry
+private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
 @Stable
 object NowPlayingPage {
@@ -478,7 +479,7 @@ fun Track(
         }.forEach { (outsideFraction, list) ->
             drawPoints(
                 list.fastMap {
-                    Offset(lerp(sliderStart, sliderEnd, it).x, center.y)
+                    Offset(geometryLerp(sliderStart, sliderEnd, it).x, center.y)
                 },
                 PointMode.Points,
                 (if (outsideFraction) inactiveTickColor else activeTickColor),
@@ -557,8 +558,10 @@ fun NowPlaying(
     nowPageLambda: () -> String,
     showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
-    nowPageOnChanged: (String) -> Unit,
     collapseProgress: Float = 0f,
+    surfaceHeightPx: Int = 0,
+    surfaceWidthPx: Int = 0,
+    nowPageOnChanged: (String) -> Unit,
 ) =
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -692,24 +695,7 @@ fun NowPlaying(
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
-        val heroAlpha by animateFloatAsState(
-            targetValue = if (fsAlbum) 1f else 0f,
-            animationSpec = MotionTokens.colorSpring()
-        )
-        // ── Hero artwork → small artwork shared-object transition ──
-        // When fullscreen artwork is enabled, the entire hero presentation
-        // (blur + artwork) must smoothly transform into the small artwork
-        // during Album ↔ Lyrics/Queue transitions.
-        // 0 = Album page (hero at full size), 1 = Lyrics/Queue (hero at small artwork position)
-        val heroTargetProgress = if (nowPageLambda() == Album) 0f else 1f
-        val heroTransitionProgress by animateFloatAsState(
-            targetValue = heroTargetProgress,
-            animationSpec = tween(
-                durationMillis = 500,
-                easing = FastOutSlowInEasing
-            ),
-            label = "heroTransition"
-        )
+
         // The chosen background mode applies everywhere — even while full
         // screen static artwork is on — so the user's Now Playing Background
         // setting is always honored ("Blurred" shows the blurred album artwork,
@@ -795,37 +781,7 @@ fun NowPlaying(
             active = fsEnabled && fsAlbum,
             fullscreenArtwork = true
         )
-        if (fsAlbum || heroAlpha > 0f) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(artworkMaxHeightDp)
-                    .alpha(heroAlpha)
-                    .graphicsLayer {
-                        if (heroTransitionProgress > 0f) {
-                            // Scale the hero artwork from full size to small artwork size (69.dp)
-                            val smallArtworkPx = with(density) { 69.dp.toPx() }
-                            val targetScaleX = if (size.width > 0f) smallArtworkPx / size.width else 1f
-                            val targetScaleY = if (size.height > 0f) smallArtworkPx / size.height else 1f
-                            scaleX = floatLerp(1f, targetScaleX, heroTransitionProgress)
-                            scaleY = floatLerp(1f, targetScaleY, heroTransitionProgress)
-                            // Translate to the PlayingBar artwork position:
-                            // Horizontal: 28.5.dp, Vertical: statusBarHeight + 22.dp + 22.dp
-                            val targetTx = with(density) { 28.5f.dp.toPx() }
-                            val targetTy = with(density) { (statusBarHeight + 44.dp).toPx() }
-                            translationX = floatLerp(0f, targetTx, heroTransitionProgress)
-                            translationY = floatLerp(0f, targetTy, heroTransitionProgress)
-                        }
-                    }
-            ) {
-                HeroArtworkLayer(
-                    albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
-                    topSpacingDp = 0.dp,
-                    artworkMaxHeightDp = artworkMaxHeightDp,
-                    animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
-                )
-            }
-        }
+
 
         // 实际显示区
         // Reference box to track the Surface's root position for artwork sizing
@@ -948,7 +904,25 @@ Album ->
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
                                             if (fsEnabled) {
-                                                Box(Modifier.weight(1f)) { }
+                                                // The entire fullscreen artwork presentation (artwork + blur + background)
+                                                // participates as ONE artwork entity in the shared element transition.
+                                                Box(
+                                                    Modifier
+                                                        .weight(1f)
+                                                        .sharedElementWithCallerManagedVisibility(
+                                                            sharedContentState = rememberSharedContentState(
+                                                                key = ShareAlbumKey
+                                                            ),
+                                                            visible = isVisible
+                                                        )
+                                                ) {
+                                                    HeroArtworkLayer(
+                                                        albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
+                                                        topSpacingDp = 0.dp,
+                                                        artworkMaxHeightDp = Dp.Unspecified,
+                                                        animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
+                                                    )
+                                                }
                                             } else {
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
@@ -960,7 +934,9 @@ Album ->
                                                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
                                                     isPlaying = isPlayingStatusLambda,
                                                     music = { thisMusicPlaying.value },
-                                                    active = active
+                                                    active = active,
+                                                    collapseProgress = collapseProgress,
+                                                    surfaceWidthPx = surfaceWidthPx
                                                 )
                                             }
                                             Row(
@@ -1688,7 +1664,9 @@ fun ColumnScope.Album(
     albumUrl: () -> Uri?,
     isPlaying: () -> Boolean,
     music: () -> YosMediaItem?,
-    active: Boolean
+    active: Boolean,
+    collapseProgress: Float = 1f,
+    surfaceWidthPx: Int = 0,
 ) {
     val fsEnabled = SettingsLibrary.NowplayingFullScreenStaticArtwork
 
@@ -1769,6 +1747,16 @@ fun ColumnScope.Album(
                         .fillMaxWidth()
                         .graphicsLayer {
                             compositingStrategy = CompositingStrategy.Offscreen
+                            // ONE artwork entity: scale the fullscreen artwork presentation
+                            // toward mini-bar geometry based on actual bounds.
+                            if (collapseProgress < 1f && surfaceWidthPx > 0) {
+                                // Mini-bar artwork is 47.dp, centered at 8dp + 47dp/2 from left
+                                val miniBarWidthPx = with(density) { 47.dp.toPx() }
+                                val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
+                                val s = lerp(miniBarScale, 1f, collapseProgress)
+                                scaleX = s
+                                scaleY = s
+                            }
                         }
                         .drawWithCache {
                             val gradientBrush = Brush.verticalGradient(
@@ -1804,7 +1792,18 @@ fun ColumnScope.Album(
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         }
                         .padding(start = dp, end = dp, bottom = dp)
-                        .then(modifier),
+                        .then(modifier)
+                        .graphicsLayer {
+                            // ONE artwork entity: scale toward mini-bar geometry
+                            // based on actual bounds.
+                            if (collapseProgress < 1f && surfaceWidthPx > 0) {
+                                val miniBarWidthPx = with(density) { 47.dp.toPx() }
+                                val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
+                                val s = lerp(miniBarScale, 1f, collapseProgress)
+                                scaleX = s
+                                scaleY = s
+                            }
+                        },
                     imageQuality = ImageQuality.RAW,
                     shadowOverlay = true,
                     overlayContent = {

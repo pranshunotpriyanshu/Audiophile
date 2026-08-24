@@ -222,6 +222,8 @@ class MainActivity : ComponentActivity() {
                     val offsetY = remember("MainActivity_offsetY") { Animatable(0f) }
                     val parentHeight =
                         remember("MainActivity_parentHeight") { mutableIntStateOf(0) }
+                    val surfaceWidthPx =
+                        remember("MainActivity_surfaceWidthPx") { mutableIntStateOf(0) }
                     val screenCorner = remember("MainActivity_screenCorner") {
                         val corner = SettingsLibrary.ScreenCorner.toInt()
                         if (corner == 0) 1 else corner
@@ -893,6 +895,7 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .onSizeChanged {
                                             parentHeight.intValue = it.height
+                                            surfaceWidthPx.intValue = it.width
                                         }
                                         .graphicsLayer {
                                             //compositingStrategy = CompositingStrategy.Offscreen
@@ -1046,7 +1049,9 @@ class MainActivity : ComponentActivity() {
                                                     nowPageLambda = { nowPageNowPlaying.value },
                                                     showNowPlaying = { showNowPlaying.value },
                                                     showMiniPlayer = { yosBottomSheetConfig.showMenu },
-                                                    collapseProgress = yosBottomSheetConfig.progress
+                                                    collapseProgress = yosBottomSheetConfig.progress,
+                                                    surfaceHeightPx = parentHeight.intValue,
+                                                    surfaceWidthPx = surfaceWidthPx.intValue
                                                 ) {
                                                     nowPageNowPlaying.value = it
                                                 }
@@ -1140,11 +1145,24 @@ class MainActivity : ComponentActivity() {
                                                                     verticalAlignment = Alignment.CenterVertically
                                                                 ) {
                                                                     YosWrapper {
+                                                                        // ONE artwork entity: the mini-bar artwork scales up
+                                                                        // toward the fullscreen artwork geometry based on actual bounds.
+                                                                        val p = yosBottomSheetConfig.progress
+                                                                        val sw = surfaceWidthPx.intValue.toFloat()
+                                                                        val miniBarPx = with(density) { 47.dp.toPx() }
+                                                                        val targetScale = if (p > 0f && sw > 0f) sw / miniBarPx else 1f
                                                                         ShadowImageWithCache(
                                                                             dataLambda = { MediaViewModelObject.bitmap.value },
                                                                             contentDescription = null,
                                                                             modifier = Modifier
-                                                                                .size(47.dp),
+                                                                                .size(47.dp)
+                                                                                .graphicsLayer {
+                                                                                    if (p > 0f && sw > 0f) {
+                                                                                        val s = lerp(1f, targetScale, p)
+                                                                                        scaleX = s
+                                                                                        scaleY = s
+                                                                                    }
+                                                                                },
                                                                             cornerRadius = 6.dp,
                                                                             shadowAlpha = 0f,
                                                                             imageQuality = ImageQuality.LOW
