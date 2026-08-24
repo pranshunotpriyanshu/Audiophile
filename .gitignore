@@ -1,0 +1,16 @@
+*.iml
+.gradle
+/local.properties
+/.idea/*
+/.freebuff/*
+/.kotlin
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+/app/debug/
+/app/release/
+/innertube/
+/lyrics/*/build

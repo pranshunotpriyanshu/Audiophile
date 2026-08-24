@@ -1,0 +1,149 @@
+package com.pryvn.audiophile.ui.widgets.basic
+
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.size.Precision
+import com.pryvn.audiophile.R
+import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
+import com.pryvn.audiophile.ui.widgets.effects.ShadowType
+import com.pryvn.audiophile.ui.widgets.effects.dropShadow
+
+@Stable
+enum class ImageQuality {
+    RAW, LOW, HIGH
+}
+
+private fun getSizeFromQuality(quality: ImageQuality): Int {
+    return when (quality) {
+        ImageQuality.RAW -> 1440
+        ImageQuality.LOW -> 96
+        ImageQuality.HIGH -> 300
+    }
+}
+
+@Composable
+fun ShadowImage(
+    dataLambda: () -> Any?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    shadowAlpha: Float = 0.23f,
+    shadowType: ShadowType = ShadowType.Large,
+    shadowOverlay: Boolean = false,
+    cornerRadius: Dp = 10.dp,
+    imageQuality: ImageQuality
+) = YosWrapper {
+    val shape = YosRoundedCornerShape(cornerRadius)
+    val url = dataLambda()
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
+            .error(R.drawable.placeholder_music_default_artwork)
+            .placeholder(R.drawable.placeholder_music_default_artwork)
+            .fallback(R.drawable.placeholder_music_default_artwork)
+            .placeholderMemoryCacheKey(url.toString())
+            .diskCacheKey(url.toString())
+            .allowHardware(true)
+            .crossfade(true)
+            .apply {
+                val size = getSizeFromQuality(imageQuality)
+                this.size(size)
+                if (imageQuality == ImageQuality.LOW) {
+                    this.precision(Precision.INEXACT)
+                }
+            }
+            .build(),
+        contentDescription = contentDescription.toString(),
+        contentScale = ContentScale.Crop,
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(shape)
+            .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
+
+    )
+}
+
+@Composable
+fun ShadowImageWithCache(
+    dataLambda: () -> Any?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    shadowAlpha: Float = 0.23f,
+    shadowType: ShadowType = ShadowType.Large,
+    shadowOverlay: Boolean = false,
+    cornerRadius: Dp = 8.dp,
+    imageQuality: ImageQuality,
+    overlayContent: @Composable BoxScope.() -> Unit = {}
+) = YosWrapper {
+    val shape = YosRoundedCornerShape(cornerRadius)
+    val url = dataLambda()
+    val baseModifier = modifier.fillMaxWidth().aspectRatio(1f).clip(shape)
+    val clippedModifier = baseModifier
+    Box {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
+                .error(R.drawable.placeholder_music_default_artwork)
+                .placeholder(R.drawable.placeholder_music_default_artwork)
+                .fallback(R.drawable.placeholder_music_default_artwork)
+                .placeholderMemoryCacheKey(url.toString())
+                .memoryCacheKey(url.toString())
+                .allowHardware(true)
+                .crossfade(true)
+                .apply {
+                    val size = getSizeFromQuality(imageQuality)
+                    this.size(size)
+                    if (imageQuality == ImageQuality.LOW) {
+                        this.precision(Precision.INEXACT)
+                    }
+                }
+                .build(),
+            contentDescription = contentDescription.toString(),
+            contentScale = ContentScale.Crop,
+            modifier = clippedModifier
+                .dropShadow(shape, shadowAlpha, shadowType, shadowOverlay)
+        )
+        Box(modifier = clippedModifier) {
+            overlayContent()
+        }
+    }
+}
+
+@Composable
+fun CachedArtworkImage(
+    url: String?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    size: Int = 200,
+    precision: Precision = Precision.INEXACT,
+) {
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
+            .error(R.drawable.placeholder_music_default_artwork)
+            .placeholder(R.drawable.placeholder_music_default_artwork)
+            .fallback(R.drawable.placeholder_music_default_artwork)
+            .placeholderMemoryCacheKey(url.toString())
+            .memoryCacheKey(url.toString())
+            .diskCacheKey(url.toString())
+            .allowHardware(true)
+            .crossfade(true)
+            .precision(precision)
+            .size(size)
+            .build(),
+        contentDescription = contentDescription,
+        contentScale = contentScale,
+        modifier = modifier,
+    )
+}
