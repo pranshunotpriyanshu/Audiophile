@@ -1045,7 +1045,8 @@ class MainActivity : ComponentActivity() {
                                                     },
                                                     nowPageLambda = { nowPageNowPlaying.value },
                                                     showNowPlaying = { showNowPlaying.value },
-                                                    showMiniPlayer = { yosBottomSheetConfig.showMenu }
+                                                    showMiniPlayer = { yosBottomSheetConfig.showMenu },
+                                                    collapseProgress = yosBottomSheetConfig.progress
                                                 ) {
                                                     nowPageNowPlaying.value = it
                                                 }

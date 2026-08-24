@@ -25,6 +25,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateDpAsState
@@ -134,6 +135,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
+import kotlin.math.lerp as floatLerp
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -555,7 +557,8 @@ fun NowPlaying(
     nowPageLambda: () -> String,
     showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
-    nowPageOnChanged: (String) -> Unit
+    nowPageOnChanged: (String) -> Unit,
+    collapseProgress: Float = 0f,
 ) =
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -693,6 +696,20 @@ fun NowPlaying(
             targetValue = if (fsAlbum) 1f else 0f,
             animationSpec = MotionTokens.colorSpring()
         )
+        // ── Hero artwork → small artwork shared-object transition ──
+        // When fullscreen artwork is enabled, the entire hero presentation
+        // (blur + artwork) must smoothly transform into the small artwork
+        // during Album ↔ Lyrics/Queue transitions.
+        // 0 = Album page (hero at full size), 1 = Lyrics/Queue (hero at small artwork position)
+        val heroTargetProgress = if (nowPageLambda() == Album) 0f else 1f
+        val heroTransitionProgress by animateFloatAsState(
+            targetValue = heroTargetProgress,
+            animationSpec = tween(
+                durationMillis = 500,
+                easing = FastOutSlowInEasing
+            ),
+            label = "heroTransition"
+        )
         // The chosen background mode applies everywhere — even while full
         // screen static artwork is on — so the user's Now Playing Background
         // setting is always honored ("Blurred" shows the blurred album artwork,
@@ -784,6 +801,22 @@ fun NowPlaying(
                     .fillMaxWidth()
                     .height(artworkMaxHeightDp)
                     .alpha(heroAlpha)
+                    .graphicsLayer {
+                        if (heroTransitionProgress > 0f) {
+                            // Scale the hero artwork from full size to small artwork size (69.dp)
+                            val smallArtworkPx = with(density) { 69.dp.toPx() }
+                            val targetScaleX = if (size.width > 0f) smallArtworkPx / size.width else 1f
+                            val targetScaleY = if (size.height > 0f) smallArtworkPx / size.height else 1f
+                            scaleX = floatLerp(1f, targetScaleX, heroTransitionProgress)
+                            scaleY = floatLerp(1f, targetScaleY, heroTransitionProgress)
+                            // Translate to the PlayingBar artwork position:
+                            // Horizontal: 28.5.dp, Vertical: statusBarHeight + 22.dp + 22.dp
+                            val targetTx = with(density) { 28.5f.dp.toPx() }
+                            val targetTy = with(density) { (statusBarHeight + 44.dp).toPx() }
+                            translationX = floatLerp(0f, targetTx, heroTransitionProgress)
+                            translationY = floatLerp(0f, targetTy, heroTransitionProgress)
+                        }
+                    }
             ) {
                 HeroArtworkLayer(
                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
@@ -954,12 +987,25 @@ Album ->
                                                         overflow = TextOverflow.Ellipsis,
                                                         fontWeight = userFontWeight(),
                                                         color = Color.White,
+                                                        modifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                            sharedContentState = rememberSharedContentState(
+                                                                key = "np_song_name"
+                                                            ),
+                                                            visible = isVisible
+                                                        )
                                                     )
                                                     Text(
                                                         text = song?.artistsName
                                                             ?: defaultArtistsName,
                                                         fontSize = 18.5.sp,
-                                                        modifier = Modifier.overlayEffect(),
+                                                        modifier = Modifier
+                                                            .overlayEffect()
+                                                            .sharedElementWithCallerManagedVisibility(
+                                                                sharedContentState = rememberSharedContentState(
+                                                                    key = "np_artist_name"
+                                                                ),
+                                                                visible = isVisible
+                                                            ),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
                                                         color = Color.White.copy(alpha = 0.35f)
@@ -977,6 +1023,18 @@ isMenuOpen = overflowSheetOpen.value,
                                                             snapshotSong.value = thisMusicPlaying.value
                                                             overflowSheetOpen.value = true
                                                         },
+                                                        favoriteModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                            sharedContentState = rememberSharedContentState(
+                                                                key = "np_favorite"
+                                                            ),
+                                                            visible = isVisible
+                                                        ),
+                                                        menuModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                            sharedContentState = rememberSharedContentState(
+                                                                key = "np_menu"
+                                                            ),
+                                                            visible = isVisible
+                                                        ),
                                                     )
                                                 }
                                             }
@@ -1020,7 +1078,32 @@ Lyric ->
                                             onShowMenu = {
                                                 snapshotSong.value = thisMusicPlaying.value
                                                 overflowSheetOpen.value = true
-                                            })
+                                            },
+                                            songNameModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                sharedContentState = rememberSharedContentState(
+                                                    key = "np_song_name"
+                                                ),
+                                                visible = isVisible
+                                            ),
+                                            artistModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                sharedContentState = rememberSharedContentState(
+                                                    key = "np_artist_name"
+                                                ),
+                                                visible = isVisible
+                                            ),
+                                            favoriteModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                sharedContentState = rememberSharedContentState(
+                                                    key = "np_favorite"
+                                                ),
+                                                visible = isVisible
+                                            ),
+                                            menuModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                sharedContentState = rememberSharedContentState(
+                                                    key = "np_menu"
+                                                ),
+                                                visible = isVisible
+                                            ),
+                                            )
                                     }
                                 }
 
@@ -1049,7 +1132,31 @@ PlayingList ->
                                              onShowMenu = {
                                                  snapshotSong.value = thisMusicPlaying.value
                                                  overflowSheetOpen.value = true
-                                             })
+                                             },
+                                             songNameModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = "np_song_name"
+                                                 ),
+                                                 visible = isVisible
+                                             ),
+                                             artistModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = "np_artist_name"
+                                                 ),
+                                                 visible = isVisible
+                                             ),
+                                             favoriteModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = "np_favorite"
+                                                 ),
+                                                 visible = isVisible
+                                             ),
+                                             menuModifier = Modifier.sharedElementWithCallerManagedVisibility(
+                                                 sharedContentState = rememberSharedContentState(
+                                                     key = "np_menu"
+                                                 ),
+                                                 visible = isVisible
+                                             ))
                                         YosWrapper {
                                             AnimatedVisibility(
                                                 visible = nowPageLambda() == PlayingList,
@@ -2487,6 +2594,8 @@ fun ActionButtonsRow(
     onMinimizeNowPlaying: suspend () -> Unit = {},
     onShowMenu: () -> Unit = {},
     isMenuOpen: Boolean = false,
+    favoriteModifier: Modifier = Modifier,
+    menuModifier: Modifier = Modifier,
 ) {
     Row(
         modifier = Modifier
@@ -2514,7 +2623,8 @@ fun ActionButtonsRow(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 )
-                .size(dp),
+                .size(dp)
+                .then(favoriteModifier),
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
@@ -2552,7 +2662,8 @@ fun ActionButtonsRow(
                 .clickable(
                     onClick = onShowMenu,
                     indication = null,
-                    interactionSource = remember { MutableInteractionSource() }),
+                    interactionSource = remember { MutableInteractionSource() })
+                .then(menuModifier),
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
@@ -2591,6 +2702,10 @@ fun PlayingBar(
     onRefetchLyrics: (() -> Unit)? = null,
     onShowMenu: () -> Unit = {},
     isMenuOpen: Boolean = false,
+    songNameModifier: Modifier = Modifier,
+    artistModifier: Modifier = Modifier,
+    favoriteModifier: Modifier = Modifier,
+    menuModifier: Modifier = Modifier,
 ) = YosWrapper {
     Row(
         Modifier
@@ -2628,11 +2743,12 @@ fun PlayingBar(
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = userFontWeight(),
                     lineHeight = 16.5.sp,
-                    modifier = Modifier.clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = { showTitleMenu = true }
-                    )
+                    modifier = songNameModifier
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = { showTitleMenu = true }
+                        )
                 )
                 DropdownMenu(
                     expanded = showTitleMenu,
@@ -2656,11 +2772,13 @@ fun PlayingBar(
                 Text(
                     text = song?.artistsName ?: defaultArtistsName,
                     fontSize = 15.sp,
-                    modifier = Modifier.overlayEffect().clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = { showArtistMenu = true }
-                    ),
+                    modifier = artistModifier
+                        .overlayEffect()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = { showArtistMenu = true }
+                        ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = Color.White.copy(alpha = 0.35f)
@@ -2695,6 +2813,8 @@ fun PlayingBar(
                 onMinimizeNowPlaying = onMinimizeNowPlaying,
                 isMenuOpen = isMenuOpen,
                 onShowMenu = onShowMenu,
+                favoriteModifier = favoriteModifier,
+                menuModifier = menuModifier,
             )
         }
     }

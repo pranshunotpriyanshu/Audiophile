@@ -115,6 +115,13 @@ object MotionTokens {
         dampingRatio = Spring.appearDamping,
     )
 
+    // Non-spring tween for shared-element transitions: smooth, direct, ~500 ms.
+    // No bounce, no overshoot, no physics — just A → easing → B.
+    inline fun <reified T> sharedTransition(): FiniteAnimationSpec<T> = tween(
+        durationMillis = 500,
+        easing = FastOutSlowInEasing
+    )
+
     fun fastFadeIn() = tween<Float>(durationMillis = Duration.fast)
 
     val itemEnterDelayMs = 30
