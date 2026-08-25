@@ -299,8 +299,8 @@ fun KaraokeLyricsView(
         }
     }
 
-    // Anchor fraction: where the current line sits vertically (audgit uses 8%).
-    val anchorFraction = 0.08f
+    // Anchor fraction: where the current line sits vertically.
+    val anchorFraction = 0.22f
     LaunchedEffect(
         layoutCache,
         stableOffsetPx,
@@ -339,35 +339,38 @@ fun KaraokeLyricsView(
             }
     }
 
-    // After manual scroll, return to current line if idle for 3 seconds
-    LaunchedEffect(lyricsFocusState.firstIndex) {
-        androidx.compose.runtime.snapshotFlow { isManualScrolling }.collect { scrolling ->
-            if (!scrolling) {
-                delay(3000)
-                val firstIndex = lyricsFocusState.firstIndex
-                val items = listState.layoutInfo.visibleItemsInfo
-                val targetItem = items.firstOrNull { it.index == firstIndex }
-                val viewportHeight = listState.layoutInfo.viewportSize.height
-                val anchorPx = (viewportHeight * anchorFraction).toInt()
-                val scrollOffset = targetItem?.offset?.minus(
-                    listState.layoutInfo.viewportStartOffset + anchorPx
-                )
-                if (scrollOffset != null && scrollOffset.toFloat() != 0f) {
-                    scrollInCode.value = true
-                    try {
-                        listState.animateScrollBy(
-                            scrollOffset.toFloat(),
-                            animationSpec = androidx.compose.animation.core.spring(
-                                dampingRatio = 1f,
-                                stiffness = 150f,
-                                visibilityThreshold = 0.01f,
-                            ),
-                        )
-                    } catch (_: Exception) {}
-                    finally { scrollInCode.value = false }
-                }
+    // After manual scroll, return to current line if idle for 3 seconds.
+    // Key on both firstIndex AND isManualScrolling so the effect fires when
+    // the user releases a scroll even if the active line hasn't changed yet.
+    val wasScrolling = remember { mutableStateOf(false) }
+    LaunchedEffect(lyricsFocusState.firstIndex, isManualScrolling) {
+        if (wasScrolling.value && !isManualScrolling) {
+            // User just released — wait 3 s then return to the current line.
+            delay(3000)
+            val firstIndex = lyricsFocusState.firstIndex
+            val items = listState.layoutInfo.visibleItemsInfo
+            val targetItem = items.firstOrNull { it.index == firstIndex }
+            val viewportHeight = listState.layoutInfo.viewportSize.height
+            val anchorPx = (viewportHeight * anchorFraction).toInt()
+            val scrollOffset = targetItem?.offset?.minus(
+                listState.layoutInfo.viewportStartOffset + anchorPx
+            )
+            if (scrollOffset != null && scrollOffset.toFloat() != 0f) {
+                scrollInCode.value = true
+                try {
+                    listState.animateScrollBy(
+                        scrollOffset.toFloat(),
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = 1f,
+                            stiffness = 150f,
+                            visibilityThreshold = 0.01f,
+                        ),
+                    )
+                } catch (_: Exception) {}
+                finally { scrollInCode.value = false }
             }
         }
+        wasScrolling.value = isManualScrolling
     }
     LookaheadScope {
         Box(modifier = modifier.clipToBounds()) {

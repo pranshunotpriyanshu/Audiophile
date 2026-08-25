@@ -134,7 +134,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.lerp as geometryLerp
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.util.lerp as floatLerp
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -261,8 +262,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.IconButton
 
-// Simple Float lerp to avoid import conflicts between kotlin.math and geometry
-private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
 @Stable
 object NowPlayingPage {
@@ -479,7 +478,7 @@ fun Track(
         }.forEach { (outsideFraction, list) ->
             drawPoints(
                 list.fastMap {
-                    Offset(geometryLerp(sliderStart, sliderEnd, it).x, center.y)
+                    Offset(lerp(sliderStart, sliderEnd, it).x, center.y)
                 },
                 PointMode.Points,
                 (if (outsideFraction) inactiveTickColor else activeTickColor),
@@ -561,7 +560,7 @@ fun NowPlaying(
     collapseProgress: Float = 0f,
     surfaceHeightPx: Int = 0,
     surfaceWidthPx: Int = 0,
-    nowPageOnChanged: (String) -> Unit,
+    nowPageOnChanged: (String) -> Unit
 ) =
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -695,6 +694,10 @@ fun NowPlaying(
         // ── 背景层（始终位于所有内容之下）──────────────────────────────
         // 用户可在设置中选择：Solid（专辑主色调渐变）或 Blurred（模糊专辑封面，与最初一致）。
         // 该选择在 暂停 / 播放 / 歌词 / 队列 / Album 页 下始终保持，作为唯一基础背景。
+        val heroAlpha by animateFloatAsState(
+            targetValue = if (fsAlbum) 1f else 0f,
+            animationSpec = MotionTokens.colorSpring()
+        )
 
         // The chosen background mode applies everywhere — even while full
         // screen static artwork is on — so the user's Now Playing Background
@@ -781,7 +784,42 @@ fun NowPlaying(
             active = fsEnabled && fsAlbum,
             fullscreenArtwork = true
         )
-
+        if (fsAlbum || heroAlpha > 0f) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(artworkMaxHeightDp)
+                    .alpha(heroAlpha)
+                    .graphicsLayer {
+                        // Progress-driven transform: the hero artwork (single entity)
+                        // scales down and translates toward the mini-bar artwork
+                        // position as the sheet collapses.
+                        if (fsAlbum && collapseProgress < 1f) {
+                            val p = collapseProgress.coerceIn(0f, 1f)
+                            val miniBarPx = with(density) { 47.dp.toPx() }
+                            // Scale: from full artwork width to mini-bar 47dp
+                            val targetScale = miniBarPx / size.width
+                            val s = floatLerp(targetScale, 1f, p)
+                            scaleX = s
+                            scaleY = s
+                            // Translate: from center-top to mini-bar position
+                            val heroCenterX = size.width / 2f
+                            val heroCenterY = size.height / 2f
+                            val miniBarCenterX = with(density) { (8.dp + 47.dp / 2f).toPx() }
+                            val miniBarCenterY = surfaceHeightPx.toFloat() - with(density) { 31.dp.toPx() }
+                            translationX = floatLerp(miniBarCenterX - heroCenterX, 0f, p)
+                            translationY = floatLerp(miniBarCenterY - heroCenterY, 0f, p)
+                        }
+                    }
+            ) {
+                HeroArtworkLayer(
+                    albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
+                    topSpacingDp = 0.dp,
+                    artworkMaxHeightDp = artworkMaxHeightDp,
+                    animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
+                )
+            }
+        }
 
         // 实际显示区
         // Reference box to track the Surface's root position for artwork sizing
@@ -904,25 +942,7 @@ Album ->
                                                 animatedAlbumLifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
 
                                             if (fsEnabled) {
-                                                // The entire fullscreen artwork presentation (artwork + blur + background)
-                                                // participates as ONE artwork entity in the shared element transition.
-                                                Box(
-                                                    Modifier
-                                                        .weight(1f)
-                                                        .sharedElementWithCallerManagedVisibility(
-                                                            sharedContentState = rememberSharedContentState(
-                                                                key = ShareAlbumKey
-                                                            ),
-                                                            visible = isVisible
-                                                        )
-                                                ) {
-                                                    HeroArtworkLayer(
-                                                        albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
-                                                        topSpacingDp = 0.dp,
-                                                        artworkMaxHeightDp = Dp.Unspecified,
-                                                        animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
-                                                    )
-                                                }
+                                                Box(Modifier.weight(1f)) { }
                                             } else {
                                                 Album(
                                                     modifier = Modifier.sharedElementWithCallerManagedVisibility(
@@ -1132,7 +1152,8 @@ PlayingList ->
                                                      key = "np_menu"
                                                  ),
                                                  visible = isVisible
-                                             ))
+                                             ),
+                                             )
                                         YosWrapper {
                                             AnimatedVisibility(
                                                 visible = nowPageLambda() == PlayingList,
@@ -1717,6 +1738,8 @@ fun ColumnScope.Album(
         if (fsEnabled) {
             YosWrapper {
                 val continuationScale = 1f + 0.18f * scale.value
+                // Progress-driven: blur fades/shrinks as sheet collapses toward mini bar.
+                val blurFade = collapseProgress.coerceIn(0f, 1f)
                 // Optimized: Load small image (64px) + small GPU blur (15dp) = visually similar but much lighter on GPU
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -1731,8 +1754,19 @@ fun ColumnScope.Album(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            scaleX = continuationScale
-                            scaleY = continuationScale
+                            // ONE artwork entity: scale the entire fullscreen artwork presentation
+                            // (artwork + blur) toward mini-bar geometry based on actual bounds.
+                            if (collapseProgress < 1f && surfaceWidthPx > 0) {
+                                val miniBarWidthPx = with(density) { 47.dp.toPx() }
+                                val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
+                                val s = floatLerp(miniBarScale, 1f, collapseProgress)
+                                scaleX = s * continuationScale
+                                scaleY = s * continuationScale
+                            } else {
+                                scaleX = continuationScale
+                                scaleY = continuationScale
+                            }
+                            alpha = blurFade
                         }
                         .blur(radius = 15.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                 )
@@ -1747,16 +1781,6 @@ fun ColumnScope.Album(
                         .fillMaxWidth()
                         .graphicsLayer {
                             compositingStrategy = CompositingStrategy.Offscreen
-                            // ONE artwork entity: scale the fullscreen artwork presentation
-                            // toward mini-bar geometry based on actual bounds.
-                            if (collapseProgress < 1f && surfaceWidthPx > 0) {
-                                // Mini-bar artwork is 47.dp, centered at 8dp + 47dp/2 from left
-                                val miniBarWidthPx = with(density) { 47.dp.toPx() }
-                                val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
-                                val s = lerp(miniBarScale, 1f, collapseProgress)
-                                scaleX = s
-                                scaleY = s
-                            }
                         }
                         .drawWithCache {
                             val gradientBrush = Brush.verticalGradient(
@@ -1774,6 +1798,15 @@ fun ColumnScope.Album(
                             .fillMaxWidth()
                             .graphicsLayer {
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
+                                // ONE artwork entity: scale toward mini-bar geometry
+                                // based on actual bounds.
+                                if (collapseProgress < 1f && surfaceWidthPx > 0) {
+                                    val miniBarWidthPx = with(density) { 47.dp.toPx() }
+                                    val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
+                                    val s = floatLerp(miniBarScale, 1f, collapseProgress)
+                                    scaleX = s
+                                    scaleY = s
+                                }
                             }
                             .padding(bottom = dp)
                             .then(modifier),
@@ -1792,18 +1825,7 @@ fun ColumnScope.Album(
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         }
                         .padding(start = dp, end = dp, bottom = dp)
-                        .then(modifier)
-                        .graphicsLayer {
-                            // ONE artwork entity: scale toward mini-bar geometry
-                            // based on actual bounds.
-                            if (collapseProgress < 1f && surfaceWidthPx > 0) {
-                                val miniBarWidthPx = with(density) { 47.dp.toPx() }
-                                val miniBarScale = miniBarWidthPx / surfaceWidthPx.toFloat()
-                                val s = lerp(miniBarScale, 1f, collapseProgress)
-                                scaleX = s
-                                scaleY = s
-                            }
-                        },
+                        .then(modifier),
                     imageQuality = ImageQuality.RAW,
                     shadowOverlay = true,
                     overlayContent = {

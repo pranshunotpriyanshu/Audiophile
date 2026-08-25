@@ -1147,22 +1147,25 @@ class MainActivity : ComponentActivity() {
                                                                     YosWrapper {
                                                                         // ONE artwork entity: the mini-bar artwork scales up
                                                                         // toward the fullscreen artwork geometry based on actual bounds.
-                                                                        val p = yosBottomSheetConfig.progress
-                                                                        val sw = surfaceWidthPx.intValue.toFloat()
-                                                                        val miniBarPx = with(density) { 47.dp.toPx() }
-                                                                        val targetScale = if (p > 0f && sw > 0f) sw / miniBarPx else 1f
-                                                                        ShadowImageWithCache(
-                                                                            dataLambda = { MediaViewModelObject.bitmap.value },
-                                                                            contentDescription = null,
-                                                                            modifier = Modifier
-                                                                                .size(47.dp)
-                                                                                .graphicsLayer {
-                                                                                    if (p > 0f && sw > 0f) {
-                                                                                        val s = lerp(1f, targetScale, p)
-                                                                                        scaleX = s
-                                                                                        scaleY = s
-                                                                                    }
-                                                                                },
+                                                                         val p = yosBottomSheetConfig.progress
+                                                                         val sw = surfaceWidthPx.intValue.toFloat()
+                                                                         val miniBarPx = with(density) { 47.dp.toPx() }
+                                                                         val targetScale = if (p > 0f && sw > 0f) sw / miniBarPx else 1f
+                                                                         ShadowImageWithCache(
+                                                                             dataLambda = { MediaViewModelObject.bitmap.value },
+                                                                             contentDescription = null,
+                                                                             modifier = Modifier
+                                                                                 .size(47.dp)
+                                                                                 .graphicsLayer {
+                                                                                     if (p > 0f && sw > 0f) {
+                                                                                         val s = lerp(1f, targetScale, p)
+                                                                                         scaleX = s
+                                                                                         scaleY = s
+                                                                                     }
+                                                                                     // Fade mini-bar artwork out when sheet is open
+                                                                                     // (hero artwork takes over), fade in when collapsed.
+                                                                                     alpha = 1f - p
+                                                                                 },
                                                                             cornerRadius = 6.dp,
                                                                             shadowAlpha = 0f,
                                                                             imageQuality = ImageQuality.LOW

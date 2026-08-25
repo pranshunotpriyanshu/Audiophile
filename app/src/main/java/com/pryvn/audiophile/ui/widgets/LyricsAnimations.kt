@@ -49,7 +49,7 @@ const val HIGHLIGHT_LEAD_MS = 60L
 // line's on-screen height can never drift apart between the two views.
 
 /** Fraction of the viewport height where the current lyric line is anchored. */
-const val LYRIC_ANCHOR_FRACTION = 0.08f
+const val LYRIC_ANCHOR_FRACTION = 0.22f
 
 /** Pixel offset (from the viewport top) where the current lyric line is anchored. */
 fun lyricAnchorOffsetPx(viewportHeight: Int): Int =
