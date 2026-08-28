@@ -1,4 +1,4 @@
-package com.pryvn.audiophile.ui.widgets
+﻿package com.pryvn.audiophile.ui.widgets
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -137,7 +137,7 @@ fun AmlLyricsView(
         lyrics = syncedLyrics!!,
         currentPosition = { currentPositionMs },
         onLineClicked = { line: ISyncedLine ->
-            player.seekTo(line.start.toLong())
+            player.seekTo(com.pryvn.audiophile.code.utils.player.FlamingoBehavior.seekTargetFromLyricClick(line.start.toLong(), 0))
         },
         onLinePressed = { /* Long press - no-op for now */ },
         modifier = modifier
@@ -172,3 +172,4 @@ fun AmlLyricsView(
         offset = 32.dp,
     )
 }
+

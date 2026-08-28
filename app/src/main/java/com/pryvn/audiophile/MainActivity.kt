@@ -292,6 +292,12 @@ class MainActivity : ComponentActivity() {
                         }
                         // Logic initialization area
                         val navController = rememberNavController()
+                        val flamingoSharedRegistry = com.pryvn.audiophile.np.transition.SharedElementRegistry()
+                        val flamingoPanelSpec = androidx.compose.animation.core.spring<Float>(
+                            dampingRatio = com.pryvn.audiophile.code.utils.player.FlamingoBehavior.PANEL_TAP_SPRING_DAMPING,
+                            stiffness = com.pryvn.audiophile.code.utils.player.FlamingoBehavior.PANEL_TAP_SPRING_STIFFNESS,
+                            visibilityThreshold = 1.0f
+                        )
                         val navSpec = spring(
                             stiffness = 380f,
                             dampingRatio = 0.86f,
@@ -462,7 +468,7 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 scope.launch {
                                                     // scaffoldState.bottomSheetState.partialExpand()
-                                                    offsetY.animateTo(0f, animationSpec = navSpec)
+                                                    offsetY.animateTo(0f, animationSpec = flamingoPanelSpec)
                                                 }
                                             }
                                         }
@@ -999,17 +1005,9 @@ class MainActivity : ComponentActivity() {
                                                                 parentHeight.intValue.toFloat()
                                                             )
                                                         )
-                                                        if (clampedVelocity < 0f) {
-                                                            offsetY.animateTo(
-                                                                0f,
-                                                                initialVelocity = clampedVelocity
-                                                            )
-                                                        } else {
-                                                            offsetY.animateTo(
-                                                                parentHeight.intValue.toFloat(),
-                                                                initialVelocity = clampedVelocity
-                                                            )
-                                                        }
+                                                        val flingSpec = androidx.compose.animation.core.spring<Float>(dampingRatio = com.pryvn.audiophile.code.utils.player.FlamingoBehavior.PANEL_FLING_SPRING_DAMPING, stiffness = com.pryvn.audiophile.code.utils.player.FlamingoBehavior.PANEL_FLING_SPRING_STIFFNESS)
+                                                        val flingTarget = if (clampedVelocity < 0f) 0f else parentHeight.intValue.toFloat()
+                                                        offsetY.animateTo(flingTarget, animationSpec = flingSpec, initialVelocity = clampedVelocity)
                                                     }
                                                 }
                                             )
@@ -1040,7 +1038,7 @@ class MainActivity : ComponentActivity() {
                                                     mediaViewModel = mediaViewModel,
                                                     navController = navController,
                                                     onMinimizeNowPlaying = {
-                                                        offsetY.animateTo(0f, animationSpec = navSpec)
+                                                        offsetY.animateTo(0f, animationSpec = flamingoPanelSpec)
                                                     },
                                                     isPlayingStatusLambda = { isPlaying.value },
                                                     isPlayingOnChanged = {
@@ -1050,6 +1048,7 @@ class MainActivity : ComponentActivity() {
                                                     showNowPlaying = { showNowPlaying.value },
                                                     showMiniPlayer = { yosBottomSheetConfig.showMenu },
                                                     collapseProgress = yosBottomSheetConfig.progress,
+                                                    sharedRegistry = flamingoSharedRegistry,
                                                     surfaceHeightPx = parentHeight.intValue,
                                                     surfaceWidthPx = surfaceWidthPx.intValue
                                                 ) {

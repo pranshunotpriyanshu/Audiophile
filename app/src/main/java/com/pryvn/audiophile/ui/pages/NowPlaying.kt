@@ -120,6 +120,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -233,6 +234,17 @@ import com.pryvn.audiophile.ui.pages.NowPlayingPage.PlayingList
 import com.pryvn.audiophile.ui.theme.YosRoundedCornerShape
 import com.pryvn.audiophile.ui.theme.withNight
 import com.pryvn.audiophile.ui.widgets.YosLyricView
+import com.pryvn.audiophile.np.transition.SharedElementRegistry
+import com.pryvn.audiophile.np.transition.SharedElementRole
+import com.pryvn.audiophile.np.transition.sharedElementCapture
+import com.pryvn.audiophile.np.transition.sharedElementTransform
+import com.pryvn.audiophile.np.animation.RecoveredSpecs
+import com.pryvn.audiophile.np.haptics.NowPlayingHaptics
+import com.pryvn.audiophile.np.haptics.HapticPreset
+import com.pryvn.audiophile.np.state.PositionDurationHolder
+import com.pryvn.audiophile.np.models.NowPlayingPage as NpPage
+import com.pryvn.audiophile.code.utils.player.FlamingoBehavior
+import com.pryvn.audiophile.np.NpBackend
 import com.pryvn.audiophile.ui.widgets.AmlLyricsView
 import com.pryvn.audiophile.code.player.MediaControlPlayerAdapter
 import com.pryvn.audiophile.ui.widgets.effects.YosFloatingLight
@@ -338,7 +350,7 @@ fun VolumeSlider(context: Context, onSlider: () -> Unit) {
 
     val volumeChangeReceiver = remember("VolumeSlider_volumeChangeReceiver") {
         VolumeChangeReceiver { newVolume ->
-            sliderPosition.floatValue = newVolume / maxVolume.toFloat()
+            if (!sliding.value) sliderPosition.floatValue = newVolume / maxVolume.toFloat()
         }
     }
     val intentFilter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
@@ -379,8 +391,11 @@ fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             } else {
                 animateFloatAsState(
                     targetValue = sliderPosition.floatValue,
-                    animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-                    visibilityThreshold = 0.0001f
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = RecoveredSpecs.VOLUME_SPRING_DAMPING,
+                        stiffness = RecoveredSpecs.VOLUME_SPRING_STIFFNESS
+                    ),
+                    visibilityThreshold = RecoveredSpecs.VOLUME_OFFSET_HIDDEN_DP * 0.00001f
                 )
             }
 
@@ -411,7 +426,7 @@ fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                     )
                 },
                 onValueChangeFinished = {
-                    Vibrator.longClick(context)
+                    NpBackend.hapticClick(context)
                     sliding.value = false
                 }
             )
@@ -558,6 +573,7 @@ fun NowPlaying(
     showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
     collapseProgress: Float = 0f,
+    sharedRegistry: com.pryvn.audiophile.np.transition.SharedElementRegistry? = null,
     surfaceHeightPx: Int = 0,
     surfaceWidthPx: Int = 0,
     nowPageOnChanged: (String) -> Unit
@@ -673,14 +689,27 @@ fun NowPlaying(
         /*val nowPage = rememberSaveable(key = "NowPlaying_nowPage") {
             MainViewModelObject.nowPage
         }*/
-        // 触摸超时
+        // 触摸超时 — Flamingo two-stage watchdog (j7/E0 + j7/D0)
         YosWrapper {
+            val followSuppressed = remember { mutableStateOf(false) }
+            val followStampMs = remember { mutableLongStateOf(0L) }
+            LaunchedEffect(nowPageLambda(), followSuppressed.value) {
+                if (nowPageLambda() != Lyric || !followSuppressed.value) return@LaunchedEffect
+                kotlinx.coroutines.delay(FlamingoBehavior.FOLLOW_RESET_DELAY_MS)
+                if (FlamingoBehavior.shouldReleaseFollow(
+                        elapsedSinceLastInteractionMs = System.currentTimeMillis() - followStampMs.longValue,
+                        currentPageIsLyric = nowPageLambda() == Lyric,
+                        followEnabled = true,
+                        autoFollowActive = followSuppressed.value
+                    )
+                ) followSuppressed.value = false
+            }
             LaunchedEffect(showControl.value, nowPageLambda(), lastClickTime.longValue) {
                 if (nowPageLambda() != Lyric && !showControl.value) {
                     showControl.value = true
                 }
                 if (showControl.value) {
-                    val time = 2500L
+                    val time = RecoveredSpecs.LYRIC_FOLLOW_RESET_DELAY_MS
                     delay(time)
                     withContext(Dispatchers.Main) {
                         if (TimeUtils.getNowMills() - lastClickTime.longValue >= time && nowPageLambda() == Lyric) {
@@ -814,6 +843,8 @@ fun NowPlaying(
             ) {
                 HeroArtworkLayer(
                     albumUrl = { thisMusicPlaying.value?.thumb?.toHighResThumbnailUri() },
+                    sharedRegistry = sharedRegistry,
+                    panelProgress = collapseProgress,
                     topSpacingDp = 0.dp,
                     artworkMaxHeightDp = artworkMaxHeightDp,
                     animatedCoverOverlay = { AnimatedAlbumCoverOverlay(animatedAlbumCoverState) }
@@ -914,10 +945,15 @@ fun NowPlaying(
                 }
             }
 
-            // 主 View
+            // 主 View — header crossfade matches Flamingo J0/K0
             YosWrapper {
                 SharedTransitionLayout {
                     Crossfade(
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = RecoveredSpecs.HEADER_CROSSFADE_SPRING_DAMPING,
+                            stiffness = RecoveredSpecs.HEADER_CROSSFADE_SPRING_STIFFNESS,
+                            visibilityThreshold = RecoveredSpecs.HEADER_CROSSFADE_THRESHOLD
+                        ),
                         targetState = nowPageLambda(),
                         modifier = Modifier
                             .fillMaxSize()
@@ -1245,7 +1281,7 @@ PlayingList ->
                                                             .clickable(
                                                                 enabled = translationButtonEnabled.value,
                                                                 onClick = {
-                                                                    Vibrator.click(context)
+                                                                    NpBackend.hapticClick(context)
                                                                     translation.value =
                                                                         !translation.value
                                                                     showControl.value = true
@@ -1392,7 +1428,12 @@ PlayingList ->
                         ) {
                             SharedTransitionLayout {
                                 Crossfade(
-                                    targetState = nowPageLambda(),
+                                    animationSpec = androidx.compose.animation.core.spring(
+                                        dampingRatio = RecoveredSpecs.HEADER_CROSSFADE_SPRING_DAMPING,
+                                        stiffness = RecoveredSpecs.HEADER_CROSSFADE_SPRING_STIFFNESS,
+                                        visibilityThreshold = RecoveredSpecs.HEADER_CROSSFADE_THRESHOLD
+                                    ),
+                        targetState = nowPageLambda(),
                                     modifier = Modifier.fillMaxWidth(0.55f),
                                 ) { page ->
                                     when (page) {
@@ -1744,7 +1785,7 @@ fun ColumnScope.Album(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(albumUrl())
-                        .crossfade(MotionTokens.Duration.normal)
+                        .crossfade(FlamingoBehavior.ARTWORK_CROSSFADE_TWEEN_MS)
                         .size(CoilSize(64, 64)) // Decode at 64px - much faster
                         .memoryCacheKey(albumUrl().toString() + "_blur")
                         .diskCacheKey(albumUrl().toString() + "_blur")
@@ -1840,6 +1881,8 @@ fun ColumnScope.Album(
 @Composable
 fun HeroArtworkLayer(
     albumUrl: () -> Uri?,
+    sharedRegistry: com.pryvn.audiophile.np.transition.SharedElementRegistry? = null,
+    panelProgress: Float = 0f,
     modifier: Modifier = Modifier,
     topSpacingDp: Dp = 0.dp,
     artworkMaxHeightDp: Dp = Dp.Unspecified,
@@ -1848,13 +1891,27 @@ fun HeroArtworkLayer(
     val url = albumUrl()
     val urlString = url.toString()
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    // Flamingo shared-element capture — album cover is the single entity that
+    // morphs between mini-bar and fullscreen, gated outside mid-drag (0.05..0.95)
+    val panelProgressState = rememberUpdatedState(panelProgress)
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (sharedRegistry != null) Modifier.sharedElementCapture(
+                    sharedRegistry,
+                    RecoveredSpecs.SHARED_ELEMENT_KEY_ALBUM_PAGE,
+                    SharedElementRole.Target
+                ) { panelProgressState.value }
+                else Modifier
+            )
+    ) {
         val request = ImageRequest.Builder(LocalContext.current)
             .data(url)
             // The fullscreen artwork crossfades into the next song's artwork at
             // the same pace as the background colors, so the whole screen shifts
             // smoothly instead of flashing the new image in.
-            .crossfade(MotionTokens.BackgroundMixDurationMs.toInt())
+            .crossfade(FlamingoBehavior.ARTWORK_CROSSFADE_TWEEN_MS)
             .size(CoilSize(720, 720))
             .memoryCacheKey(urlString)
             .diskCacheKey(urlString)
@@ -1960,7 +2017,7 @@ fun PlayingList(
                                 .pressableScale(shuffleBtnInteractionSource)
                                 .clickable(
                                     onClick = {
-                                        Vibrator.click(context)
+                                        NpBackend.hapticClick(context)
                                         scope.launch(Dispatchers.IO) {
                                             val newState = MediaController.toggleShuffleMode()
                                             shuffleModeOnChanged(newState)
@@ -1999,20 +2056,8 @@ fun PlayingList(
                                 .pressableScale(repeatBtnInteractionSource)
                                 .clickable(
                                     onClick = {
-                                        Vibrator.click(context)
-                                        val targetMode = when (repeatModeLambda()) {
-                                            REPEAT_MODE_OFF -> {
-                                                REPEAT_MODE_ALL
-                                            }
-
-                                            REPEAT_MODE_ALL -> {
-                                                REPEAT_MODE_ONE
-                                            }
-
-                                            else -> {
-                                                REPEAT_MODE_OFF
-                                            }
-                                        }
+                                        NpBackend.hapticClick(context)
+                                        val targetMode = FlamingoBehavior.cycleRepeatMode(repeatModeLambda())
                                         mediaControl?.repeatMode = targetMode
                                         mediaControl?.let { YosPlaybackService().setCustomButtons(it) }
                                         repeatModeOnChanged(targetMode)
@@ -2109,7 +2154,7 @@ fun PlayingList(
                         return@rememberReorderableLazyListState
                     }
 
-                    Vibrator.click(context)
+                    NpBackend.hapticClick(context)
                     if (source.nextInQueue) {
                         MediaController.moveNextInQueueItemDuringDrag(source.index, destination.index)
                     } else {
@@ -2417,7 +2462,7 @@ fun LazyItemScope.QueueMusicListItem(
                     .combinedClickable(
                         onClick = itemClick,
                         onLongClick = {
-                            Vibrator.longClick(context)
+                            NpBackend.hapticTick(context)
                             songMenuOpen.value = true
                         },
                     )
@@ -2633,7 +2678,7 @@ fun ActionButtonsRow(
                     onClick = {
                         val musicPlaying = musicPlayingLambda()
                         if (musicPlaying != null) {
-                            Vibrator.click(context)
+                            NpBackend.hapticClick(context)
                             if (musicPlaying.let { FavPlayListLibrary.isFavorite(it) }) {
                                 FavPlayListLibrary.removeMusic(musicPlaying)
                             } else {
@@ -3052,6 +3097,8 @@ fun PlayerControl(
                     val lifecycleState =
                         LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
 
+                    // Flamingo position commit FSM — j7/b1 companion
+                    val positionHolder = remember { PositionDurationHolder() }
                     LaunchedEffect(Unit) {
                         var lastPosition = 0L
                         var lastDuration = 0L
@@ -3061,14 +3108,37 @@ fun PlayerControl(
                             if (lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)) {
                                 val duration = mediaControl?.duration ?: 0
                                 val position = mediaControl?.currentPosition ?: 0
+                                val mediaId = MediaController.musicPlaying.value?.mediaId
 
-                                if (duration != lastDuration) {
-                                    playingDuration.longValue = duration
-                                    lastDuration = duration
-                                }
-                                if (position != lastPositionState) {
-                                    playingPosition.longValue = position
-                                    lastPositionState = position
+                                positionHolder.currentMediaId = mediaId
+                                val trackChanged = positionHolder.previousMediaId != null && mediaId != positionHolder.previousMediaId
+                                val shouldCommit = PositionDurationHolder.shouldCommit(
+                                    positionHolder, position, duration, mediaId
+                                ) || FlamingoBehavior.shouldCommitPosition(
+                                    positionHolder.lastCommittedPosition,
+                                    position,
+                                    duration,
+                                    positionHolder.durationMs.longValue,
+                                    trackChanged,
+                                    System.currentTimeMillis() - positionHolder.lastCommitWallClockMs
+                                )
+
+                                if (shouldCommit) {
+                                    PositionDurationHolder.commit(positionHolder, position, duration)
+                                    if (duration != lastDuration) {
+                                        playingDuration.longValue = duration
+                                        lastDuration = duration
+                                    }
+                                    if (position != lastPositionState) {
+                                        playingPosition.longValue = position
+                                        lastPositionState = position
+                                    }
+                                } else {
+                                    // keep duration in sync even when throttled
+                                    if (duration != lastDuration) {
+                                        playingDuration.longValue = duration
+                                        lastDuration = duration
+                                    }
                                 }
 
                                 if (!isSliding.value && duration > 0L) {
@@ -3148,7 +3218,7 @@ fun PlayerControl(
                                         onSlider()
                                     },
                                     onDragEnd = {
-                                        Vibrator.longClick(context)
+                                        NpBackend.hapticTick(context)
                                         MediaViewModelObject.isBuffering.value = true
                                         onSeek(sliderPosition.floatValue)
                                         isDragging.value = false
@@ -3257,7 +3327,7 @@ fun PlayerControl(
                                         interactionSource = prevBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
-                                            Vibrator.click(context)
+                                            NpBackend.hapticClick(context)
                                             onPrevious()
                                         }),
                                 contentAlignment = Alignment.Center
@@ -3282,7 +3352,7 @@ fun PlayerControl(
                                         interactionSource = playBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
-                                            Vibrator.click(context)
+                                            NpBackend.hapticClick(context)
                                             isPlayingOnChanged(!isPlayingLambda())
                                             onStatus(isPlayingLambda())
                                         }),
@@ -3336,7 +3406,7 @@ fun PlayerControl(
                                         interactionSource = nextBtnInteractionSource,
                                         indication = ripple(bounded = false),
                                         onClick = {
-                                            Vibrator.click(context)
+                                            NpBackend.hapticClick(context)
                                             onNext()
                                         }),
                                 contentAlignment = Alignment.Center
